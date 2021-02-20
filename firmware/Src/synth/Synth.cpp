@@ -60,6 +60,9 @@ void Synth::init(SynthState *synthState) {
         instrumentCompressor_[t].setRelease(100.0);
     }
 
+    // Fx bus
+    fxBus.init(synthState);
+
     // Cpu usage
     cptCpuUsage_ = 0;
     totalCyclesUsedInSynth_ = 0;
@@ -286,6 +289,9 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         *cb3++ = 0;
     }
 
+    // fxBus - prepare empty mixing block
+    fxBus.mixSumInit();
+
     for (int timbre = 0; timbre < NUMBER_OF_TIMBRES; timbre++) {
         // numberOfVoices = 0; => timbre is disabled
         if (this->synthState_->mixerState.instrumentState_[timbre].numberOfVoices == 0) {
@@ -312,6 +318,16 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         // Even without compressor we call this meethod
         // It allows to retrieve the volume in DB
         instrumentCompressor_[timbre].processPfm3(sampleFromTimbre);
+
+        // Send to bus fx, to mix with other timbres
+        fxBus.mixSum(timbres_[timbre].getSampleBlock(), timbre);
+    }
+
+    // fxBus - mixing block process
+    fxBus.processBlock(buffer1);
+
+    for (int timbre = 0; timbre < NUMBER_OF_TIMBRES; timbre++) {
+        float *sampleFromTimbre = timbres_[timbre].getSampleBlock();
 
         // Max is 0x7fffff * [-1:1]
         float sampleMultipler = (float) 0x7fffff;
@@ -372,9 +388,7 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
                 }
                 break;
         }
-
     }
-
     /*
      * Let's check the clipping
      */

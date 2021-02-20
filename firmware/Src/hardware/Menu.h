@@ -37,6 +37,16 @@ enum {
     MIDICONFIG_SIZE
 };
 
+enum MASTERFXPARAMS {
+    MASTERFX_TYPE = 0,
+    MASTERFX_TIME,
+    MASTERFX_SPACE,
+    MASTERFX_TONE,
+    MASTERFX_DIFFUSION,
+    MASTERFX_WIDTH,
+    MASTERFXPARAMS_SIZE
+};
+
 enum SynthEditMode {
     SYNTH_MODE_MIXER = 1, SYNTH_MODE_EDIT_PFM3, SYNTH_MODE_MENU, SYNTH_MODE_SEQUENCER, SYNTH_MODE_REINIT_TFT
 };
@@ -150,6 +160,8 @@ struct FullState {
     uint8_t previousChoice;
     struct PreviousMenuChoice previousMenuChoice;
     uint8_t midiConfigValue[MIDICONFIG_SIZE + 1];
+
+    float masterfxConfig[MASTERFXPARAMS_SIZE + 1];
 
     uint8_t preenFMBankNumber;
     uint8_t preenFMPresetNumber;
