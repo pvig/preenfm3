@@ -53,7 +53,7 @@ const struct Pfm3MixerButtonState panButtonState = {
 };
 
 const struct Pfm3MixerButtonState fxButtonState = {
-      "Fx send", MIXER_VALUE_PAN,
+      "Fx send", MIXER_VALUE_SEND,
       {0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames }
 };
 
@@ -176,7 +176,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[3][6] = { {
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   {0, 8, 9, DISPLAY_TYPE_STRINGS, outDisplay }
+   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames }
 }
 };
 
@@ -229,6 +229,9 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             break;
         case MIXER_VALUE_PAN:
             valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].pan;
+            break;
+        case MIXER_VALUE_SEND:
+            valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].send;
             break;
         case MIXER_VALUE_VOLUME:
             valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].volume;
@@ -294,13 +297,22 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             case MIXER_VALUE_GLOBAL_SETTINGS_3:
                 switch (encoder) {
                     case 0:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TYPE];
+                        break;
                     case 1:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TIME];
+                        break;
                     case 2:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_SPACE];
+                        break;
                     case 3:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TONE];
+                        break;
                     case 4:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_DIFFUSION];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].out;
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_WIDTH];
                         break;
                 }
                 break;
@@ -559,22 +571,22 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
         case 2:
         switch (row) {
             case 0:
-                tft_->print("Fx name");
+                tft_->print("Fx type");
                 break;
             case 1:
-                tft_->print("Gated");
-                break;
-            case 2:
                 tft_->print("Time");
                 break;
+            case 2:
+                tft_->print("Space");
+                break;
             case 3:
-                tft_->print("Freq");
+                tft_->print("Tone");
                 break;
             case 4:
                 tft_->print("Diffusion");
                 break;
             case 5:
-                tft_->print("Out");
+                tft_->print("Width");
                 break;
         }
         break;
