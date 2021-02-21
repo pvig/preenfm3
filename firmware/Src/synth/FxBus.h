@@ -22,7 +22,7 @@ public:
 	    return sampleBlock_;
 	}
 
-	static const int BufferSize = 2048 * 2;
+	static const int BufferSize = 10000 * 2;
 
 protected:
 
@@ -30,8 +30,19 @@ protected:
 	float *sample;
 	static float DlyBuffer[BufferSize];
     int delayWritePos = 0;
-    int delayReadPos;
-    int delaySampleCount = 2000;
+    int delayReadPos = 0;
+
+
+    int fxType = 0;
+    float fxTime = 0.98;
+    float fxSpace = 0.5;
+    float fxTone = 0.5;
+    float fxDiffusion = 0;
+    float fxWidth =  0;
+
+    int delaySampleCount = fxTime * BufferSize;
+
+
 };
 
 #endif	// end FX_BUS_
