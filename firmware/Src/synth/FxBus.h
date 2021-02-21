@@ -30,12 +30,14 @@ protected:
 	float *sample;
 	static float DlyBuffer[BufferSize];
     int delayWritePos = 0;
-    int delayReadPos = 0;
-
+    float delayReadPos = 0;
+    int delayReadPosInt = 0;
+    int delayReadPosInt2 = 0;
+    float readSpeed = 1.98f;
 
     int fxType = 0;
     float fxTime = 0.98;
-    float fxSpace = 0.5;
+    float fxFeedback = 0.5;
     float fxTone = 0.5;
     float fxDiffusion = 0;
     float fxWidth =  0;
