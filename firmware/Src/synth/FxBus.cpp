@@ -36,20 +36,21 @@ void FxBus::mixSumInit() {
 
     float prevFxTime = fxTime;
     fxType =  synthState_->fullState.masterfxConfig[MASTERFX_TYPE];
-    fxTime =  synthState_->fullState.masterfxConfig[MASTERFX_TIME];
-    fxSpace =  synthState_->fullState.masterfxConfig[MASTERFX_SPACE];
+    fxTime =  synthState_->fullState.masterfxConfig[MASTERFX_TIME] * 0.99f;
+    fxFeedback =  synthState_->fullState.masterfxConfig[MASTERFX_SPACE];
     fxTone =  synthState_->fullState.masterfxConfig[MASTERFX_TONE];
     fxDiffusion =  synthState_->fullState.masterfxConfig[MASTERFX_DIFFUSION];
     fxWidth =  synthState_->fullState.masterfxConfig[MASTERFX_WIDTH];
 
-    delaySampleCount = delaySampleCount * 0.95f + fxTime * FxBus::BufferSize * 0.05f;
+    delaySampleCount = delaySampleCount * 0.99f + fxTime * FxBus::BufferSize * 0.01f;
 
-    if(prevFxTime != fxType) {
+    //if(prevFxTime != fxTime) {
     	delayReadPos = delayWritePos - delaySampleCount;
     	if( delayReadPos < 0 )
     		delayReadPos += FxBus::BufferSize;
-    }
+    //}
 
+    readSpeed = 2 - fxWidth * 1.95f;
 }
 
 /**
@@ -80,10 +81,14 @@ void FxBus::processBlock(int32_t *outBuff) {
     	if( delayReadPos >= FxBus::BufferSize )
     		delayReadPos -= FxBus::BufferSize;
 
-    	DlyBuffer[ delayWritePos++ ] = *(sample++) - DlyBuffer[ delayReadPos ] * fxSpace;
-    	DlyBuffer[ delayWritePos++ ] = *(sample++) - DlyBuffer[ delayReadPos + 1 ] * fxSpace;
+        delayReadPosInt = (int) delayReadPos;
+        delayReadPosInt &= 0xfffffffe;//make it even
+    	delayReadPos += readSpeed;
 
-    	*(outBuff++) += (int32_t) ((DlyBuffer[ delayReadPos++ ] * sampleMultipler));
-    	*(outBuff++) += (int32_t) ((DlyBuffer[ delayReadPos++ ] * sampleMultipler));
+    	DlyBuffer[ delayWritePos++ ] = *(sample++) - DlyBuffer[ delayReadPosInt ] * fxFeedback;
+    	DlyBuffer[ delayWritePos++ ] = *(sample++) - DlyBuffer[ delayReadPosInt + 1 ] * fxFeedback;
+
+    	*(outBuff++) += (int32_t) ((DlyBuffer[ delayReadPosInt ] * sampleMultipler));
+    	*(outBuff++) += (int32_t) ((DlyBuffer[ delayReadPosInt + 1 ] * sampleMultipler));
     }
 }
