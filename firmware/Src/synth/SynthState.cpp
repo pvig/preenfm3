@@ -68,10 +68,10 @@ SynthState::SynthState() {
 
     // Master FX
     fullState.masterfxConfig[MASTERFX_TYPE] = 0;
-    fullState.masterfxConfig[MASTERFX_TIME] = 0;
+    fullState.masterfxConfig[MASTERFX_TIME] = 0.01f;
     fullState.masterfxConfig[MASTERFX_SPACE] = 0;
-    fullState.masterfxConfig[MASTERFX_TONE] = 0;
-    fullState.masterfxConfig[MASTERFX_DIFFUSION] = 0;
+    fullState.masterfxConfig[MASTERFX_TONE] = 0.33f;
+    fullState.masterfxConfig[MASTERFX_DIFFUSION] = 0.57f;
     fullState.masterfxConfig[MASTERFX_WIDTH] = 0;
 
     // Mixer
