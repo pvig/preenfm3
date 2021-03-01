@@ -48,11 +48,10 @@ protected:
     float fxDiffusion = 0;
     float fxWidth =  0;
 
-    // earlySpeed sample rate divided by 2
-    float earlySpeed = 2 * 0.5f;
+    float earlySpeed = 2;
 
 	static const int earlyEchoNum = 4;
-	static const int earlyEchoBufferSize = 1000 * 2;
+	static const int earlyEchoBufferSize = 1024 * 2;
 
 	static float earlyEchoBuffer[earlyEchoBufferSize];
     int delayWritePos = 0;
@@ -76,10 +75,10 @@ protected:
 		-0.13f
 	};
     float earlyEchoFeebackList[4] = {
-		-0.25f,
-		0.15f,
-		-0.2f,
-		0.1f
+		-0.025f,
+		0.056f,
+		-0.03f,
+		-0.01f
 	};
 
 	static const int recirculatingEchoNum = 4;
@@ -98,10 +97,10 @@ protected:
 		 95.945f * srMod
     };
     float recirculatingGainList[4] = {
+		0.75f,
 		0.95f,
-		0.95f,
-		0.95f,
-		0.95f
+		0.35f,
+		0.15f
 	};
     int recirculatingCrossList[4][3] = {
 		{ 1, 1, 2},
