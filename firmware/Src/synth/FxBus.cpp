@@ -147,7 +147,7 @@ void FxBus::mixSumInit() {
 
     fxType =  synthState_->fullState.masterfxConfig[MASTERFX_TYPE];
     fxTime =  clamp( synthState_->fullState.masterfxConfig[MASTERFX_TIME], 0.003f, 0.999f);
-    fxFeedback =  synthState_->fullState.masterfxConfig[MASTERFX_SPACE] * 0.495f;
+    fxFeedback =  synthState_->fullState.masterfxConfig[MASTERFX_SPACE] * 0.07f;
     fxTone =  synthState_->fullState.masterfxConfig[MASTERFX_TONE];
     fxDiffusion =  synthState_->fullState.masterfxConfig[MASTERFX_DIFFUSION];
     fxWidth =  synthState_->fullState.masterfxConfig[MASTERFX_WIDTH];
@@ -172,7 +172,7 @@ void FxBus::mixSum(float *inStereo, int timbreNum) {
 
 	sample = getSampleBlock();
 
-	for (int s = 0; s < BLOCK_SIZE; s++) {
+	for (int s = 0; s < (BLOCK_SIZE); s++) {
     	*(sample++) += *inStereo++ * level;
     	*(sample++) += *inStereo++ * level;
     }
@@ -261,7 +261,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         delayReadPosInt = (int) delayReadPos;
         delayReadPosInt &= 0xfffffffe;//make it even
 
-
+        delayWritePos &= 0xfffffffe;//make it even
 
     	// early echo in
 
@@ -277,7 +277,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	{
     		lineGain = earlyEchoGainList[n];
     		lineFeedback = earlyEchoFeebackList[n];
-    		lineDelay = delayReadPosInt - 56 +  earlyEchoTimeList[n] + (lfo1 * 10);
+    		lineDelay = delayReadPosInt + earlyEchoTimeList[n];// + (lfo1 * 10);
 
         	if( lineDelay < 0 )
         		lineDelay += earlyEchoBufferSize;
@@ -286,13 +286,15 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         	lineDelay &= 0xfffffffe;//make it even
 
-    		earlyEchoBuffer[delayWritePos] += earlyEchoBuffer[lineDelay] * lineFeedback;
-    		earlyEchoBuffer[delayWritePos + 1] += earlyEchoBuffer[lineDelay + 1] * lineFeedback;
+    		earlyEchoBuffer[delayWritePos] 		+= 	earlyEchoBuffer[lineDelay] 		* lineFeedback;
+    		earlyEchoBuffer[delayWritePos + 1] 	+= 	earlyEchoBuffer[lineDelay + 1] 	* lineFeedback;
+
+        	/*delayWritePos += 2;
+    		if( delayWritePos >= earlyEchoBufferSize )
+        		delayWritePos -= earlyEchoBufferSize;*/
 
     		dL += earlyEchoBuffer[lineDelay] * lineGain;
     		dR += earlyEchoBuffer[lineDelay + 1] * lineGain;
-
-
     	}
 
     	// filter
@@ -350,8 +352,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// mix out
 
-    	*(outBuff++) += (int32_t) ((dL + rL ) * sampleMultipler);
-    	*(outBuff++) += (int32_t) ((dR + rR ) * sampleMultipler);
+    	*(outBuff++) += (int32_t) ((dL + rL  ) * sampleMultipler);
+    	*(outBuff++) += (int32_t) ((dR  + rR  ) * sampleMultipler);
     }
 
 	v0L = _ly1L;
