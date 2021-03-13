@@ -13,9 +13,10 @@ public:
 	void mixSumInit();
     void mixSum(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
-    float interpolation(int delayReadPosInt);
+    float forwardBufferInterpolation(int readPosInt);
+    float feedbackBufferInterpolation(int readPosInt);
     float phaser();
-    void vcf(int delayReadPosInt);
+    void vcf(int forwardReadPosInt);
 
 
 	float* getSampleBlock() {
@@ -28,13 +29,13 @@ public:
 
 	//lfo
 	float lfo1;
-	float lfo1Inc = 0.0001f;
+	float lfo1Inc = 0.00001f;
 	float lfo2;
-	float lfo2Inc = 0.011f;
+	float lfo2Inc = 0.0011f;
 	float lfo3;
-	float lfo3Inc = 0.000371f;
+	float lfo3Inc = 0.0000371f;
 	float lfo4;
-	float lfo4Inc = 0.037f;
+	float lfo4Inc = 0.0177f;
 
 protected:
 
@@ -48,66 +49,28 @@ protected:
     float fxDiffusion = 0;
     float fxWidth =  0;
 
-    float earlySpeed = 2;
+    const float bufferInc = 2;
 
-	static const int earlyEchoNum = 4;
-	static const int earlyEchoBufferSize = 1024 * 2;
+	static const int forwardBufferSize = 4000 * 2;
 
-	static float earlyEchoBuffer[earlyEchoBufferSize];
-    int delayWritePos = 0;
-    float delayReadPos = 0;
-    int delayReadPosInt = 0;
+	static float forwardBuffer[forwardBufferSize];
+    int forwardWritePos = 0;
+    float forwardReadPos = 0;
+    float forwardDelayLen = 0;
+    int forwardReadPosInt = 0;
 
-    int earlyEchoSampleCount = fxTime * earlyEchoBufferSize;
+    int forwardSampleCount = fxTime * forwardBufferSize;
 
-    float srMod = PREENFM_FREQUENCY / 1000;
+    //float srMod = PREENFM_FREQUENCY / 5000;
 
-    float earlyEchoTimeList[4] = {
-		 2.7f * srMod,
-		 4.23f * srMod,
-		 6.87f * srMod,
-		 10.7f * srMod
-	};
-    float earlyEchoGainList[4] = {
-		-0.45f,
-		-0.55f,
-		-0.33f,
-		-0.13f
-	};
-    float earlyEchoFeebackList[4] = {
-		-0.025f,
-		0.056f,
-		-0.03f,
-		-0.01f
-	};
+	static const int feedbackBufferSize = 4000 * 2;
 
-	static const int recirculatingEchoNum = 4;
-	static const int recirculatingBufferSize = 4360 * 2;
-
-	static float recirculatingBuffer[recirculatingBufferSize];
-    int delayCircWritePos = 0;
-    float delayCircReadPos = 0;
-    int delayCircReadPosInt = 0;
-    int recirculatingMaxSampleCount = fxTime * recirculatingBufferSize;
-
-    float recirculatingTimeList[4] = {
-		 60.0f * srMod,
-		 71.9345f * srMod,
-		 86.7545f * srMod,
-		 95.945f * srMod
-    };
-    float recirculatingGainList[4] = {
-		0.75f,
-		0.95f,
-		0.35f,
-		0.15f
-	};
-    int recirculatingCrossList[4][3] = {
-		{ 1, 1, 2},
-		{-1, 0, 3},
-		{ 1, 3, 0},
-		{-1, 3, 1}
-	};
+	static float feedbackBuffer[feedbackBufferSize];
+    int feedbackWritePos = 0;
+    float feedbackReadPos = 0;
+    int feedbackReadPosInt = 0;
+    float feedbackDelayLen = 0;
+    float inputGainCoef = 0.07f;
 
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;

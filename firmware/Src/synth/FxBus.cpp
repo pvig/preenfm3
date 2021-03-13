@@ -39,6 +39,18 @@ inline float hermite1(float x, float y0, float y1, float y2, float y3)
 
     return ((c3 * x + c2) * x + c1) * x + c0;
 }
+//interpolates between L0 and H0 taking the previous (L1) and next (H1) points into account
+inline float ThirdInterp(const float x,const float L1,const float L0,const float H0,const float H1)
+{
+    return
+    L0 +
+    .5f*
+    x*(H0-L1 +
+       x*(H0 + L0*(-2) + L1 +
+          x*( (H0 - L0)*9 + (L1 - H1)*3 +
+             x*((L0 - H0)*15 + (H1 -  L1)*5 +
+                x*((H0 - L0)*6 + (L1 - H1)*2 )))));
+}
 inline
 float sigmoid(float x)
 {
@@ -55,18 +67,6 @@ float fold(float x4) {
     // https://www.desmos.com/calculator/ge2wvg2wgj
     // x4 = x / 4
     return (fabsf(x4 + 0.25f - roundf(x4 + 0.25f)) - 0.25f);
-}
-//interpolates between L0 and H0 taking the previous (L1) and next (H1) points into account
-inline float ThirdInterp(const float x,const float L1,const float L0,const float H0,const float H1)
-{
-    return
-    L0 +
-    .5f*
-    x*(H0-L1 +
-       x*(H0 + L0*(-2) + L1 +
-          x*( (H0 - L0)*9 + (L1 - H1)*3 +
-             x*((L0 - H0)*15 + (H1 -  L1)*5 +
-                x*((H0 - L0)*6 + (L1 - H1)*2 )))));
 }
 inline
 float sqrt3(const float x)
@@ -91,41 +91,22 @@ float expf_fast(float a) {
 
 //***------------***------------***------------***------------***----- FxBus -------***------------***------------***------------
 
-float FxBus::earlyEchoBuffer[FxBus::earlyEchoBufferSize] __attribute__((section(".ram_d1")));
-float FxBus::recirculatingBuffer[FxBus::recirculatingBufferSize] __attribute__((section(".ram_d1")));
+float FxBus::forwardBuffer[FxBus::forwardBufferSize] __attribute__((section(".ram_d1")));
+float FxBus::feedbackBuffer[FxBus::feedbackBufferSize] __attribute__((section(".ram_d1")));
 
 FxBus::FxBus() {
 	lfo1 = 0;
-	// https://www.musicdsp.org/en/latest/Effects/44-delay-time-calculation-for-reverberation.html
-	/*float t1 = 40.0;        // d0 time
-	float g1 = 0.75f;        // d0 gain+
-	float gsign = -1;
-	float invearlyEchoNum = 1 / earlyEchoNum;*/
-
-	for (int n = 0; n < earlyEchoNum; ++n)
-	{
-	  /*int dt = 4 * (t1 / powf (2, (float (n) * invearlyEchoNum)));
-	  float g = g1 - sqrt3(float (n)/(3+earlyEchoNum));
-	  //gsign = - gsign;
-	  earlyEchoTimeList[n] = dt &0xfffffffe;
-	  earlyEchoGainList[n] = g;*/
-		//init delay time : ms to sample
-		//earlyEchoTimeList[n] *= 4.8f;
-	}
-
 }
 
 void FxBus::init(SynthState *synthState) {
     this->synthState_ = synthState;
 
-    //delayReadPos = earlyEchoSampleCount - delayWritePos;
-    for (int s = 0; s < FxBus::earlyEchoBufferSize; s++) {
-    	earlyEchoBuffer[ s ] = 0;
+    for (int s = 0; s < FxBus::forwardBufferSize; s++) {
+    	forwardBuffer[ s ] = 0;
     }
 
-	//delayCircReadPos = recirculatingMaxSampleCount - delayCircWritePos;
-    for (int s = 0; s < FxBus::recirculatingBufferSize; s++) {
-    	recirculatingBuffer[ s ] = 0;
+    for (int s = 0; s < FxBus::feedbackBufferSize; s++) {
+    	feedbackBuffer[ s ] = 0;
     }
 
     // Init FX variables
@@ -145,30 +126,34 @@ void FxBus::mixSumInit() {
     	*(sample++) = 0;
     }
 
-    fxType =  synthState_->fullState.masterfxConfig[MASTERFX_TYPE];
-    fxTime =  clamp( synthState_->fullState.masterfxConfig[MASTERFX_TIME], 0.003f, 0.999f);
-    fxFeedback =  synthState_->fullState.masterfxConfig[MASTERFX_SPACE] * 0.07f;
-    fxTone =  synthState_->fullState.masterfxConfig[MASTERFX_TONE];
-    fxDiffusion =  synthState_->fullState.masterfxConfig[MASTERFX_DIFFUSION];
-    fxWidth =  synthState_->fullState.masterfxConfig[MASTERFX_WIDTH];
+    fxType 		=  synthState_->fullState.masterfxConfig[ MASTERFX_TYPE ];
+    fxTime 		=  clamp( synthState_->fullState.masterfxConfig[ MASTERFX_TIME ], 0.0001f, 0.9999f);
+    fxFeedback 	=  synthState_->fullState.masterfxConfig[ MASTERFX_SPACE ];
+    fxTone 		=  synthState_->fullState.masterfxConfig[ MASTERFX_TONE ];
+    fxDiffusion =  synthState_->fullState.masterfxConfig[ MASTERFX_DIFFUSION ];
+    fxWidth 	=  synthState_->fullState.masterfxConfig[ MASTERFX_WIDTH ];
 
-    earlyEchoSampleCount = earlyEchoSampleCount * 0.995f + fxTime * FxBus::earlyEchoBufferSize * 0.005f;//  + lfo1 * 0.03f;
-    recirculatingMaxSampleCount = recirculatingMaxSampleCount * 0.995f + fxTime * FxBus::recirculatingBufferSize * 0.005f;
+    //forwardDelayLen = forwardDelayLen * 0.9995f + fxTime * FxBus::forwardBufferSize * 0.0005f;
+    //feedbackDelayLen = feedbackDelayLen * 0.995f + fxTime * FxBus::feedbackBufferSize * 0.005f;
 
-    delayReadPos = delayWritePos - earlyEchoSampleCount;
-	if( delayReadPos < 0 )
-		delayReadPos += FxBus::earlyEchoBufferSize;
+    forwardDelayLen = fxTime * FxBus::forwardBufferSize;
+    feedbackDelayLen = fxTime * FxBus::feedbackBufferSize;
 
-	delayCircReadPos = delayCircWritePos - recirculatingMaxSampleCount;
-	if( delayCircReadPos < 0 )
-		delayCircReadPos += FxBus::recirculatingBufferSize;
+    forwardReadPos = forwardWritePos - forwardDelayLen;
+	while( forwardReadPos < 0 )
+		forwardReadPos += FxBus::forwardBufferSize;
+
+	feedbackReadPos = feedbackWritePos - feedbackDelayLen;
+	while( feedbackReadPos < 0 )
+		feedbackReadPos += FxBus::feedbackBufferSize;
+
 }
 
 /**
  * add timbre to bus mix
  */
 void FxBus::mixSum(float *inStereo, int timbreNum) {
-	float level = synthState_->mixerState.instrumentState_[timbreNum].send;
+	const float level = synthState_->mixerState.instrumentState_[timbreNum].send;
 
 	sample = getSampleBlock();
 
@@ -183,7 +168,7 @@ void FxBus::mixSum(float *inStereo, int timbreNum) {
  */
 void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
-    float sampleMultipler = (float) 0x7fffff;
+    const float sampleMultipler = (float) 0x7fffff;
 
     // ----------- VCF -----------
 
@@ -238,122 +223,86 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     // ----------- /vcf -----------
 
-	float dL, dR;
-	float rL, rR;
-	int lineDelay;
-	float lineGain, lineFeedback;
-	int crossSign, crossDest1, crossDest2;
-	float feed1, feed2;
+	float combFeedback = ( 2 * fxTone - 1) * 100;
+	float combForward  = ( 2 * fxFeedback - 1) * 100;
+	inputGainCoef = fxWidth;
 
     for (int s = 0; s < BLOCK_SIZE; s++) {
 
-    	// set limits
+    	// --- feed forward
 
-    	delayReadPos += earlySpeed;
-    	delayWritePos += earlySpeed;
+        forwardBuffer[ forwardWritePos ] = clamp( *(sample) + forwardBufferInterpolation(forwardReadPosInt) * combForward, -1, 1);
+    	forwardBuffer[ forwardWritePos + 1 ] = clamp( *(sample+1) + forwardBufferInterpolation(forwardReadPosInt + 1) * combForward, -1, 1);
 
-    	if( delayWritePos >= earlyEchoBufferSize )
-    		delayWritePos -= earlyEchoBufferSize;
+    	// --- vcf
 
-    	if( delayReadPos >= earlyEchoBufferSize )
-    		delayReadPos -= earlyEchoBufferSize;
+    	//vcf(forwardReadPosInt);
 
-        delayReadPosInt = (int) delayReadPos;
-        delayReadPosInt &= 0xfffffffe;//make it even
+        // --- feedback
 
-        delayWritePos &= 0xfffffffe;//make it even
+    	feedbackBuffer[ feedbackWritePos ] =
+    			clamp(	(*(sample++) * inputGainCoef) +	(forwardBuffer[forwardReadPosInt]) + (feedbackBufferInterpolation(feedbackReadPosInt) * combFeedback)	, -1, 1);
 
-    	// early echo in
-
-        earlyEchoBuffer[ delayWritePos ] = *(sample++);
-    	earlyEchoBuffer[ delayWritePos + 1 ] = *(sample++);
-
-        // early echo generators
-
-    	dL = 0;
-		dR = 0;
-
-    	for (int n = 0; n < earlyEchoNum; ++n)
-    	{
-    		lineGain = earlyEchoGainList[n];
-    		lineFeedback = earlyEchoFeebackList[n];
-    		lineDelay = delayReadPosInt + earlyEchoTimeList[n];// + (lfo1 * 10);
-
-        	if( lineDelay < 0 )
-        		lineDelay += earlyEchoBufferSize;
-        	if( lineDelay >= earlyEchoBufferSize )
-        		lineDelay -= earlyEchoBufferSize;
-
-        	lineDelay &= 0xfffffffe;//make it even
-
-    		earlyEchoBuffer[delayWritePos] 		+= 	earlyEchoBuffer[lineDelay] 		* lineFeedback;
-    		earlyEchoBuffer[delayWritePos + 1] 	+= 	earlyEchoBuffer[lineDelay + 1] 	* lineFeedback;
-
-        	/*delayWritePos += 2;
-    		if( delayWritePos >= earlyEchoBufferSize )
-        		delayWritePos -= earlyEchoBufferSize;*/
-
-    		dL += earlyEchoBuffer[lineDelay] * lineGain;
-    		dR += earlyEchoBuffer[lineDelay + 1] * lineGain;
-    	}
-
-    	// filter
-
-    	vcf(delayCircReadPosInt);
-
-    	// recirculating delays
-
-        delayCircReadPos += 2;
-        delayCircWritePos += 2;
-
-    	if( delayCircReadPos >= recirculatingBufferSize )
-    		delayCircReadPos -= recirculatingBufferSize;
-
-    	if( delayCircWritePos >= recirculatingBufferSize )
-    		delayCircWritePos -= recirculatingBufferSize;
-
-    	delayCircReadPosInt = (int) delayCircReadPos;
-        delayCircReadPosInt &= 0xfffffffe;//make it even
-
-
-
-    	rL = dL;
-		rR = dR;
-
-    	for (int n = 0; n < recirculatingEchoNum; ++n)
-    	{
-    		crossSign = (float) recirculatingCrossList[n][0];
-    		crossDest1 =recirculatingCrossList[n][1];
-    		crossDest2 =recirculatingCrossList[n][2];
-
-    		lineGain = recirculatingGainList[n] * crossSign;
-    		lineDelay = delayCircReadPosInt - 96 + recirculatingTimeList[n] + (lfo2 * 10);
-
-        	if( lineDelay < 0 )
-        		lineDelay += recirculatingBufferSize;
-        	if( lineDelay >= recirculatingBufferSize )
-        		lineDelay -= recirculatingBufferSize;
-
-    		lineDelay &= 0xfffffffe;//make it even
-
-    		feed1 = recirculatingBuffer[lineDelay] * lineGain;
-    		feed2 = recirculatingBuffer[lineDelay + 1] * lineGain;
-
-    		recirculatingBuffer[ crossDest1 ] += feed1;
-    		recirculatingBuffer[ crossDest2 ] += feed2;
-
-    		rL += feed1;
-    		rR += feed2;
-    	}
-
-    	recirculatingBuffer[delayCircWritePos] = - rL * fxFeedback ;
-    	recirculatingBuffer[delayCircWritePos + 1] = - rR * fxFeedback ;
-
+    	feedbackBuffer[ feedbackWritePos + 1 ] =
+    			clamp(	(*(sample++) * inputGainCoef) +	(forwardBuffer[forwardReadPosInt + 1]) + (feedbackBufferInterpolation(feedbackReadPosInt + 1) * combFeedback)	, -1, 1);
 
     	// mix out
 
-    	*(outBuff++) += (int32_t) ((dL + rL  ) * sampleMultipler);
-    	*(outBuff++) += (int32_t) ((dR  + rR  ) * sampleMultipler);
+    	*(outBuff++) += (int32_t) ( feedbackBuffer[ feedbackWritePos ] * sampleMultipler);
+    	*(outBuff++) += (int32_t) ( feedbackBuffer[ feedbackWritePos + 1] * sampleMultipler);
+
+
+    	// --- feed forward
+
+    	forwardReadPos += bufferInc;
+    	forwardWritePos += bufferInc;
+
+    	if( forwardWritePos >= forwardBufferSize )
+    		forwardWritePos -= forwardBufferSize;
+
+    	while( forwardReadPos >= forwardBufferSize )
+    		forwardReadPos -= forwardBufferSize;
+
+        forwardReadPosInt = (int) forwardReadPos;
+        forwardReadPosInt &= 0xfffffffe;
+
+        // --- feedback
+
+    	feedbackReadPos += bufferInc;// + lfo2 * lfo2 * 400;
+    	feedbackWritePos += bufferInc;
+
+    	if( feedbackWritePos >= feedbackBufferSize )
+    		feedbackWritePos -= feedbackBufferSize;
+
+    	while( feedbackReadPos >= feedbackBufferSize )
+    		feedbackReadPos -= feedbackBufferSize;
+
+    	feedbackReadPosInt = (int) feedbackReadPos;
+    	feedbackReadPosInt &= 0xfffffffe;
+
+
+    	// --- lfo
+
+    	lfo1 += lfo1Inc;
+    	if(lfo1 >= 1 || lfo1 <= -1) {
+    		lfo1Inc = -lfo1Inc;
+    	}
+
+    	lfo2 += lfo2Inc;
+    	if(lfo2 >= 1 || lfo2 <= -1) {
+    		lfo2Inc = -lfo2Inc;
+    	}
+
+    	lfo3 += lfo3Inc;
+    	if(lfo3 >= 1 || lfo3 <= -1) {
+    		lfo3Inc = -lfo3Inc;
+    	}
+
+    	lfo4 += lfo4Inc;
+    	if(lfo4 >= 1 || lfo4 <= -1) {
+    		lfo4Inc = -lfo4Inc;
+    	}
+
     }
 
 	v0L = _ly1L;
@@ -373,50 +322,40 @@ void FxBus::processBlock(int32_t *outBuff) {
 	v7L = _lx4L;
 	v7R = _lx4R;
 
-
-	// --- lfo
-
-	lfo1 += lfo1Inc;
-	if(lfo1 >= 1 || lfo1 <= -1) {
-		lfo1Inc = -lfo1Inc;
-	}
-
-	lfo2 += lfo2Inc;
-	if(lfo2 >= 1 || lfo2 <= -1) {
-		lfo2Inc = -lfo2Inc;
-	}
-
-	lfo3 += lfo3Inc;
-	if(lfo3 >= 1 || lfo3 <= -1) {
-		lfo3Inc = -lfo3Inc;
-	}
-
-	lfo4 += lfo4Inc;
-	if(lfo4 >= 1 || lfo4 <= -1) {
-		lfo4Inc = -lfo4Inc;
-	}
-
 }
 
-float FxBus::interpolation(int delayReadPosInt) {
+float FxBus::forwardBufferInterpolation(int forwardReadPosInt) {
 
-	float y0 = earlyEchoBuffer[(delayReadPosInt + earlyEchoBufferSize - 2) % earlyEchoBufferSize];
-	float y1 = earlyEchoBuffer[(delayReadPosInt + 0)];
-	float y2 = earlyEchoBuffer[(delayReadPosInt + 2)];
-	float y3 = earlyEchoBuffer[(delayReadPosInt + 4)];
+	float y0 = forwardBuffer[(forwardReadPosInt + forwardBufferSize - 2) % forwardBufferSize];
+	float y1 = forwardBuffer[(forwardReadPosInt + 0)];
+	float y2 = forwardBuffer[(forwardReadPosInt + 2)];
+	float y3 = forwardBuffer[(forwardReadPosInt + 4)];
 
 	float x = y2 - y1;
 	x -= floor(x);
 
-    return hermite1(x, y0, y1, y2, y3);
+    return CubicHermite(x, y0, y1, y2, y3);
 }
 
-void FxBus::vcf(int delayReadPosInt) {
+float FxBus::feedbackBufferInterpolation(int forwardReadPosInt) {
+
+	float y0 = feedbackBuffer[(forwardReadPosInt + feedbackBufferSize - 2) % feedbackBufferSize];
+	float y1 = feedbackBuffer[(forwardReadPosInt + 0)];
+	float y2 = feedbackBuffer[(forwardReadPosInt + 2)];
+	float y3 = feedbackBuffer[(forwardReadPosInt + 4)];
+
+	float x = y2 - y1;
+	x -= floor(x);
+
+    return CubicHermite(x, y0, y1, y2, y3);
+}
+
+void FxBus::vcf(int forwardReadPosInt) {
 
 	const float _feedback = 0.43f;
 	const float _crossFeedback = 0.15f;
 	float inmix;
-	float sp = recirculatingBuffer[delayReadPosInt];
+	float sp = forwardBuffer[forwardReadPosInt];
 
 	// Left voice
 	inmix = sp - _feedback * _ly3L + _crossFeedback * _ly3R;
@@ -430,9 +369,9 @@ void FxBus::vcf(int delayReadPosInt) {
 	_ly4L = coef4L * (_ly4L + _ly3L) - _lx4L; // do 4nth filter
 	_lx4L = _ly3L;
 
-	recirculatingBuffer[delayReadPosInt + 1] = sp + _ly4L;
+	forwardBuffer[forwardReadPosInt + 1] = sp + _ly4L;
 
-	sp = recirculatingBuffer[delayReadPosInt + 1];
+	sp = forwardBuffer[forwardReadPosInt + 1];
 
 	// Right voice
 	inmix = sp - _feedback * _ly3R + _crossFeedback * _ly3L;
@@ -446,5 +385,5 @@ void FxBus::vcf(int delayReadPosInt) {
 	_ly4R = coef4R * (_ly4R + _ly3R) - _lx4R; // do 4nth filter
 	_lx4R = _ly3R;
 
-	recirculatingBuffer[delayReadPosInt + 1] = sp + _ly4R;
+	forwardBuffer[forwardReadPosInt + 1] = sp + _ly4R;
 }
