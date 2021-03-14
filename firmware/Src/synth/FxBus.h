@@ -29,25 +29,28 @@ public:
 
 	//lfo
 	float lfo1;
-	float lfo1Inc = 0.00001f;
-	float lfo2;
+	float lfo1Inc = 0.00015f;
+	/*float lfo2;
 	float lfo2Inc = 0.0011f;
 	float lfo3;
 	float lfo3Inc = 0.0000371f;
 	float lfo4;
-	float lfo4Inc = 0.0177f;
+	float lfo4Inc = 0.0177f;*/
 
 protected:
 
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
 
-    int fxType = 0;
     float fxTime = 0.98;
+    float prevFxTime;
+    float fxFeedforward = 0.5;
     float fxFeedback = 0.5;
-    float fxTone = 0.5;
-    float fxDiffusion = 0;
-    float fxWidth =  0;
+    float fxTone = 0.25f;
+    float fxDiffusion = 0.2f;
+    float fxInputLevel = 0.5f;
+    float fxMod =  0;
+    float fxSpeed = 0;
 
     const float bufferInc = 2;
 

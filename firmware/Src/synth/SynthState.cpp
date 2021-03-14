@@ -67,12 +67,12 @@ SynthState::SynthState() {
     fullState.randomizer.Modl = 1;
 
     // Master FX
-    fullState.masterfxConfig[MASTERFX_TYPE] = 0;
     fullState.masterfxConfig[MASTERFX_TIME] = 0.01f;
-    fullState.masterfxConfig[MASTERFX_SPACE] = 0;
-    fullState.masterfxConfig[MASTERFX_TONE] = 0.33f;
-    fullState.masterfxConfig[MASTERFX_DIFFUSION] = 0.57f;
-    fullState.masterfxConfig[MASTERFX_WIDTH] = 0;
+    fullState.masterfxConfig[MASTERFX_FFORWARD] = 0;
+    fullState.masterfxConfig[MASTERFX_FBACK] = 0.33f;
+    fullState.masterfxConfig[MASTERFX_INPUTLEVEL] = 0.57f;
+    fullState.masterfxConfig[MASTERFX_MOD] = 0;
+    fullState.masterfxConfig[MASTERFX_SPEED] = 0;
 
     // Mixer
     fullState.mixerCurrentEdit = 0;
