@@ -171,12 +171,12 @@ const struct Pfm3MixerButtonStateParam globalSettings[3][6] = { {
    { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames }
 },
 {
-   { 0, 3, 4, DISPLAY_TYPE_STRINGS, masterFxType },
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames }
 }
 };
 
@@ -297,22 +297,22 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             case MIXER_VALUE_GLOBAL_SETTINGS_3:
                 switch (encoder) {
                     case 0:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TYPE];
-                        break;
-                    case 1:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TIME];
                         break;
+                    case 1:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_FFORWARD];
+                        break;
                     case 2:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_SPACE];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_FBACK];
                         break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TONE];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_INPUTLEVEL];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_DIFFUSION];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_MOD];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_WIDTH];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_SPEED];
                         break;
                 }
                 break;
@@ -571,22 +571,22 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
         case 2:
         switch (row) {
             case 0:
-                tft_->print("Fx type");
-                break;
-            case 1:
                 tft_->print("Time");
                 break;
+            case 1:
+                tft_->print("FeedForward");
+                break;
             case 2:
-                tft_->print("Space");
+                tft_->print("FeedBack");
                 break;
             case 3:
-                tft_->print("Tone");
+                tft_->print("Input");
                 break;
             case 4:
-                tft_->print("Diffusion");
+                tft_->print("Mod");
                 break;
             case 5:
-                tft_->print("Width");
+                tft_->print("Speed");
                 break;
         }
         break;
