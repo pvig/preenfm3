@@ -14,7 +14,9 @@ public:
     void mixSum(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
     float forwardBufferInterpolation(float readPos, bool isRight);
+    float forwardHermiteInterpolation(int readPos);
     float feedbackBufferInterpolation(float readPos, bool isRight);
+    float feedbackHermiteInterpolation(int readPos);
     float phaser();
     void vcf1(int readPos);
     void vcf2(int readPos);

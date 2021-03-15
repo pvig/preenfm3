@@ -121,8 +121,9 @@ void FxBus::init(SynthState *synthState) {
 
     // Init FX variables
     v0L = v1L = v2L = v3L = v4L = v5L = v6L = v7L = v8L = v0R = v1R = v2R = v3R = v4R = v5R = v6R = v7R = v8R = v8R = 0.0f;
-	vcfFreq = 0.33f;
-	vcfDiffusion = 0.47f;
+
+	vcfFreq = 0.39f;
+	vcfDiffusion = 0.33f;
 }
 
 /**
@@ -194,7 +195,7 @@ void FxBus::mixSum(float *inStereo, int timbreNum) {
  */
 void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
-    const float sampleMultipler = (float) 0x37ffff; // fx level , max = 0x7fffff
+    const float sampleMultipler = (float) 0x34ffff; // fx level , max = 0x7fffff
 
     // ----------- VCF -----------
 
@@ -253,23 +254,26 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// --- feed forward
 
-    	fwL = forwardBufferInterpolation(forwardReadPos, false);
-    	fwR = forwardBufferInterpolation(forwardReadPos, true);
+    	//fwL = forwardBufferInterpolation(forwardReadPos, false);
+    	//fwR = forwardBufferInterpolation(forwardReadPos, true);
 
-        forwardBuffer[ forwardWritePos ] 		= *(sample) 	+ tanh4(  	( fwL	* fxFeedforward) ) * 0.85f;
-    	forwardBuffer[ forwardWritePos + 1 ] 	= *(sample+1) 	+ tanh4(  	( fwR 	* fxFeedforward) ) * 0.85f;
+    	fwL = forwardHermiteInterpolation(forwardReadPosInt);
+    	fwR = forwardHermiteInterpolation(forwardReadPosInt + 1);
+
+        forwardBuffer[ forwardWritePos ] 		= *(sample) 	+ tanh4( fwL * fxFeedforward) * 0.875f;
+    	forwardBuffer[ forwardWritePos + 1 ] 	= *(sample+1) 	+ tanh4( fwR * fxFeedforward) * 0.875f;
 
     	// --- vcf 1
 
-    	vcf1(forwardReadPosInt);
+    	//vcf1(forwardReadPosInt);
 
         // --- feedback
 
     	feedbackBuffer[ feedbackWritePos ] =
-    			tanh4( *(sample++) * fxInputLevel +	fwL + (feedbackBufferInterpolation(feedbackReadPos, false) 	* fxFeedback)) * 0.975f;
+    			tanh4( *(sample++) * fxInputLevel +	fwL + (feedbackHermiteInterpolation(feedbackReadPos) 	* fxFeedback)) * 0.975f;
 
     	feedbackBuffer[ feedbackWritePos + 1 ] =
-    			tanh4( *(sample++) * fxInputLevel +	fwR + (feedbackBufferInterpolation(feedbackReadPos, true) 	* fxFeedback)) * 0.975f;
+    			tanh4( *(sample++) * fxInputLevel +	fwR + (feedbackHermiteInterpolation(feedbackReadPos + 1) 	* fxFeedback)) * 0.975f;
 
     	// --- vcf 2
 
@@ -369,6 +373,18 @@ float FxBus::forwardBufferInterpolation(float readPos, bool isRight) {
 	return y0 * (1 - x) + y1 * x;
 }
 
+float FxBus::forwardHermiteInterpolation(int readPos) {
+	float y0 = forwardBuffer[(readPos + feedbackBufferSize - 2) % feedbackBufferSize];
+	float y1 = forwardBuffer[readPos];
+	float y2 = forwardBuffer[(readPos + feedbackBufferSize + 2) % feedbackBufferSize];
+	float y3 = forwardBuffer[(readPos + feedbackBufferSize + 4) % feedbackBufferSize];
+
+	float x = y2 - y1;
+	x -= floor(x);
+
+    return hermite1(x, y0, y1, y2, y3);
+}
+
 float FxBus::feedbackBufferInterpolation(float readPos, bool isRight) {
 	float x = readPos - floor(readPos);
 	int posInt = ((int) readPos)&0xfffffffe;
@@ -381,6 +397,19 @@ float FxBus::feedbackBufferInterpolation(float readPos, bool isRight) {
 	float y1 = feedbackBuffer[(posInt + feedbackBufferSize - 2) % feedbackBufferSize];
 
 	return y0 * (1 - x) + y1 * x;
+}
+
+float FxBus::feedbackHermiteInterpolation(int readPos) {
+
+	float y0 = feedbackBuffer[(readPos + feedbackBufferSize - 2) % feedbackBufferSize];
+	float y1 = feedbackBuffer[readPos];
+	float y2 = feedbackBuffer[(readPos + feedbackBufferSize + 2) % feedbackBufferSize];
+	float y3 = feedbackBuffer[(readPos + feedbackBufferSize + 4) % feedbackBufferSize];
+
+	float x = y2 - y1;
+	x -= floor(x);
+
+    return hermite1(x, y0, y1, y2, y3);
 }
 
 void FxBus::vcf1(int readPos) {
@@ -412,7 +441,6 @@ void FxBus::vcf1(int readPos) {
 
     forwardBuffer[readPos + 1] = sp + _ly2R;
 }
-
 
 void FxBus::vcf2(int readPos) {
 
