@@ -13,11 +13,11 @@ public:
 	void mixSumInit();
     void mixSum(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
-    float forwardBufferInterpolation(int readPosInt);
-    float feedbackBufferInterpolation(int readPosInt);
+    float forwardBufferInterpolation(float readPos, bool isRight);
+    float feedbackBufferInterpolation(float readPos, bool isRight);
     float phaser();
-    void vcf(int forwardReadPosInt);
-
+    void vcf1(int readPos);
+    void vcf2(int readPos);
 
 	float* getSampleBlock() {
 	    return sampleBlock_;
@@ -29,7 +29,7 @@ public:
 
 	//lfo
 	float lfo1;
-	float lfo1Inc = 0.00015f;
+	float lfo1Inc = 0.00085f;
 	/*float lfo2;
 	float lfo2Inc = 0.0011f;
 	float lfo3;
@@ -43,7 +43,8 @@ protected:
 	float *sample;
 
     float fxTime = 0.98;
-    float prevFxTime;
+    float prevFxForward = 0;
+    float prevFxFeedback = 0;
     float fxFeedforward = 0.5;
     float fxFeedback = 0.5;
     float fxTone = 0.25f;
@@ -52,9 +53,8 @@ protected:
     float fxMod =  0;
     float fxSpeed = 0;
 
-    const float bufferInc = 2;
-
-	static const int forwardBufferSize = 4000 * 2;
+	static const int forwardSampleCount = 5000;
+	static const int forwardBufferSize = forwardSampleCount * 2;
 
 	static float forwardBuffer[forwardBufferSize];
     int forwardWritePos = 0;
@@ -62,22 +62,21 @@ protected:
     float forwardDelayLen = 0;
     int forwardReadPosInt = 0;
 
-    int forwardSampleCount = fxTime * forwardBufferSize;
-
-    //float srMod = PREENFM_FREQUENCY / 5000;
-
-	static const int feedbackBufferSize = 4000 * 2;
+	static const int feedbackSampleCount = 5000;
+	static const int feedbackBufferSize = feedbackSampleCount * 2;
 
 	static float feedbackBuffer[feedbackBufferSize];
     int feedbackWritePos = 0;
     float feedbackReadPos = 0;
     int feedbackReadPosInt = 0;
     float feedbackDelayLen = 0;
-    float inputGainCoef = 0.07f;
+    float inputGainCoef = 0;
 
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
+    float f1L,f2L,f3L,f4L;
+    float f1R,f2R,f3R,f4R;
 	float coef1L;
 	float coef2L;
 	float coef3L;

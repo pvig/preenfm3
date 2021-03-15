@@ -16,9 +16,32 @@ float clamp(float d, float min, float max) {
   return unlikely(t > max) ? max : t;
 }
 inline
+float sqrt3(const float x)
+{
+  union
+  {
+    int i;
+    float x;
+  } u;
+
+  u.x = x;
+  u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
+  return u.x;
+}
+inline
 float tanh3(float x)
 {
     return 1.5f * x / (1.7f + fabsf(0.34f * x * x));
+}
+inline
+float tanh4(float x)
+{
+    return x / sqrt3(x * x + 1);
+}
+inline
+float sat66(float x)
+{
+    return x * (1 - (x * x * 0.055f));
 }
 inline float CubicHermite( float t, float A, float B, float C, float D)
 {
@@ -69,19 +92,6 @@ float fold(float x4) {
     return (fabsf(x4 + 0.25f - roundf(x4 + 0.25f)) - 0.25f);
 }
 inline
-float sqrt3(const float x)
-{
-  union
-  {
-    int i;
-    float x;
-  } u;
-
-  u.x = x;
-  u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
-  return u.x;
-}
-inline
 float expf_fast(float a) {
   //https://github.com/ekmett/approximate/blob/master/cbits/fast.c
   union { float f; int x; } u;
@@ -125,37 +135,44 @@ void FxBus::mixSumInit() {
     	*(sample++) = 0;
     	*(sample++) = 0;
     }
+    float temp;
+    temp 		=  clamp( synthState_->fullState.masterfxConfig[ MASTERFX_TIME ], 0.0001f, 0.9999f);
+    temp		*= temp * temp;
+    fxTime 		= fxTime * 0.9f + temp * 0.1f;
 
-    fxTime 		=  clamp( synthState_->fullState.masterfxConfig[ MASTERFX_TIME ], 0.0001f, 0.9999f);
-    fxTime 		= fxTime * fxTime * fxTime;
-    fxFeedforward= synthState_->fullState.masterfxConfig[ MASTERFX_FFORWARD ];
-    fxFeedback 	=  synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
-    fxInputLevel = synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
+    fxFeedforward	= synthState_->fullState.masterfxConfig[ MASTERFX_FFORWARD ] * 0.85f;
+    fxFeedback 		= synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
+    fxInputLevel 	= synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
-    fxTone 		= fxTime * 0.1f + 0.11f;
-    fxDiffusion 		= fxTime * 0.1f + 0.11f;
+    fxTone 		= fxTime * 0.15f + 0.11f;
+    fxDiffusion = fxTime * 0.10f + 0.11f;
 
-    fxMod 	= fxMod * 0.9f + synthState_->fullState.masterfxConfig[ MASTERFX_MOD ] * 0.1f;
+    temp 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_MOD ];
+    temp 	*= 	temp;
+    fxMod 	= 	fxMod * 0.9f + temp * 0.1f;
 
     fxSpeed 	= synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ];
-    fxSpeed		= 0.00001f + fxSpeed * fxSpeed * fxSpeed * 4;
+    fxSpeed		= fxSpeed * fxSpeed * fxSpeed * 6;
 
-    forwardDelayLen = forwardDelayLen * 0.9995f + fxTime * FxBus::forwardBufferSize * 0.0005f;
-    feedbackDelayLen = feedbackDelayLen * 0.9995f + fxTime * FxBus::feedbackBufferSize * 0.0005f;
+    forwardDelayLen 	= forwardDelayLen 	* 0.97f 	+ fxTime 	* forwardBufferSize 	* 0.03f;
+    feedbackDelayLen 	= feedbackDelayLen 	* 0.97f 	+ fxTime 	* feedbackBufferSize 	* 0.03f;
 
-    if (fxTime  != prevFxTime) {
+    if (forwardDelayLen  != prevFxForward) {
         forwardReadPos = forwardWritePos - forwardDelayLen;
-    	while( forwardReadPos < 0 )
-    		forwardReadPos += FxBus::forwardBufferSize;
-        forwardReadPos = ((int)forwardReadPos)&0xfffffffe; // make it even
-
-    	feedbackReadPos = feedbackWritePos - feedbackDelayLen;
-    	while( feedbackReadPos < 0 )
-    		feedbackReadPos += FxBus::feedbackBufferSize;
-    	feedbackReadPos = ((int)feedbackReadPos )&0xfffffffe; // make it even
+    	if( forwardReadPos < 0 )
+    		forwardReadPos += forwardBufferSize;
+        //forwardReadPos = ((int)forwardReadPos)&0xfffffffe; // make it even
     }
 
-	prevFxTime = fxTime;
+    if (feedbackDelayLen  != prevFxFeedback) {
+    	feedbackReadPos = feedbackWritePos - feedbackDelayLen;
+    	if( feedbackReadPos < 0 )
+    		feedbackReadPos += feedbackBufferSize;
+    	//feedbackReadPos = ((int)feedbackReadPos )&0xfffffffe; // make it even
+    }
+
+    prevFxForward = forwardDelayLen;
+    prevFxFeedback = feedbackDelayLen;
 }
 
 /**
@@ -177,7 +194,7 @@ void FxBus::mixSum(float *inStereo, int timbreNum) {
  */
 void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
-    const float sampleMultipler = (float) 0x7fffff;
+    const float sampleMultipler = (float) 0x37ffff; // fx level , max = 0x7fffff
 
     // ----------- VCF -----------
 
@@ -190,24 +207,22 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 	const float bipolarf = (vcfFreq - 0.5f);
 	const float folded = fold(sigmoid(bipolarf * 19 * vcfDiffusion)) * 4; // -1 < folded < 1
-
 	const float offset = vcfDiffusion * vcfDiffusion * 0.17f;
 	const float lrDelta = 0.005f * folded;
-
 	const float range = 0.47f;
 
-	const float f1L = clamp(fold((vcfFreq - offset - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
-	const float f2L = clamp(fold((vcfFreq + offset + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
-	const float f3L = clamp(fold((vcfFreq - (offset * 2) - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
-	const float f4L = clamp(fold((vcfFreq + (offset * 2) + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+	f1L = clamp(((vcfFreq - offset - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+	f2L = clamp(((vcfFreq + offset + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+	f3L = clamp(((vcfFreq - (offset * 2) - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+	f4L = clamp(((vcfFreq + (offset * 2) + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
 	coef1L = (1.0f - f1L) / (1.0f + f1L);
 	coef2L = (1.0f - f2L) / (1.0f + f2L);
 	coef3L = (1.0f - f3L) / (1.0f + f3L);
 	coef4L = (1.0f - f4L) / (1.0f + f4L);
-	const float f1R = clamp(fold((vcfFreq - offset + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
-	const float f2R = clamp(fold((vcfFreq + offset - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
-	const float f3R = clamp(fold((vcfFreq - (offset * 2) + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
-	const float f4R = clamp(fold((vcfFreq + (offset * 2) - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+	f1R = clamp(((vcfFreq - offset + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+	f2R = clamp(((vcfFreq + offset - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+	f3R = clamp(((vcfFreq - (offset * 2) + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+	f4R = clamp(((vcfFreq + (offset * 2) - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
 	coef1R = (1.0f - f1R) / (1.0f + f1R);
 	coef2R = (1.0f - f2R) / (1.0f + f2R);
 	coef3R = (1.0f - f3R) / (1.0f + f3R);
@@ -232,38 +247,44 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     // ----------- /vcf -----------
 
-	float combFeedback = fxFeedback;
-	float combForward  = fxFeedforward;
+	float fwL, fwR;
 
     for (int s = 0; s < BLOCK_SIZE; s++) {
 
     	// --- feed forward
 
-        forwardBuffer[ forwardWritePos ] 		= tanh3( *(sample) 	+ (forwardBuffer[forwardReadPosInt] 		* combForward));
-    	forwardBuffer[ forwardWritePos + 1 ] 	= tanh3( *(sample+1) 	+ (forwardBuffer[forwardReadPosInt + 1] 	* combForward));
+    	fwL = forwardBufferInterpolation(forwardReadPos, false);
+    	fwR = forwardBufferInterpolation(forwardReadPos, true);
 
-    	// --- vcf
+        forwardBuffer[ forwardWritePos ] 		= *(sample) 	+ tanh4(  	( fwL	* fxFeedforward) ) * 0.85f;
+    	forwardBuffer[ forwardWritePos + 1 ] 	= *(sample+1) 	+ tanh4(  	( fwR 	* fxFeedforward) ) * 0.85f;
 
-    	vcf(forwardReadPosInt);
+    	// --- vcf 1
+
+    	vcf1(forwardReadPosInt);
 
         // --- feedback
 
     	feedbackBuffer[ feedbackWritePos ] =
-    				tanh3( *(sample++) * fxInputLevel +	(forwardBuffer[forwardReadPosInt]) + (feedbackBuffer[feedbackReadPosInt] * combFeedback));
+    			tanh4( *(sample++) * fxInputLevel +	fwL + (feedbackBufferInterpolation(feedbackReadPos, false) 	* fxFeedback)) * 0.975f;
 
     	feedbackBuffer[ feedbackWritePos + 1 ] =
-    				tanh3( *(sample++) * fxInputLevel +	(forwardBuffer[forwardReadPosInt + 1]) + (feedbackBuffer[feedbackReadPosInt + 1] * combFeedback));
+    			tanh4( *(sample++) * fxInputLevel +	fwR + (feedbackBufferInterpolation(feedbackReadPos, true) 	* fxFeedback)) * 0.975f;
+
+    	// --- vcf 2
+
+    	vcf2(feedbackWritePos&0xfffffffe);
 
     	// mix out
 
-    	*(outBuff++) += (int32_t) ( feedbackBuffer[ feedbackWritePos ] * sampleMultipler);
-    	*(outBuff++) += (int32_t) ( feedbackBuffer[ feedbackWritePos + 1] * sampleMultipler);
+    	*(outBuff++) += (int32_t) ( feedbackBuffer[ feedbackWritePos ] 		* sampleMultipler);
+    	*(outBuff++) += (int32_t) ( feedbackBuffer[ feedbackWritePos + 1 ] 	* sampleMultipler);
 
 
     	// --- feed forward
 
-    	forwardReadPos += bufferInc;
-    	forwardWritePos += bufferInc;
+    	forwardReadPos 		+= 2  + ( lfo1 * fxMod * 0.125f );
+    	forwardWritePos 	+= 2;
 
     	if( forwardWritePos >= forwardBufferSize )
     		forwardWritePos -= forwardBufferSize;
@@ -279,8 +300,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // --- feedback
 
-    	feedbackReadPos += bufferInc + lfo1 * fxMod * fxMod * 8;
-    	feedbackWritePos += bufferInc;
+    	feedbackReadPos 	+= 2 + ( lfo1 * fxMod );
+    	feedbackWritePos 	+= 2;
 
     	if( feedbackWritePos >= feedbackBufferSize )
     		feedbackWritePos -= feedbackBufferSize;
@@ -290,8 +311,6 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	while( feedbackReadPos >= feedbackBufferSize )
     		feedbackReadPos -= feedbackBufferSize;
-
-    	feedbackReadPosInt = (int) feedbackReadPos;
 
     	// --- lfo
 
@@ -336,66 +355,91 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 }
 
-float FxBus::forwardBufferInterpolation(int forwardReadPosInt) {
+float FxBus::forwardBufferInterpolation(float readPos, bool isRight) {
+	float x = readPos - floor(readPos);
+	int posInt = ((int) readPos)&0xfffffffe;
 
-	float y0 = forwardBuffer[(forwardReadPosInt + forwardBufferSize - 2) % forwardBufferSize];
-	float y1 = forwardBuffer[(forwardReadPosInt + 0)];
-	float y2 = forwardBuffer[(forwardReadPosInt + 2)];
-	float y3 = forwardBuffer[(forwardReadPosInt + 4)];
+	if(isRight) {
+		posInt += 1;
+	}
 
-	float x = y2 - y1;
-	x -= floor(x);
+	float y0 = forwardBuffer[posInt];
+	float y1 = forwardBuffer[(posInt + forwardBufferSize - 2) % forwardBufferSize];
 
-    return hermite1(x, y0, y1, y2, y3);
+	return y0 * (1 - x) + y1 * x;
 }
 
-float FxBus::feedbackBufferInterpolation(int forwardReadPosInt) {
+float FxBus::feedbackBufferInterpolation(float readPos, bool isRight) {
+	float x = readPos - floor(readPos);
+	int posInt = ((int) readPos)&0xfffffffe;
 
-	float y0 = feedbackBuffer[(forwardReadPosInt + feedbackBufferSize - 2) % feedbackBufferSize];
-	float y1 = feedbackBuffer[(forwardReadPosInt + 0)];
-	float y2 = feedbackBuffer[(forwardReadPosInt + 2)];
-	float y3 = feedbackBuffer[(forwardReadPosInt + 4)];
+	if(isRight) {
+		posInt += 1;
+	}
 
-	float x = y2 - y1;
-	x -= floor(x);
+	float y0 = feedbackBuffer[posInt];
+	float y1 = feedbackBuffer[(posInt + feedbackBufferSize - 2) % feedbackBufferSize];
 
-    return hermite1(x, y0, y1, y2, y3);
+	return y0 * (1 - x) + y1 * x;
 }
 
-void FxBus::vcf(int forwardReadPosInt) {
+void FxBus::vcf1(int readPos) {
 
 	const float _feedback = 0.43f;
 	const float _crossFeedback = 0.15f;
 	float inmix;
-	float sp = forwardBuffer[forwardReadPosInt];
+	float sp = forwardBuffer[readPos];
 
 	// Left voice
-	inmix = sp - _feedback * _ly3L + _crossFeedback * _ly3R;
+	inmix = sp - _feedback * _ly2L + _crossFeedback * _ly2R;
 
 	_ly1L = coef1L * (_ly1L + inmix) - _lx1L; // do 1st filter
 	_lx1L = inmix;
 	_ly2L = coef2L * (_ly2L + _ly1L) - _lx2L; // do 2nd filter
 	_lx2L = _ly1L;
-	_ly3L = coef3L * (_ly3L + _ly2L) - _lx3L; // do 3rd filter
-	_lx3L = _ly2L;
-	_ly4L = coef4L * (_ly4L + _ly3L) - _lx4L; // do 4nth filter
-	_lx4L = _ly3L;
 
-	forwardBuffer[forwardReadPosInt] = sp + _ly2L;
+    forwardBuffer[readPos] = sp + _ly2L;
 
-	sp = forwardBuffer[forwardReadPosInt + 1];
+	sp = forwardBuffer[readPos + 1];
 
 	// Right voice
-	inmix = sp - _feedback * _ly3R + _crossFeedback * _ly3L;
+	inmix = sp - _feedback * _ly2R + _crossFeedback * _ly2L;
 
 	_ly1R = coef1R * (_ly1R + inmix) - _lx1R; // do 1st filter
 	_lx1R = inmix;
 	_ly2R = coef2R * (_ly2R + _ly1R) - _lx2R; // do 2nd filter
 	_lx2R = _ly1R;
-	_ly3R = coef3R * (_ly3R + _ly2R) - _lx3R; // do 3rd filter
-	_lx3R = _ly2R;
-	_ly4R = coef4R * (_ly4R + _ly3R) - _lx4R; // do 4nth filter
-	_lx4R = _ly3R;
 
-	forwardBuffer[forwardReadPosInt + 1] = sp + _ly2R;
+    forwardBuffer[readPos + 1] = sp + _ly2R;
+}
+
+
+void FxBus::vcf2(int readPos) {
+
+	const float _feedback = 0.43f;
+	const float _crossFeedback = 0.15f;
+	float inmix;
+	float sp = feedbackBuffer[readPos];
+
+	// Left voice
+	inmix = sp - _feedback * _ly4L + _crossFeedback * _ly4R;
+
+	_ly3L = coef3L * (_ly3L + inmix) - _lx3L; // do 3rd filter
+	_lx3L = _ly2L;
+    _ly4L = coef4L * (_ly4L + _ly3L) - _lx4L; // do 4nth filter
+    _lx4L = _ly3L;
+
+    feedbackBuffer[readPos] = sp + _ly2L;
+
+	sp = feedbackBuffer[readPos + 1];
+
+	// Right voice
+	inmix = sp - _feedback * _ly4R + _crossFeedback * _ly4L;
+
+	_ly3R = coef3R * (_ly3R + inmix) - _lx3R; // do 3rd filter
+	_lx3R = _ly2R;
+    _ly4R = coef4R * (_ly4R + _ly3R) - _lx4R; // do 4nth filter
+    _lx4R = _ly3R;
+
+    feedbackBuffer[readPos + 1] = sp + _ly2R;
 }
