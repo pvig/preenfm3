@@ -589,6 +589,42 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_MPE_SLIDE_CC74:
             this->synth->getTimbre(timbre)->setMatrixSource(MATRIX_SOURCE_MPESLIDE, INV127 * midiEvent.value[1]);
             break;
+        case CC_MFX_TIME:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_TIME ] = INV127 * midiEvent.value[1] ;
+            break;
+        case CC_MFX_FEEDBACK:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_FEEDFORWARD:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_FFORWARD ] = INV127 * midiEvent.value[1];
+            break; 
+        case CC_MFX_INPUT_LEVEL:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_MOD_LEVEL :
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_MOD ] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_MOD_SPEED:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_SEND1:
+            this->synthState_->mixerState.instrumentState_[0].send = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_SEND2:
+            this->synthState_->mixerState.instrumentState_[1].send = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_SEND3:
+            this->synthState_->mixerState.instrumentState_[2].send = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_SEND4:
+            this->synthState_->mixerState.instrumentState_[3].send = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_SEND5:
+            this->synthState_->mixerState.instrumentState_[4].send = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_SEND6:
+            this->synthState_->mixerState.instrumentState_[5].send = INV127 * midiEvent.value[1];
+            break;
         }
     }
 
