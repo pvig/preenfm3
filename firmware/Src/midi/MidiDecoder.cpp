@@ -608,22 +608,22 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             this->synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ] = INV127 * midiEvent.value[1];
             break;
         case CC_MFX_SEND1:
-            this->synthState_->mixerState.instrumentState_[0].send = INV127 * midiEvent.value[1];
+            this->synth->setNewMixerValueFromMidi(0, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
             break;
         case CC_MFX_SEND2:
-            this->synthState_->mixerState.instrumentState_[1].send = INV127 * midiEvent.value[1];
+            this->synth->setNewMixerValueFromMidi(1, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
             break;
         case CC_MFX_SEND3:
-            this->synthState_->mixerState.instrumentState_[2].send = INV127 * midiEvent.value[1];
+            this->synth->setNewMixerValueFromMidi(2, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
             break;
         case CC_MFX_SEND4:
-            this->synthState_->mixerState.instrumentState_[3].send = INV127 * midiEvent.value[1];
+            this->synth->setNewMixerValueFromMidi(3, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
             break;
         case CC_MFX_SEND5:
-            this->synthState_->mixerState.instrumentState_[4].send = INV127 * midiEvent.value[1];
+            this->synth->setNewMixerValueFromMidi(4, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
             break;
         case CC_MFX_SEND6:
-            this->synthState_->mixerState.instrumentState_[5].send = INV127 * midiEvent.value[1];
+            this->synth->setNewMixerValueFromMidi(5, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
             break;
         }
     }

@@ -17,6 +17,8 @@ public:
     float forwardHermiteInterpolation(int readPos);
     float feedbackBufferInterpolation(float readPos, bool isRight);
     float feedbackHermiteInterpolation(int readPos);
+    float feedMod();
+    float fdbckMod();
     float phaser();
     void vcf1(int readPos);
     void vcf2(int readPos);
@@ -55,7 +57,7 @@ protected:
     float fxMod =  0;
     float fxSpeed = 0;
 
-	static const int forwardSampleCount = 5000;
+	static const int forwardSampleCount = 4096;
 	static const int forwardBufferSize = forwardSampleCount * 2;
 
 	static float forwardBuffer[forwardBufferSize];
@@ -64,7 +66,7 @@ protected:
     float forwardDelayLen = 0;
     int forwardReadPosInt = 0;
 
-	static const int feedbackSampleCount = 5000;
+	static const int feedbackSampleCount = 4096;
 	static const int feedbackBufferSize = feedbackSampleCount * 2;
 
 	static float feedbackBuffer[feedbackBufferSize];

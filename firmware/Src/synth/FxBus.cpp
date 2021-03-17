@@ -155,8 +155,8 @@ void FxBus::mixSumInit() {
     fxSpeed 	= synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ];
     fxSpeed		= fxSpeed * fxSpeed * fxSpeed * 6;
 
-    forwardDelayLen 	= forwardDelayLen 	* 0.97f 	+ fxTime 	* forwardBufferSize 	* 0.03f;
-    feedbackDelayLen 	= feedbackDelayLen 	* 0.97f 	+ fxTime 	* feedbackBufferSize 	* 0.03f;
+    forwardDelayLen 	= forwardDelayLen 	+ ((fxTime 	* forwardBufferSize) -  forwardDelayLen)	* 0.01f;
+    feedbackDelayLen 	= feedbackDelayLen 	+ ((fxTime 	* feedbackBufferSize) - feedbackDelayLen)	* 0.01f;
 
     if (forwardDelayLen  != prevFxForward) {
         forwardReadPos = forwardWritePos - forwardDelayLen;
@@ -260,8 +260,8 @@ void FxBus::processBlock(int32_t *outBuff) {
     	fwL = forwardHermiteInterpolation(forwardReadPosInt);
     	fwR = forwardHermiteInterpolation(forwardReadPosInt + 1);
 
-        forwardBuffer[ forwardWritePos ] 		= *(sample) 	+ tanh4( fwL * fxFeedforward) * 0.875f;
-    	forwardBuffer[ forwardWritePos + 1 ] 	= *(sample+1) 	+ tanh4( fwR * fxFeedforward) * 0.875f;
+        forwardBuffer[ forwardWritePos ] 		= *(sample) 	+ tanh4( fwL * fxFeedforward) * 0.925f;
+    	forwardBuffer[ forwardWritePos + 1 ] 	= *(sample+1) 	+ tanh4( fwR * fxFeedforward) * 0.925f;
 
     	// --- vcf 1
 
@@ -270,10 +270,10 @@ void FxBus::processBlock(int32_t *outBuff) {
         // --- feedback
 
     	feedbackBuffer[ feedbackWritePos ] =
-    			tanh4( *(sample++) * fxInputLevel +	fwL + (feedbackHermiteInterpolation(feedbackReadPos) 	* fxFeedback)) * 0.975f;
+    			tanh4( *(sample++) * fxInputLevel +	fwL + (feedbackHermiteInterpolation(feedbackReadPos) 	* fxFeedback)) * 0.925f;
 
     	feedbackBuffer[ feedbackWritePos + 1 ] =
-    			tanh4( *(sample++) * fxInputLevel +	fwR + (feedbackHermiteInterpolation(feedbackReadPos + 1) 	* fxFeedback)) * 0.975f;
+    			tanh4( *(sample++) * fxInputLevel +	fwR + (feedbackHermiteInterpolation(feedbackReadPos + 1) 	* fxFeedback)) * 0.925f;
 
     	// --- vcf 2
 
@@ -287,7 +287,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// --- feed forward
 
-    	forwardReadPos 		+= 2  + ( lfo1 * fxMod * 0.125f );
+    	forwardReadPos 		+= 2  + feedMod();
     	forwardWritePos 	+= 2;
 
     	if( forwardWritePos >= forwardBufferSize )
@@ -304,7 +304,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // --- feedback
 
-    	feedbackReadPos 	+= 2 + ( lfo1 * fxMod );
+    	feedbackReadPos 	+= 2 + fdbckMod();
     	feedbackWritePos 	+= 2;
 
     	if( feedbackWritePos >= feedbackBufferSize )
@@ -357,6 +357,14 @@ void FxBus::processBlock(int32_t *outBuff) {
 	v7L = _lx4L;
 	v7R = _lx4R;
 
+}
+
+float FxBus::feedMod() {
+	return ( lfo1 * fxMod * 0.125f );
+}
+
+float FxBus::fdbckMod() {
+	return ( lfo1 * fxMod );
 }
 
 float FxBus::forwardBufferInterpolation(float readPos, bool isRight) {

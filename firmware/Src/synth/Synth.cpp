@@ -759,6 +759,14 @@ void Synth::setNewMixerValueFromMidi(int timbre, int mixerValue, float newValue)
             }
             break;
         }
+        case MIXER_VALUE_SEND: {
+            float oldValue = this->synthState_->mixerState.instrumentState_[timbre].send;
+            this->synthState_->mixerState.instrumentState_[timbre].send = newValue;
+            if (oldValue != newValue) {
+                this->synthState_->propagateNewMixerValueFromExternal(timbre, mixerValue, oldValue, newValue);
+            }
+            break;
+       }
     }
 }
 
