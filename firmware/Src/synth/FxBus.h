@@ -64,6 +64,7 @@ protected:
     int forwardWritePos = 0;
     float forwardReadPos = 0;
     float forwardDelayLen = 0;
+    float forwardFxTarget = 0;
     int forwardReadPosInt = 0;
 
 	static const int feedbackSampleCount = 4096;
@@ -74,6 +75,7 @@ protected:
     float feedbackReadPos = 0;
     int feedbackReadPosInt = 0;
     float feedbackDelayLen = 0;
+    float feedbackFxTarget = 0;
     float inputGainCoef = 0;
 
     // Filter
