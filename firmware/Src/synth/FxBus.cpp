@@ -122,8 +122,8 @@ void FxBus::init(SynthState *synthState) {
     // Init FX variables
     v0L = v1L = v2L = v3L = v4L = v5L = v6L = v7L = v8L = v0R = v1R = v2R = v3R = v4R = v5R = v6R = v7R = v8R = v8R = 0.0f;
 
-	vcfFreq = 0.39f;
-	vcfDiffusion = 0.33f;
+	vcfFreq = 0.66f;
+	vcfDiffusion = 0.53f;
 }
 
 /**
@@ -145,8 +145,8 @@ void FxBus::mixSumInit() {
     fxFeedback 		= synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
     fxInputLevel 	= synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
-    fxTone 		= fxTime * 0.15f + 0.11f;
-    fxDiffusion = fxTime * 0.10f + 0.11f;
+    fxTone 		= fxTime * 0.15f + 0.11f - lfo2 * 0.02f;
+    fxDiffusion = clamp(fxTime * 0.10f + 0.11f + lfo1 * 0.05f, 0.1f, 1);
 
     temp 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_MOD ];
     temp 	*= 	temp;
@@ -199,9 +199,9 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     // ----------- VCF -----------
 
-	float fxParamTmp = fxTone;
+	/*float fxParamTmp = fxTone;
 	fxParamTmp *= fxParamTmp;
-	vcfFreq = clamp((fxParamTmp + 9.0f * vcfFreq) * .1f, filterWindowMin, 0.9f);
+	vcfFreq = clamp((fxParamTmp + 9.0f * vcfFreq) * .1f, filterWindowMin, 0.9f);*/
 
 	float OffsetTmp = fxDiffusion;
 	vcfDiffusion = clamp((OffsetTmp + 9.0f * vcfDiffusion) * .1f, filterWindowMin, filterWindowMax);
@@ -323,12 +323,12 @@ void FxBus::processBlock(int32_t *outBuff) {
     		lfo1Inc = -lfo1Inc;
     	}
 
-    	/*lfo2 += lfo2Inc;
+    	lfo2 += lfo2Inc;
     	if(lfo2 >= 1 || lfo2 <= -1) {
     		lfo2Inc = -lfo2Inc;
     	}
 
-    	lfo3 += lfo3Inc;
+    	/*lfo3 += lfo3Inc;
     	if(lfo3 >= 1 || lfo3 <= -1) {
     		lfo3Inc = -lfo3Inc;
     	}
