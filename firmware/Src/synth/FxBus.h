@@ -34,9 +34,9 @@ public:
 	//lfo
 	float lfo1;
 	float lfo1Inc = 0.00085f;
-	/*float lfo2;
-	float lfo2Inc = 0.0011f;
-	float lfo3;
+	float lfo2;
+	float lfo2Inc = 0.00011f;
+	/*float lfo3;
 	float lfo3Inc = 0.0000371f;
 	float lfo4;
 	float lfo4Inc = 0.0177f;*/
