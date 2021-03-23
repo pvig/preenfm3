@@ -146,7 +146,7 @@ void FxBus::mixSumInit() {
     fxInputLevel 	= synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
     fxTone 		= fxTime * 0.15f + 0.11f - lfo2 * 0.02f;
-    fxDiffusion = clamp(fxTime * 0.10f + 0.11f + lfo1 * 0.05f, 0.1f, 1);
+    fxDiffusion = clamp(fxTime * 0.10f + 0.11f + lfo2 * 0.05f, 0.1f, 1);
 
     temp 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_MOD ];
     temp 	*= 	temp;
@@ -287,18 +287,15 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// --- feed forward
 
-    	forwardReadPos 		+= 2;
     	forwardWritePos 	+= 2;
-
     	if( forwardWritePos >= forwardBufferSize )
     		forwardWritePos -= forwardBufferSize;
 
+    	forwardReadPos = forwardWritePos - forwardDelayLen + feedMod();
     	while( forwardReadPos < 0 )
     		forwardReadPos += forwardBufferSize;
-
     	while( forwardReadPos >= forwardBufferSize )
     		forwardReadPos -= forwardBufferSize;
-
         forwardReadPosInt = (int) forwardReadPos;
         forwardReadPosInt &= 0xfffffffe; // make it even
 
