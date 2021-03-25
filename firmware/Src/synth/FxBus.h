@@ -33,7 +33,7 @@ public:
 
 	//lfo
 	float lfo1;
-	float lfo1Inc = 0.00085f;
+	float lfo1Inc = 0.0014f;
 	float lfo2;
 	float lfo2Inc = 0.00011f;
 	/*float lfo3;
