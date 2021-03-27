@@ -19,7 +19,6 @@ public:
     float feedbackHermiteInterpolation(int readPos);
     float feedMod();
     float fdbckMod();
-    float phaser();
     void vcf1(int readPos);
     void vcf2(int readPos);
 
@@ -33,7 +32,7 @@ public:
 
 	//lfo
 	float lfo1;
-	float lfo1Inc = 0.0014f;
+	float lfo1Inc = 0.00096f;
 	float lfo2;
 	float lfo2Inc = 0.00011f;
 	/*float lfo3;
@@ -92,6 +91,7 @@ protected:
 	float coef3R;
 	float coef4R;
 
+	const float invBLOCKSIZE= (1/BLOCK_SIZE);
 	float vcfFreq;
 	float vcfDiffusion;
 
