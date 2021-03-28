@@ -73,6 +73,8 @@ SynthState::SynthState() {
     fullState.masterfxConfig[MASTERFX_INPUTLEVEL] = -0.95f;
     fullState.masterfxConfig[MASTERFX_MOD] = 0.3f;
     fullState.masterfxConfig[MASTERFX_SPEED] = 0.1f;
+    fullState.masterfxConfig[MASTERFX_LP] = 0.8f;
+    fullState.masterfxConfig[MASTERFX_TIMESHIFT] = 0;
 
     // Mixer
     fullState.mixerCurrentEdit = 0;

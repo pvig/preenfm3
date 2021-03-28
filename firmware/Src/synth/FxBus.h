@@ -32,13 +32,9 @@ public:
 
 	//lfo
 	float lfo1;
-	float lfo1Inc = 0.00096f;
+	float lfo1Inc = 0.001f;
 	float lfo2;
-	float lfo2Inc = 0.00011f;
-	/*float lfo3;
-	float lfo3Inc = 0.0000371f;
-	float lfo4;
-	float lfo4Inc = 0.0177f;*/
+	float lfo2Inc = 0.000113519845f;
 
 protected:
 
@@ -55,6 +51,8 @@ protected:
     float fxInputLevel = 0.5f;
     float fxMod =  0;
     float fxSpeed = 0;
+	float fxLp = 0.8;
+	float fxTimeShift = 0;
 
 	static const int forwardSampleCount = 4096;
 	static const int forwardBufferSize = forwardSampleCount * 2;
