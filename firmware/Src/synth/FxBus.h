@@ -20,7 +20,8 @@ public:
     float feedMod();
     float fdbckMod();
     void vcf1(int readPos);
-    void vcf2(int readPos);
+    void vcf2L(int readPos);
+    void vcf2R(int readPos);
 
 	float* getSampleBlock() {
 	    return sampleBlock_;
@@ -32,7 +33,7 @@ public:
 
 	//lfo
 	float lfo1;
-	float lfo1Inc = 0.001f;
+	float lfo1Inc = 0.00137521f;
 	float lfo2;
 	float lfo2Inc = 0.000113519845f;
 
@@ -54,25 +55,32 @@ protected:
 	float fxLp = 0.8;
 	float fxTimeShift = 0;
 
-	static const int forwardSampleCount = 4096;
+	static const int forwardSampleCount = 2048;
 	static const int forwardBufferSize = forwardSampleCount * 2;
-
 	static float forwardBuffer[forwardBufferSize];
+
     int forwardWritePos = 0;
     float forwardReadPos = 0;
     float forwardDelayLen = 0;
     float forwardFxTarget = 0;
     int forwardReadPosInt = 0;
 
-	static const int feedbackSampleCount = 4096;
+	static const int feedbackSampleCount = 2048;
 	static const int feedbackBufferSize = feedbackSampleCount * 2;
 
 	static float feedbackBuffer[feedbackBufferSize];
-    int feedbackWritePos = 0;
-    float feedbackReadPos = 0;
-    int feedbackReadPosInt = 0;
-    float feedbackDelayLen = 0;
-    float feedbackFxTarget = 0;
+    int feedbackWritePosL = 0;
+    float feedbackReadPosL = 0;
+    int feedbackReadPosIntL = 0;
+    float feedbackDelayLenL = 0;
+    float feedbackFxTargetL = 0;
+
+    int feedbackWritePosR = 0;
+    float feedbackReadPosR = 0;
+    int feedbackReadPosIntR = 0;
+    float feedbackDelayLenR = 0;
+    float feedbackFxTargetR = 0;
+
     float inputGainCoef = 0;
 
     // Filter
@@ -88,6 +96,8 @@ protected:
 	float coef2R;
 	float coef3R;
 	float coef4R;
+
+	float inLpF, inHpF;
 
 	const float invBLOCKSIZE= (1/BLOCK_SIZE);
 	float vcfFreq;
