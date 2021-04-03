@@ -253,7 +253,7 @@ void FxBus::mixSumInit() {
     // ----------- /vcf -----------
 
 	inHpF = 0.0125f;
-	inLpF = 0.56f;
+	inLpF = 0.64f;
 }
 
 /**
@@ -314,7 +314,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	feedbackReadPosIntR = ((int) feedbackReadPosR)&0xfffffffe;
     	feedbackReadPosIntR += 1;
 
-    	// --- split low high
+    	// --- cut low high
 
     	float attn = 0.95f;
 
@@ -322,24 +322,24 @@ void FxBus::processBlock(int32_t *outBuff) {
         hpL = *(sample) - v4L - v5L;
         v5L = inHpF * hpL + v5L;
 
-        v6L += inLpF * v5L;
+        v6L += inLpF * v7L;
         v7L += inLpF * ( hpL - v6L - v7L);
-        v6L += inLpF * v5L;
+        v6L += inLpF * v7L;
         v7L += inLpF * ( hpL - v6L - v7L);
 
-        lpL = hpL * attn;
+        lpL = v6L * attn;
 
 
         v4R = v4R + inHpF * v5R;
         hpR = *(sample+1) - v4R - v5R;
         v5R = inHpF * hpR + v5R;
 
-        v6R += inLpF * v5R;
+        v6R += inLpF * v7R;
         v7R += inLpF * (hpR -  v6R - v7R);
-        v6R += inLpF * v5R;
+        v6R += inLpF * v7R;
         v7R += inLpF * (hpR -  v6R - v7R);
 
-        lpR = hpR * attn;
+        lpR = v6R * attn;
 
 
     	// --- vcf 1
@@ -359,7 +359,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	vcf2L(feedbackReadPosIntL);
     	vcf2R(feedbackReadPosIntR);
 
-    	// --- input diffuser
+    	//
 
     	fbL = feedbackHermiteInterpolation(feedbackReadPosIntL);
     	fbR = feedbackHermiteInterpolation(feedbackReadPosIntR);
@@ -373,10 +373,10 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// --- feedback
 
     	feedbackBuffer[ feedbackWritePosL ] 		=
-    			( lpL * fxInputLevel +	fwL + clamp(_ly4L		* fxFeedback, -1, 1)) * 0.96f;
+    			clamp( (lpL * fxInputLevel +	fwL + _ly4L		* fxFeedback) * 0.96f  , -1, 1);
 
     	feedbackBuffer[ feedbackWritePosR ] 	=
-    			( lpR * fxInputLevel +	fwR + clamp(_ly4R	 	* fxFeedback, -1, 1)) * 0.96f;
+    			clamp( (lpR * fxInputLevel +	fwR + _ly4R	 	* fxFeedback) * 0.96f  , -1, 1);
 
     	// mix out
 
@@ -451,34 +451,30 @@ float FxBus::feedbackHermiteInterpolation(int readPos) {
 }
 void FxBus::vcf1(int readPos) {
 
-	float inmix;
-    const float f = 0.3f;//fxLp;
+	float inmix, hpL, hpR;
+    const float f = fxLp + 0.15f;
 
 	// Left voice
 	inmix = forwardBuffer[readPos];
 
-    v0L += f * v1L;
-    v1L += f * ( (inmix) - v0L - v1L);
+    v0L = v0L + f * v1L;
+    hpL = inmix - v0L - v1L;
+    v1L = f * hpL + v1L;
 
-    v0L += f * v1L;
-    v1L += f * ( (inmix) - v0L - v1L);
-
-    _ly1L = coef1L * (_ly1L + (inmix - v0L)) - _lx1L; // allpass
-	_lx1L = (inmix - v0L);
+    _ly1L = coef1L * (_ly1L + v1L) - _lx1L; 	// allpass
+	_lx1L = v1L;
 
     forwardBuffer[readPos] = _ly1L;
 
 	// Right voice
 	inmix = forwardBuffer[readPos + 1];
 
-    v0R += f * v1R;
-    v1R += f * ((inmix) - v0R - v1R);
+    v0R = v0R + f * v1R;
+    hpR = inmix - v0R - v1R;
+    v1R = f * hpR + v1R;
 
-    v0R += f * v1R;
-    v1R += f * ((inmix) - v0R - v1R);
-
-	_ly1R = coef1R * (_ly1R + (inmix - v0R)) - _lx1R; // allpass
-	_lx1R = (inmix - v0R);
+	_ly1R = coef1R * (_ly1R + v1R) - _lx1R; // allpass
+	_lx1R = v1R;
 
     forwardBuffer[readPos + 1] = _ly1R;
 }
@@ -487,11 +483,14 @@ void FxBus::vcf2L(int readPos) {
 	// Left voice
 	float inmix = feedbackBuffer[readPos];
 
-    v2L += fxLp * v3L;
+    v2L += fxLp * v3L;						// lowpass
     v3L += fxLp * ( (inmix) - v2L - v3L);
 
-    v2L += fxLp * v3L;
-    v3L += fxLp * ( (inmix) - v2L - v3L);
+	_ly2L = coef2L * (_ly2L + v2L) - _lx2L; // allpass
+	_lx2L = v2L;
+
+    v2L += fxLp * v3L;						// lowpass
+    v3L += fxLp * ( _ly2L - v2L - v3L);
 
 	_ly2L = coef2L * (_ly2L + v2L) - _lx2L; // allpass
 	_lx2L = v2L;
@@ -503,11 +502,14 @@ void FxBus::vcf2R(int readPos) {
 	// Right voice
     float inmix = feedbackBuffer[readPos];
 
-    v2R += fxLp * v3R;
+    v2R += fxLp * v3R;						// lowpass
     v3R += fxLp * ((inmix) - v2R - v3R);
 
-    v2R += fxLp * v3R;
-    v3R += fxLp * ((inmix) - v2R - v3R);
+	_ly2R = coef2R * (_ly2R + v2R) - _lx2R; // allpass
+	_lx2R = v2R;
+
+    v2R += fxLp * v3R;						// lowpass
+    v3R += fxLp * (_ly2R - v2R - v3R);
 
 	_ly2R = coef2R * (_ly2R + v2R) - _lx2R; // allpass
 	_lx2R = v2R;
