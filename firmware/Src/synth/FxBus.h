@@ -31,13 +31,15 @@ public:
 	    return sampleBlock_;
 	}
 
+protected:
+
 	//lfo
 	float lfo1;
 	float lfo1Inc = 0.00137521f;
 	float lfo2;
 	float lfo2Inc = 0.000113519845f;
-
-protected:
+	float lfoTremolo;
+	float lfoTremoloInc = 0.00079845f;
 
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
@@ -53,9 +55,12 @@ protected:
     float fxMod =  0;
     float fxSpeed = 0;
 	float fxLp = 0.8;
-	float fxTimeShift = 0;
+	float fxTimeShift = -0.6666667f;
+	float fxTremoloSpeed;
+	float fxTremoloDepth;
+	float fxCrossover;
 
-	static const int forwardSampleCount = 2048;
+	static const int forwardSampleCount = 4096;
 	static const int forwardBufferSize = forwardSampleCount * 2;
 	static float forwardBuffer[forwardBufferSize];
 
@@ -65,7 +70,7 @@ protected:
     float forwardFxTarget = 0;
     int forwardReadPosInt = 0;
 
-	static const int feedbackSampleCount = 2048;
+	static const int feedbackSampleCount = 4096;
 	static const int feedbackBufferSize = feedbackSampleCount * 2;
 
 	static float feedbackBuffer[feedbackBufferSize];
@@ -82,6 +87,7 @@ protected:
     float feedbackFxTargetR = 0;
 
     float inputGainCoef = 0;
+	float bpInputLevel = 0;
 
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;

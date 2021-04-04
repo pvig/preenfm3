@@ -11,6 +11,7 @@
 #define filterWindowMax 0.99f
 
 extern float diatonicScaleFrequency[];
+extern float sinTable[];
 
 inline
 float clamp(float d, float min, float max) {
@@ -109,7 +110,14 @@ float expf_fast(float a) {
   u.x = (int) (12102203 * a + 1064866805);
   return u.f;
 }
+inline
+float tri2sin(float x) {
+	//int index = (int) (x * 2048);
+    //return sinTable[index];
+	// 0 < x < 1
 
+	return x * x * (3 - x - x);
+}
 //***------------***------------***------------***------------***----- FxBus -------***------------***------------***------------
 
 float FxBus::forwardBuffer[FxBus::forwardBufferSize] __attribute__((section(".ram_d1")));
@@ -170,6 +178,8 @@ void FxBus::init(SynthState *synthState) {
 	vcfFreq = 0.44f;
 	vcfDiffusion = 0.175f;
 
+	fxLp = 0.3f;
+	fxCrossover = 0.37f;
 }
 
 /**
@@ -192,12 +202,14 @@ void FxBus::mixSumInit() {
     fxFeedback 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
     fxInputLevel 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_LP ] * 0.8f;
-    temp			*= 	temp * temp;
-    fxLp			= 	fxLp * 0.9f + temp* 0.1f;
+    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_EQ];
+    bpInputLevel	= 	bpInputLevel * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TIMESHIFT ];
-	fxTimeShift		= 	fxTimeShift * 0.9f + temp * 0.1f;
+    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLOSPEED];
+	fxTremoloSpeed	= 	fxTremoloSpeed * 0.9f + temp * 0.1f;
+
+    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLODEPTH ];
+	fxTremoloDepth	= 	fxTremoloDepth * 0.9f + temp * 0.1f;
 
     fxTone 			= 	fxTime * 0.15f + 0.11f - lfo2 * 0.02f;
     fxDiffusion 	= 	clamp(0.5f + lfo2 * 0.45f, 0.1f, 1);
@@ -253,7 +265,7 @@ void FxBus::mixSumInit() {
     // ----------- /vcf -----------
 
 	inHpF = 0.0125f;
-	inLpF = 0.64f;
+	inLpF = 0.756f;
 }
 
 /**
@@ -314,7 +326,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	feedbackReadPosIntR = ((int) feedbackReadPosR)&0xfffffffe;
     	feedbackReadPosIntR += 1;
 
-    	// --- cut low high
+    	// --- cut low / high
 
     	float attn = 0.95f;
 
@@ -323,11 +335,11 @@ void FxBus::processBlock(int32_t *outBuff) {
         v5L = inHpF * hpL + v5L;
 
         v6L += inLpF * v7L;
-        v7L += inLpF * ( hpL - v6L - v7L);
+        v7L += inLpF * (hpL - v6L - v7L);
         v6L += inLpF * v7L;
-        v7L += inLpF * ( hpL - v6L - v7L);
+        v7L += inLpF * (hpL - v6L - v7L);
 
-        lpL = v6L * attn;
+        lpL = (v6L * attn) - tanh3(v7L * bpInputLevel);
 
 
         v4R = v4R + inHpF * v5R;
@@ -335,11 +347,11 @@ void FxBus::processBlock(int32_t *outBuff) {
         v5R = inHpF * hpR + v5R;
 
         v6R += inLpF * v7R;
-        v7R += inLpF * (hpR -  v6R - v7R);
+        v7R += inLpF * (hpR - v6R - v7R);
         v6R += inLpF * v7R;
-        v7R += inLpF * (hpR -  v6R - v7R);
+        v7R += inLpF * (hpR - v6R - v7R);
 
-        lpR = v6R * attn;
+        lpR = (v6R * attn) - tanh3(v7R * bpInputLevel);
 
 
     	// --- vcf 1
@@ -349,7 +361,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// --- feed forward
 
     	fwL = forwardHermiteInterpolation(forwardReadPosInt);
-    	fwR = forwardHermiteInterpolation(forwardReadPosInt + 1);
+    	fwR = forwardHermiteInterpolation((forwardReadPosInt + 1) );
 
         forwardBuffer[ forwardWritePos ] 		= clamp( (lpL 	+ fwL * fxFeedforward) * 0.86f, -1, 1);
     	forwardBuffer[ forwardWritePos + 1 ] 	= clamp( (lpR	+ fwR * fxFeedforward) * 0.86f, -1, 1);
@@ -361,8 +373,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	//
 
-    	fbL = feedbackHermiteInterpolation(feedbackReadPosIntL);
-    	fbR = feedbackHermiteInterpolation(feedbackReadPosIntR);
+    	fbL = feedbackHermiteInterpolation(feedbackReadPosIntL) + fxCrossover * feedbackHermiteInterpolation(feedbackReadPosIntR);
+    	fbR = feedbackHermiteInterpolation(feedbackReadPosIntR) + fxCrossover * feedbackHermiteInterpolation(feedbackReadPosIntL);
 
     	_ly4L = coef4L * (_ly4L + fbL) - _lx4L; // allpass
     	_lx4L = fbL;
@@ -380,10 +392,13 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// mix out
 
-    	*(outBuff++) += (int32_t) ( ( feedbackBuffer[ feedbackWritePosL ]) 	* sampleMultipler);
-    	*(outBuff++) += (int32_t) ( ( feedbackBuffer[ feedbackWritePosR ]) 	* sampleMultipler);
+    	float tremoloModL = (tri2sin(lfoTremolo) * fxTremoloDepth + 1 - fxTremoloDepth) * 2 - 1;
+    	float tremoloModR = (tri2sin(1 - lfoTremolo) * fxTremoloDepth + 1 - fxTremoloDepth) * 2 - 1;
 
-    	sample+= 2 ;
+    	*(outBuff++) += (int32_t) ( ( feedbackBuffer[ feedbackWritePosL ]) 	* sampleMultipler * tremoloModL);
+    	*(outBuff++) += (int32_t) ( ( feedbackBuffer[ feedbackWritePosR ]) 	* sampleMultipler * tremoloModR);
+
+    	sample += 2;
 
     	// --- write index increment
 
@@ -415,6 +430,16 @@ void FxBus::processBlock(int32_t *outBuff) {
     	if(lfo2 <= -1) {
     		lfo2 = -1;
     		lfo2Inc = -lfo2Inc;
+    	}
+
+    	lfoTremolo += lfoTremoloInc * fxTremoloSpeed;
+    	if(lfoTremolo >= 1 ) {
+    		lfoTremolo = 1;
+    		lfoTremoloInc = -lfoTremoloInc;
+    	}
+    	if(lfoTremolo <= 0) {
+    		lfoTremolo = 0;
+    		lfoTremoloInc = -lfoTremoloInc;
     	}
     }
 
@@ -461,7 +486,7 @@ void FxBus::vcf1(int readPos) {
     hpL = inmix - v0L - v1L;
     v1L = f * hpL + v1L;
 
-    _ly1L = coef1L * (_ly1L + v1L) - _lx1L; 	// allpass
+    _ly1L = coef1L * (_ly1L + v1L) - _lx1L; 	// allpass LP
 	_lx1L = v1L;
 
     forwardBuffer[readPos] = _ly1L;

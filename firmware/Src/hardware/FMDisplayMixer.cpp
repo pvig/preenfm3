@@ -152,7 +152,7 @@ const struct Pfm3MixerButton scalaButton = {
 // ==
 
 
-const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 2 };
+const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 3 };
 const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
    { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
    { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
@@ -178,9 +178,9 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
 },
 {
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_NONE, nullNames },
+   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { 0, 1, 101, DISPLAY_TYPE_NONE, nullNames },
    { 0, 1, 101, DISPLAY_TYPE_NONE, nullNames },
    { 0, 1, 101, DISPLAY_TYPE_NONE, nullNames },
@@ -331,12 +331,13 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             case MIXER_VALUE_GLOBAL_SETTINGS_4:
                 switch (encoder) {
                     case 0:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_LP];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_EQ];
                         break;
                     case 1:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TIMESHIFT];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLOSPEED];
                         break;
                     case 2:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLODEPTH];
                          break;
                     case 3:
                         break;
@@ -630,13 +631,13 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
         case 3:
             switch (row) {
                 case 0:
-                    tft_->print("LP feedback");
+                    tft_->print("Bp input mod");
                     break;
                 case 1:
-                    tft_->print("Time shift");
+                    tft_->print("Tremolo speed");
                     break;
                 case 2:
-                    tft_->print("");
+                    tft_->print("Tremolo depth");
                     break;
                 case 3:
                     tft_->print("");
