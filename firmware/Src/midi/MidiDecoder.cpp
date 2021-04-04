@@ -31,6 +31,7 @@ uint8_t *usbMidiOutBuffWrt;
 extern UART_HandleTypeDef huart1;
 
 #define INV127 .00787401574803149606f
+#define INV64  .015625f
 
 RingBuffer<uint8_t, 64> usartBufferIn;
 RingBuffer<uint8_t, 64> usartBufferOut;
@@ -589,6 +590,17 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_MPE_SLIDE_CC74:
             this->synth->getTimbre(timbre)->setMatrixSource(MATRIX_SOURCE_MPESLIDE, INV127 * midiEvent.value[1]);
             break;
+<<<<<<< HEAD
+        case CC_UNISON_DETUNE:
+            this->synth->setNewValueFromMidi(timbre, ROW_ENGINE2, ENCODER_ENGINE2_UNISON_DETUNE,
+                    ((float)midiEvent.value[1]) * INV64 - 1.0f);
+            break;
+        case CC_UNISON_SPREAD:
+            this->synth->setNewValueFromMidi(timbre, ROW_ENGINE2, ENCODER_ENGINE2_UNISON_SPREAD,
+                    (float)midiEvent.value[1] * INV127);
+            break;
+=======
+>>>>>>> 2eeced1c7a624efac46afc7c136154b63ebd2c42
         case CC_MFX_TIME:
             this->synthState_->fullState.masterfxConfig[ MASTERFX_TIME ] = INV127 * midiEvent.value[1] ;
             break;
