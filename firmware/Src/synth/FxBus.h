@@ -40,6 +40,7 @@ protected:
 	float lfo2Inc = 0.000113519845f;
 	float lfoTremolo;
 	float lfoTremoloInc = 0.00079845f;
+	float tremoloEnvFollow = 0;
 
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
@@ -59,6 +60,13 @@ protected:
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
+
+	//https://www.musicdsp.org/en/latest/Analysis/136-envelope-follower-with-different-attack-and-release.html
+	const float attack_in_ms 	= 30;
+	const float release_in_ms 	= 400;
+	float attack_coef 	= expf(logf(0.01f) 	/ (attack_in_ms 	* PREENFM_FREQUENCY * 0.001f));
+	float release_coef 	= expf(logf(0.01f) 	/ (release_in_ms 	* PREENFM_FREQUENCY * 0.001f));
+	float envelope 		= 0;
 
 	static const int forwardSampleCount = 4096;
 	static const int forwardBufferSize = forwardSampleCount * 2;

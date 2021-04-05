@@ -178,8 +178,8 @@ void FxBus::init(SynthState *synthState) {
 	vcfFreq = 0.44f;
 	vcfDiffusion = 0.175f;
 
-	fxLp = 0.3f;
-	fxCrossover = 0.37f;
+	fxLp = 0.573f;
+	fxCrossover = 0.337f;
 }
 
 /**
@@ -202,8 +202,8 @@ void FxBus::mixSumInit() {
     fxFeedback 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
     fxInputLevel 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_EQ];
-    bpInputLevel	= 	bpInputLevel * 0.9f + temp * 0.1f;
+    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLOENVFOLLOW] * 0.99f;
+    tremoloEnvFollow= 	tremoloEnvFollow * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLOSPEED];
 	fxTremoloSpeed	= 	fxTremoloSpeed * 0.9f + temp * 0.1f;
@@ -273,6 +273,7 @@ void FxBus::mixSumInit() {
  */
 void FxBus::mixSum(float *inStereo, int timbreNum) {
 	const float level = synthState_->mixerState.instrumentState_[timbreNum].send;
+
 	sample = getSampleBlock();
 	for (int s = 0; s < (BLOCK_SIZE); s++) {
     	*(sample++) += *inStereo++ * level;
@@ -339,7 +340,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         v6L += inLpF * v7L;
         v7L += inLpF * (hpL - v6L - v7L);
 
-        lpL = (v6L * attn) - tanh3(v7L * bpInputLevel);
+        lpL = (v6L * attn);
 
 
         v4R = v4R + inHpF * v5R;
@@ -351,8 +352,15 @@ void FxBus::processBlock(int32_t *outBuff) {
         v6R += inLpF * v7R;
         v7R += inLpF * (hpR - v6R - v7R);
 
-        lpR = (v6R * attn) - tanh3(v7R * bpInputLevel);
+        lpR = (v6R * attn);
 
+    	// --- enveloppe follower
+
+    	float tmp = fabsf( *(sample) +  *(sample+1));
+    	if(tmp > envelope)
+    	    envelope = attack_coef 	* (envelope - tmp) + tmp;
+    	else
+    	    envelope = release_coef * (envelope - tmp) + tmp;
 
     	// --- vcf 1
 
@@ -361,7 +369,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// --- feed forward
 
     	fwL = forwardHermiteInterpolation(forwardReadPosInt);
-    	fwR = forwardHermiteInterpolation((forwardReadPosInt + 1) );
+    	fwR = forwardHermiteInterpolation(forwardReadPosInt + 1);
 
         forwardBuffer[ forwardWritePos ] 		= clamp( (lpL 	+ fwL * fxFeedforward) * 0.86f, -1, 1);
     	forwardBuffer[ forwardWritePos + 1 ] 	= clamp( (lpR	+ fwR * fxFeedforward) * 0.86f, -1, 1);
@@ -391,9 +399,8 @@ void FxBus::processBlock(int32_t *outBuff) {
     			clamp( (lpR * fxInputLevel +	fwR + _ly4R	 	* fxFeedback) * 0.96f  , -1, 1);
 
     	// mix out
-
-    	float tremoloModL = (tri2sin(lfoTremolo) * fxTremoloDepth + 1 - fxTremoloDepth) * 2 - 1;
-    	float tremoloModR = (tri2sin(1 - lfoTremolo) * fxTremoloDepth + 1 - fxTremoloDepth) * 2 - 1;
+    	float tremoloModL = ((	tri2sin(	lfoTremolo) 	* fxTremoloDepth + 1 - fxTremoloDepth) * 2 - 1);
+    	float tremoloModR = ((	tri2sin(1 - lfoTremolo) 	* fxTremoloDepth + 1 - fxTremoloDepth) * 2 - 1);
 
     	*(outBuff++) += (int32_t) ( ( feedbackBuffer[ feedbackWritePosL ]) 	* sampleMultipler * tremoloModL);
     	*(outBuff++) += (int32_t) ( ( feedbackBuffer[ feedbackWritePosR ]) 	* sampleMultipler * tremoloModR);
@@ -432,7 +439,8 @@ void FxBus::processBlock(int32_t *outBuff) {
     		lfo2Inc = -lfo2Inc;
     	}
 
-    	lfoTremolo += lfoTremoloInc * fxTremoloSpeed;
+    	float envFollowMod = 1 + tremoloEnvFollow * envelope;
+    	lfoTremolo += lfoTremoloInc * fxTremoloSpeed * envFollowMod;
     	if(lfoTremolo >= 1 ) {
     		lfoTremolo = 1;
     		lfoTremoloInc = -lfoTremoloInc;
@@ -443,6 +451,10 @@ void FxBus::processBlock(int32_t *outBuff) {
     	}
     }
 
+    /*tft_->setCharBackgroundColor(COLOR_BLACK);
+    tft_->setCharColor(COLOR_GRAY);
+    tft_->setCursorInPixel(90,25);
+    tft_->printFloatWithOneDecimal(envelope);*/
 }
 
 float FxBus::feedMod() {
@@ -486,8 +498,8 @@ void FxBus::vcf1(int readPos) {
     hpL = inmix - v0L - v1L;
     v1L = f * hpL + v1L;
 
-    _ly1L = coef1L * (_ly1L + v1L) - _lx1L; 	// allpass LP
-	_lx1L = v1L;
+    _ly1L = coef1L * (_ly1L + v0L) - _lx1L; 	// allpass LP
+	_lx1L = v0L;
 
     forwardBuffer[readPos] = _ly1L;
 
@@ -498,8 +510,8 @@ void FxBus::vcf1(int readPos) {
     hpR = inmix - v0R - v1R;
     v1R = f * hpR + v1R;
 
-	_ly1R = coef1R * (_ly1R + v1R) - _lx1R; // allpass
-	_lx1R = v1R;
+	_ly1R = coef1R * (_ly1R + v0R) - _lx1R; // allpass
+	_lx1R = v0R;
 
     forwardBuffer[readPos + 1] = _ly1R;
 }
