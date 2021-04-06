@@ -39,7 +39,7 @@ protected:
 	float lfo2;
 	float lfo2Inc = 0.000113519845f;
 	float lfoTremolo;
-	float lfoTremoloInc = 0.00079845f;
+	float lfoTremoloInc = 0.00039845f;
 	float tremoloEnvFollow = 0;
 
 	float sampleBlock_[BLOCK_SIZE * 2];
@@ -63,7 +63,7 @@ protected:
 
 	//https://www.musicdsp.org/en/latest/Analysis/136-envelope-follower-with-different-attack-and-release.html
 	const float attack_in_ms 	= 30;
-	const float release_in_ms 	= 400;
+	const float release_in_ms 	= 350;
 	float attack_coef 	= expf(logf(0.01f) 	/ (attack_in_ms 	* PREENFM_FREQUENCY * 0.001f));
 	float release_coef 	= expf(logf(0.01f) 	/ (release_in_ms 	* PREENFM_FREQUENCY * 0.001f));
 	float envelope 		= 0;
@@ -82,17 +82,14 @@ protected:
 	static const int feedbackBufferSize = feedbackSampleCount * 2;
 
 	static float feedbackBuffer[feedbackBufferSize];
-    int feedbackWritePosL = 0;
-    float feedbackReadPosL = 0;
+    int feedbackWritePos 	= 0;
+    float feedbackReadPosL 	= 0;
+    float feedbackReadPosR 	= 0;
     int feedbackReadPosIntL = 0;
-    float feedbackDelayLenL = 0;
-    float feedbackFxTargetL = 0;
-
-    int feedbackWritePosR = 0;
-    float feedbackReadPosR = 0;
     int feedbackReadPosIntR = 0;
-    float feedbackDelayLenR = 0;
-    float feedbackFxTargetR = 0;
+    int feedbackReadPosInt 	= 0;
+    float feedbackDelayLen 	= 0;
+    float feedbackFxTarget 	= 0;
 
     float inputGainCoef = 0;
 	float bpInputLevel = 0;
