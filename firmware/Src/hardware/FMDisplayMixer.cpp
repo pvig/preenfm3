@@ -152,7 +152,7 @@ const struct Pfm3MixerButton scalaButton = {
 // ==
 
 
-const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 3 };
+const uint8_t numberOfGlobalSettings[4] = { 5, 4, 4, 6 };
 const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
    { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
    { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
@@ -181,9 +181,9 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_NONE, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_NONE, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_NONE, nullNames },
+   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
 }
 };
 
@@ -321,29 +321,30 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_INPUTLEVEL];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_MOD];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_SPEED];
                         break;
                 }
                 break;
             case MIXER_VALUE_GLOBAL_SETTINGS_4:
                 switch (encoder) {
                     case 0:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLOSPEED];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_SPEED];
                         break;
                     case 1:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLODEPTH];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_MOD];
                         break;
                     case 2:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLOENVFOLLOW];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVMOD];
                          break;
                     case 3:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLOSPEED];
                         break;
                     case 4:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLODEPTH];
                         break;
                     case 5:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLOENVFOLLOW];
                         break;
                 }
                 break;
@@ -621,32 +622,32 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Input");
                     break;
                 case 4:
-                    tft_->print("Mod");
+                    tft_->print("");
                     break;
                 case 5:
-                    tft_->print("Speed");
+                    tft_->print("");
                     break;
             }
             break;
         case 3:
             switch (row) {
                 case 0:
-                    tft_->print("Tremolo speed");
+                    tft_->print("Mod Speed");
                     break;
                 case 1:
-                    tft_->print("Tremolo depth");
+                    tft_->print("Mod Depth");
                     break;
                 case 2:
-                    tft_->print("Env folow");
+                    tft_->print("Mod Env");
                     break;
                 case 3:
-                    tft_->print("");
+                    tft_->print("Tremolo Speed");
                     break;
                 case 4:
-                    tft_->print("");
+                    tft_->print("Tremolo Depth");
                     break;
                 case 5:
-                    tft_->print("");
+                    tft_->print("Tremolo Env");
                     break;
             }
         break;
