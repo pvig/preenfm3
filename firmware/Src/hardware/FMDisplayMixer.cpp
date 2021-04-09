@@ -152,7 +152,7 @@ const struct Pfm3MixerButton scalaButton = {
 // ==
 
 
-const uint8_t numberOfGlobalSettings[4] = { 5, 4, 4, 6 };
+const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 6 };
 const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
    { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
    { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
@@ -174,8 +174,8 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { 0, 100, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { 0, 100, 101, DISPLAY_TYPE_FLOAT, nullNames },
 },
 {
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
@@ -321,8 +321,10 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_INPUTLEVEL];
                         break;
                     case 4:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVATTACK];
                         break;
                     case 5:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVRELEASE];
                         break;
                 }
                 break;
@@ -622,23 +624,23 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Input");
                     break;
                 case 4:
-                    tft_->print("");
+                    tft_->print("Attack");
                     break;
                 case 5:
-                    tft_->print("");
+                    tft_->print("Release");
                     break;
             }
             break;
         case 3:
             switch (row) {
                 case 0:
-                    tft_->print("Mod Speed");
+                    tft_->print("Feed Speed");
                     break;
                 case 1:
-                    tft_->print("Mod Depth");
+                    tft_->print("Feed Depth");
                     break;
                 case 2:
-                    tft_->print("Mod Env");
+                    tft_->print("Feed Env");
                     break;
                 case 3:
                     tft_->print("Tremolo Speed");

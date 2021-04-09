@@ -61,12 +61,26 @@ protected:
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
+	float envAttackA, envReleaseA;
+	float envAttackB, envReleaseB;
+
+
+	float fwL, fwR;
+	float fbL, fbR;
+	float combInR, combInL;
+	float lpR, lpL;
+	float lowcutR, lowcutL;
+	float hpR, hpL;
+	float inR, inL;
+	float vcaR, vcaL;
+
 
 	//https://www.musicdsp.org/en/latest/Analysis/136-envelope-follower-with-different-attack-and-release.html
 	const float attack_in_ms 	= 30;
 	const float release_in_ms 	= 320;
-	float attack_coef 	= expf(logf(0.01f) 	/ (attack_in_ms 	* PREENFM_FREQUENCY * 0.001f));
-	float release_coef 	= expf(logf(0.01f) 	/ (release_in_ms 	* PREENFM_FREQUENCY * 0.001f));
+	const float loginv100 = logf(0.01f);
+	float attack_coef 	= expf(loginv100 	/ (attack_in_ms 	* PREENFM_FREQUENCY * 0.001f));
+	float release_coef 	= expf(loginv100 	/ (release_in_ms 	* PREENFM_FREQUENCY * 0.001f));
 	float envelope 		= 0;
 
 	static const int forwardSampleCount = 2531;
@@ -91,6 +105,7 @@ protected:
     int feedbackReadPosInt 	= 0;
     float feedbackDelayLen 	= 0;
     float feedbackFxTarget 	= 0;
+	float tremoloPanDepth = 0.13f;
 
     float inputGainCoef = 0;
 	float bpInputLevel = 0;
@@ -109,7 +124,7 @@ protected:
 	float coef3R;
 	float coef4R;
 
-	float inLpF, inHpF;
+	float inLpF, inHpF, harmTremoloCutF;
 
 	const float invBLOCKSIZE= (1/BLOCK_SIZE);
 	float vcfFreq;
