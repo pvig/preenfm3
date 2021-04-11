@@ -249,7 +249,7 @@ void FxBus::mixSumInit() {
  * add timbre block to bus mix
  */
 void FxBus::mixSum(float *inStereo, int timbreNum) {
-	const float level = synthState_->mixerState.instrumentState_[timbreNum].send;
+	const float level = synthState_->mixerState.instrumentState_[timbreNum].send * 0.2f; // divide by 5 for headroom
 
 	sample = getSampleBlock();
 	for (int s = 0; s < (BLOCK_SIZE); s++) {
@@ -263,7 +263,7 @@ void FxBus::mixSum(float *inStereo, int timbreNum) {
  */
 void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
-    const float sampleMultipler = (float) 0x34ffff; // fx level , max = 0x7fffff
+    const float sampleMultipler = 5 * (float) 0x34ffff; // fx level // fx level , max = 0x7fffff
 
 
 	float feedfwAttn 	= 0.93f;
@@ -331,7 +331,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         v4L = v4L + envFollowLpF * v5L;
         v5L = envFollowLpF * (v6L - v4L - v5L) + v5L;
 
-        float envIn = clamp( fabsf(v4L * 16) , 0, 1);
+        float envIn = clamp( fabsf(v4L * 16 * 5) , 0, 1);
 
         if( envIn > envelope  )
         	envelope = envIn + attack_coef * (envelope - envIn);

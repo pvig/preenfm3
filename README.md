@@ -16,7 +16,7 @@ Fork from https://github.com/Ixox/preenfm3
 (screenshot from the help file of the cyclone object)
 
 
-#### input of the comb filter is feed with an harmonic tremolo
+#### input of the comb filter is fed with an harmonic tremolo
 
 
 
