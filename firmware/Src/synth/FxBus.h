@@ -56,7 +56,7 @@ protected:
     float fxMod =  0;
     float fxSpeed = 0;
     float envMod, envModDepth;
-	float fxLp = 0.8;
+	float feedbackLp = 0.8f;
 	float fxTimeShift = -0.6666667f;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
@@ -79,12 +79,13 @@ protected:
 	const float attack_in_ms 	= 30;
 	const float release_in_ms 	= 320;
 	const float loginv100 = logf(0.01f);
-	float attack_coef 	= expf(loginv100 	/ (attack_in_ms 	* PREENFM_FREQUENCY * 0.001f));
-	float release_coef 	= expf(loginv100 	/ (release_in_ms 	* PREENFM_FREQUENCY * 0.001f));
+	float attack_coef;
+	float release_coef;
 	float envelope 		= 0;
 
 	static const int forwardSampleCount = 2531;
 	static const int forwardBufferSize = forwardSampleCount * 2;
+	static const int forwardBufferSizeReadable = forwardBufferSize - 6;
 	static float forwardBuffer[forwardBufferSize];
 
     int forwardWritePos = 0;
@@ -95,6 +96,7 @@ protected:
 
 	static const int feedbackSampleCount = 4096;
 	static const int feedbackBufferSize = feedbackSampleCount * 2;
+	static const int feedbackBufferSizeReadable = feedbackBufferSize - 6;
 
 	static float feedbackBuffer[feedbackBufferSize];
     int feedbackWritePos 	= 0;
@@ -124,7 +126,7 @@ protected:
 	float coef3R;
 	float coef4R;
 
-	float inLpF, inHpF, harmTremoloCutF;
+	float inLpF, envFollowLpF, harmTremoloCutF;
 
 	const float invBLOCKSIZE= (1/BLOCK_SIZE);
 	float vcfFreq;
