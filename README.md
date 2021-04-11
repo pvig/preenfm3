@@ -47,8 +47,8 @@ Modulation parameters
 
 1. FeedBack Speed 
 2. FeedBack Depth 
-3. FeedBack Env 
+3. FeedBack Env mod
 4. Tremolo Speed 
 5. Tremolo Depth 
-6. Tremolo Env 
+6. Tremolo Env mod
 
