@@ -94,7 +94,9 @@ protected:
     float forwardFxTarget = 0;
     int forwardReadPosInt = 0;
 
-	static const int feedbackSampleCount = 4096;
+    float nodeL, nodeR;
+
+	static const int feedbackSampleCount = 6000;
 	static const int feedbackBufferSize = feedbackSampleCount * 2;
 	static const int feedbackBufferSizeReadable = feedbackBufferSize - 6;
 
@@ -126,7 +128,8 @@ protected:
 	float coef3R;
 	float coef4R;
 
-	float inLpF, envFollowLpF, harmTremoloCutF;
+	float inLpF, inHpF, envFollowLpF, harmTremoloCutF;
+	float envLpA, envLpB;
 
 	const float invBLOCKSIZE= (1/BLOCK_SIZE);
 	float vcfFreq;
