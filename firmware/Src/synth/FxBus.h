@@ -55,7 +55,7 @@ protected:
     float fxInputLevel = 0.5f;
     float fxMod =  0;
     float fxSpeed = 0;
-    float envMod, envModDepth;
+    float envMod, envModDepth, invtime = 1, invspeed = 1;
 	float feedbackLp = 0.8f;
 	float fxTimeShift = -0.6666667f;
 	float fxTremoloSpeed;
@@ -83,7 +83,7 @@ protected:
 	float release_coef;
 	float envelope 		= 0;
 
-	static const int forwardSampleCount = 2531;
+	static const int forwardSampleCount = 3968;
 	static const int forwardBufferSize = forwardSampleCount * 2;
 	static const int forwardBufferSizeReadable = forwardBufferSize - 6;
 	static float forwardBuffer[forwardBufferSize];
@@ -96,7 +96,7 @@ protected:
 
     float nodeL, nodeR;
 
-	static const int feedbackSampleCount = 6000;
+	static const int feedbackSampleCount = 4096;
 	static const int feedbackBufferSize = feedbackSampleCount * 2;
 	static const int feedbackBufferSizeReadable = feedbackBufferSize - 6;
 
@@ -109,16 +109,16 @@ protected:
     int feedbackReadPosInt 	= 0;
     float feedbackDelayLen 	= 0;
     float feedbackFxTarget 	= 0;
-	float tremoloPanDepth = 0.13f;
+	float tremoloPanDepth 	= 0.07f;
 
-    float inputGainCoef = 0;
-	float bpInputLevel = 0;
+    float inputGainCoef 	= 0;
+	float bpInputLevel 		= 0;
 
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
-    float f1L,f2L,f3L,f4L;
-    float f1R,f2R,f3R,f4R;
+    float f1L, f2L, f3L, f4L;
+    float f1R, f2R, f3R, f4R;
 	float coef1L;
 	float coef2L;
 	float coef3L;
