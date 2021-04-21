@@ -36,10 +36,10 @@ Comb filter parameters (see screenshot)
 2. FeedForward
 3. Feedback
 4. Input
-5. Attack
+5. Threshold
 6. Release
 
-Attack & Release params are for the envelope follower
+Threshold & Release params are for the envelope follower
 
 #### Global page : Master Fx 2
 
