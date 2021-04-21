@@ -72,14 +72,14 @@ SynthState::SynthState() {
     fullState.masterfxConfig[MASTERFX_FFORWARD] = 0.75f;
     fullState.masterfxConfig[MASTERFX_FBACK] = 0.68f;
     fullState.masterfxConfig[MASTERFX_INPUTLEVEL] = -0.95f;
-    fullState.masterfxConfig[MASTERFX_MOD] = 0.3f;
-    fullState.masterfxConfig[MASTERFX_SPEED] = 0.1f;
-    fullState.masterfxConfig[MASTERFX_ENVMOD] = -0.25f;
-    fullState.masterfxConfig[MASTERFX_TREMOLOENVFOLLOW] = 0.2f;
-    fullState.masterfxConfig[MASTERFX_TREMOLOSPEED] = 0.37f;
-    fullState.masterfxConfig[MASTERFX_TREMOLODEPTH] = 0.37f;
-    fullState.masterfxConfig[MASTERFX_ENVATTACK] = 35;
-    fullState.masterfxConfig[MASTERFX_ENVRELEASE] = 66;
+    fullState.masterfxConfig[MASTERFX_MOD] = 0.2f;
+    fullState.masterfxConfig[MASTERFX_SPEED] = 0.5f;
+    fullState.masterfxConfig[MASTERFX_ENVMOD] = -0.5f;
+    fullState.masterfxConfig[MASTERFX_TREMOLOENVFOLLOW] = 0.3f;
+    fullState.masterfxConfig[MASTERFX_TREMOLOSPEED] = 0.15f;
+    fullState.masterfxConfig[MASTERFX_TREMOLODEPTH] = 0.3f;
+    fullState.masterfxConfig[MASTERFX_ENVTHRESHOLD] = 0.7f;
+    fullState.masterfxConfig[MASTERFX_ENVRELEASE] = 0.5f;
 
     // Mixer
     fullState.mixerCurrentEdit = 0;

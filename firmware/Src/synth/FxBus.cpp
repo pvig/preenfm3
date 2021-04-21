@@ -153,7 +153,7 @@ void FxBus::init(SynthState *synthState) {
 	fxCrossover = 0.337f;
 	harmTremoloCutF = 0.424f;
 
-	envFollowLpF = 0.1f;
+	envFollowLpF = 0.21f;
 
 	inLpF = 0.56f;
 	inHpF = 0.01f;
@@ -178,26 +178,17 @@ void FxBus::mixSumInit() {
     fxTime 			= 	fxTime * 0.9f + temp * 0.1f;
 
     invspeed 		= 	1 - sqrt3(synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ]);
-    float invspeed2 = 	invspeed * invspeed;
     invtime			= 	1 - sqrt3(synthState_->fullState.masterfxConfig[ MASTERFX_TIME ]);
 
     fxFeedforward	= 	synthState_->fullState.masterfxConfig[ MASTERFX_FFORWARD ];
     fxFeedback 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
     fxInputLevel 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVATTACK] * 0.99f;
-    envAttackA	 	= 	envAttackA * 0.9f + temp * 0.1f;
-    if(envAttackA != envAttackB) {
-    	attack_coef 	= expf_fast( -1.0f / (48 * (1 + envAttackA) ));
-    	envAttackB = envAttackA;
-    }
+    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD];
+    envThreshold	= 	envThreshold * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE] * 0.99f;
-    envReleaseA	 	= 	envReleaseA * 0.9f + temp * 0.1f;
-    if(envReleaseA != envReleaseB) {
-    	release_coef 	= expf_fast( -1.0f / (48 * (1 + envReleaseA)));
-    	envReleaseB = envReleaseA;
-    }
+    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE] + 0.001f;
+    envRelease	 	= 	envRelease * 0.9f + temp * 0.1f;
 
     // ------ page 2
 
@@ -206,11 +197,11 @@ void FxBus::mixSumInit() {
     fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_MOD ];
-    temp 			= 	temp * invspeed2 * 0.9f;
+    temp 			= 	temp * (0.1f + invspeed * 0.9f);
     fxMod 			= 	fxMod * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVMOD] * 0.99f;
-    temp 			*= 	temp * (0.4f + invspeed * 0.6f);
+    temp 			= 	temp * (0.4f + invspeed * 0.6f);
     envModDepth 	= 	envModDepth * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLOSPEED];
@@ -221,7 +212,9 @@ void FxBus::mixSumInit() {
 	fxTremoloDepth	= 	fxTremoloDepth * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLOENVFOLLOW] * 0.99f;
+    temp 			= 	temp * (0.4f + invspeed * 0.6f);
     tremoloEnvFollow= 	tremoloEnvFollow * 0.9f + temp * 0.1f;
+    tremoloEnvFollowAbs = fabsf(tremoloEnvFollow);
 
     // ------
 
@@ -233,6 +226,26 @@ void FxBus::mixSumInit() {
 
     feedbackFxTarget = 	getQuantizedTime(fxTime, feedbackBufferSizeReadable);
     feedbackDelayLen = 	feedbackDelayLen 	+ (feedbackFxTarget - feedbackDelayLen)	* 0.01f;
+
+    // ------ env follow
+
+	envBlocknn += BLOCK_SIZE;
+
+	if(envBlocknn > envDetectSize) {
+		if(blocksum > envThreshold) {
+			envDest = 1;
+			envM1 = 99;
+			envM2 = 0.01f;
+		} else {
+			if(envDest == 1) {
+				envDest = 0;
+				envM1 = envRelease * 99999;
+				envM2 = (1 / (envM1 + 1));
+			}
+		}
+	    blocksum = 0;
+	    envBlocknn = 0;
+	}
 
     // ----------- allpass params -----------
 
@@ -260,7 +273,7 @@ void FxBus::mixSumInit() {
  * add timbre block to bus mix
  */
 void FxBus::mixSum(float *inStereo, int timbreNum) {
-	const float level = synthState_->mixerState.instrumentState_[timbreNum].send * 0.2f; // divide by 5 for headroom
+	const float level = synthState_->mixerState.instrumentState_[timbreNum].send * 0.12f; // divide for more headroom
 
 	sample = getSampleBlock();
 	for (int s = 0; s < (BLOCK_SIZE); s++) {
@@ -274,12 +287,11 @@ void FxBus::mixSum(float *inStereo, int timbreNum) {
  */
 void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
-    const float sampleMultipler = 5 * (float) 0x7fffff; // fx level , max = 0x7fffff
+    const float sampleMultipler = 4 * (float) 0x7fffff; // fx level , max = 0x7fffff
 
 
 	float feedfwAttn 	= 0.91f;
 	float feedbackAttn 	= 0.65;
-	float attn = 1;//0.985f;
 	float tremoloEnvFollowMod, tremoloEnvFollowModAttn;
 	float tremoloModL, tremoloModR;
 	float fdbckModVal;
@@ -334,27 +346,19 @@ void FxBus::processBlock(int32_t *outBuff) {
         v6R += inLpF * v7R;
         v7R += inLpF * (inL - v6R - v7R);
 
-    	// --- enveloppe follower
+    	// --- enveloppe
 
-        // 		first lowpass input
+        blocksum += fabsf(v6L);
 
-        envLpA = envLpA + envFollowLpF * envLpB;
-        envLpB = envFollowLpF * (v6L - envLpA - envLpB) + envLpB;
+        envelope = (envelope * envM1 + envDest) * envM2;
 
-        float envIn = clamp( fabsf(envLpA * 16 * 5) , 0, 1);
-
-        if( envIn > envelope  )
-        	envelope = envIn + attack_coef * (envelope - envIn);
-        else
-        	envelope = envIn + release_coef * (envelope - envIn);
-
-        envMod = envelope * envModDepth ;
-
-        tremoloEnvFollowMod = envelope * tremoloEnvFollow;
-        tremoloEnvFollowModAttn = (tremoloEnvFollowMod + (1 - fabsf(tremoloEnvFollow)));
-
+        envMod = envModDepth * envelope;
 
     	// --- harmonic tremolo
+
+        tremoloEnvFollowMod = 1 + envelope * tremoloEnvFollow;
+        tremoloEnvFollowModAttn = (tremoloEnvFollowMod + (1 - tremoloEnvFollowAbs));
+
 
         _lx3L += harmTremoloCutF * _ly3L;
         _ly3L += harmTremoloCutF * ((v6L) - _lx3L - _ly3L);
@@ -364,7 +368,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 
         _lx3R += harmTremoloCutF * _ly3R;
-        _ly3R += harmTremoloCutF * ((v6R) - _lx3R - _ly3R);
+        _ly3R += harmTremoloCutF * (v6R - _lx3R - _ly3R);
 
         lpR = _lx3R;
         hpR = inR - lpR;
@@ -413,12 +417,17 @@ void FxBus::processBlock(int32_t *outBuff) {
     	fbL = fbLInterpol + fxCrossover * fbRInterpol;
     	fbR = fbRInterpol + fxCrossover * fbLInterpol;
 
-        // --- mix node
+    	// --- input tremolo
+
+    	vcaL = (lpL * fxInputLevel) * ((tremoloModL * tremoloPanDepth + (1-tremoloPanDepth)) * 2 - 1);
+    	vcaR = (lpR * fxInputLevel) * ((tremoloModR * tremoloPanDepth + (1-tremoloPanDepth)) * 2 - 1);
+
+    	// --- mix node
 
     	float fdbck = clamp(fxFeedback , -1, 1 );
 
-    	nodeL = clamp( (lpL * fxInputLevel +	fwL + fbL		* fdbck ) * feedbackAttn  , -1, 1);
-    	nodeR = clamp( (lpR * fxInputLevel +	fwR + fbR	 	* fdbck ) * feedbackAttn  , -1, 1);
+    	nodeL = clamp( (vcaL +	fwL + fbL		* fdbck ) * feedbackAttn  , -1, 1);
+    	nodeR = clamp( (vcaR +	fwR + fbR	 	* fdbck ) * feedbackAttn  , -1, 1);
 
     	// --- feedback
 
@@ -439,15 +448,10 @@ void FxBus::processBlock(int32_t *outBuff) {
     	_ly1R = coef4R * (_ly1R + feedbackBuffer[ feedbackWritePos+1 ]) - _lx1R; // allpass
     	_lx1R = feedbackBuffer[ feedbackWritePos+1 ];
 
-    	// --- tremolo
-
-    	vcaL = _ly1L;// * ((tremoloModL * tremoloPanDepth + (1-tremoloPanDepth)) * 2 - 1);
-    	vcaR = _ly1R;// * ((tremoloModR * tremoloPanDepth + (1-tremoloPanDepth)) * 2 - 1);
-
     	// --- mix out
 
-    	*(outBuff++) += (int32_t) ( vcaL * sampleMultipler);
-    	*(outBuff++) += (int32_t) ( vcaR * sampleMultipler);
+    	*(outBuff++) += (int32_t) ( _ly1L * sampleMultipler);
+    	*(outBuff++) += (int32_t) ( _ly1R * sampleMultipler);
 
     	sample += 2;
 
@@ -463,15 +467,16 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// --- lfo increment
 
-    	lfo1 += lfo1Inc * clamp(fxSpeed + envMod, 0, 1);
-    	if(lfo1 >= 1) {
-    		lfo1 = 1;
+    	lfo1tri -= lfo1Inc * fxSpeed;// * (1 + envMod);
+    	if(lfo1tri >= 1) {
+    		lfo1tri = 1;
     		lfo1Inc = -lfo1Inc;
     	}
-    	if(lfo1 <= -1) {
-    		lfo1 = -1;
+    	if(lfo1tri <= -1) {
+    		lfo1tri = -1;
     		lfo1Inc = -lfo1Inc;
     	}
+    	lfo1 = sigmoid(lfo1tri);
 
     	lfo2 += lfo2Inc;
     	if(lfo2 >= 1) {
@@ -483,8 +488,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     		lfo2Inc = -lfo2Inc;
     	}
 
-
-    	lfoTremolo += lfoTremoloInc * clamp(fxTremoloSpeed + tremoloEnvFollowMod, 0, 1);
+    	lfoTremolo += lfoTremoloInc * fxTremoloSpeed * tremoloEnvFollowMod;
     	lfoTremoloSin = tri2sin(lfoTremolo);
 
     	if(lfoTremolo >= 1 ) {
@@ -500,31 +504,31 @@ void FxBus::processBlock(int32_t *outBuff) {
 }
 
 float FxBus::feedMod() {
-	return ( lfo1 * fxMod * forwardFxTarget * invtime );
+	return ((lfo1 * fxMod) + envMod) * forwardFxTarget * invtime;
 }
 float FxBus::fdbckMod() {
-	return ( lfo1 * fxMod * feedbackFxTarget );
+	return ((lfo1 * fxMod) + envMod) * feedbackFxTarget;
 }
 float FxBus::forwardHermiteInterpolation(int readPos) {
-	float y0 = forwardBuffer[(readPos + forwardBufferSize - 2) % forwardBufferSize];
+	float y0 = forwardBuffer[(readPos + forwardBufferSize - 2) & (forwardBufferSize - 1) ];
 	float y1 = forwardBuffer[readPos];
 	float y2 = forwardBuffer[(readPos + 2) ];
 	float y3 = forwardBuffer[(readPos + 4) ];
 
 	float x = y2 - y1;
-	x -= floor(x);
+	x -= floorf(x);
 
     return hermite4(x, y0, y1, y2, y3);
 }
 float FxBus::feedbackHermiteInterpolation(int readPos) {
 
-	float y0 = feedbackBuffer[(readPos + feedbackBufferSize - 2) % feedbackBufferSize];
+	float y0 = feedbackBuffer[(readPos + feedbackBufferSize - 2) & (feedbackBufferSize - 1) ];
 	float y1 = feedbackBuffer[readPos];
 	float y2 = feedbackBuffer[(readPos + 2) ];
 	float y3 = feedbackBuffer[(readPos + 4) ];
 
 	float x = y2 - y1;
-	x -= floor(x);
+	x -= floorf(x);
 
     return hermite4(x, y0, y1, y2, y3);
 }

@@ -34,13 +34,13 @@ public:
 protected:
 
 	//lfo
-	float lfo1;
+	float lfo1, lfo1tri;
 	float lfo1Inc = 0.00137521f;
 	float lfo2;
 	float lfo2Inc = 0.000113519845f;
 	float lfoTremolo = 0, lfoTremoloSin = 0;
 	float lfoTremoloInc = 0.00039845f;
-	float tremoloEnvFollow = 0;
+	float tremoloEnvFollowAbs, tremoloEnvFollow = 0;
 
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
@@ -56,14 +56,12 @@ protected:
     float fxMod =  0;
     float fxSpeed = 0;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
-	float feedbackLp = 0.8f;
+	float feedbackLp = 0.65f;
 	float fxTimeShift = -0.6666667f;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
-	float envAttackA, envReleaseA;
-	float envAttackB, envReleaseB;
-
+	float envThreshold, envRelease;
 
 	float fwL, fwR;
 	float fbL, fbR;
@@ -75,13 +73,9 @@ protected:
 	float vcaR, vcaL;
 
 
-	//https://www.musicdsp.org/en/latest/Analysis/136-envelope-follower-with-different-attack-and-release.html
-	const float attack_in_ms 	= 30;
-	const float release_in_ms 	= 320;
-	const float loginv100 = logf(0.01f);
-	float attack_coef;
-	float release_coef;
-	float envelope 		= 0;
+	float envelope = 0;
+	float blocksum = 0, envDest = 0, envM1, envM2;
+	int envBlocknn = 0, envDetectSize = 32*32;
 
 	static const int forwardSampleCount = 3968;
 	static const int forwardBufferSize = forwardSampleCount * 2;
@@ -130,6 +124,7 @@ protected:
 
 	float inLpF, inHpF, envFollowLpF, harmTremoloCutF;
 	float envLpA, envLpB;
+	float expAvg = 0, avgW = 0.01f;
 
 	const float invBLOCKSIZE= (1/BLOCK_SIZE);
 	float vcfFreq;

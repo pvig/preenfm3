@@ -174,8 +174,8 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 100, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 100, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { 0, 4, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
 },
 {
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
@@ -321,7 +321,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_INPUTLEVEL];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVATTACK];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVTHRESHOLD];
                         break;
                     case 5:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVRELEASE];
@@ -624,7 +624,7 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Input");
                     break;
                 case 4:
-                    tft_->print("Attack");
+                    tft_->print("Threshold");
                     break;
                 case 5:
                     tft_->print("Release");
