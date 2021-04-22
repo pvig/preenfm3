@@ -688,8 +688,42 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             this->synth->setNewValueFromMidi(timbre, ROW_ENGINE2, ENCODER_ENGINE2_UNISON_SPREAD,
                     (float)midiEvent.value[1] * INV127);
             break;
-
-
+        case CC_MFX_TIME:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_TIME ] = INV127 * midiEvent.value[1] ;
+            break;
+        case CC_MFX_FEEDBACK:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_FEEDFORWARD:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_FFORWARD ] = INV127 * midiEvent.value[1];
+            break; 
+        case CC_MFX_INPUT_LEVEL:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_MOD_LEVEL :
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_MOD ] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_MOD_SPEED:
+            this->synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_SEND1:
+            this->synth->setNewMixerValueFromMidi(0, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            break;
+        case CC_MFX_SEND2:
+            this->synth->setNewMixerValueFromMidi(1, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            break;
+        case CC_MFX_SEND3:
+            this->synth->setNewMixerValueFromMidi(2, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            break;
+        case CC_MFX_SEND4:
+            this->synth->setNewMixerValueFromMidi(3, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            break;
+        case CC_MFX_SEND5:
+            this->synth->setNewMixerValueFromMidi(4, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            break;
+        case CC_MFX_SEND6:
+            this->synth->setNewMixerValueFromMidi(5, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            break;
         }
     }
 
