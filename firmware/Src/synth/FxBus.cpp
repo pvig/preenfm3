@@ -47,16 +47,6 @@ float sqrt3(const float x)
   u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
   return u.x;
 }
-inline float hermite1(float x, float y0, float y1, float y2, float y3)
-{
-    // 4-point, 3rd-order Hermite (x-form)
-    float c0 = y1;
-    float c1 = 0.5f * (y2 - y0);
-    float c2 = y0 - 2.5f * y1 + 2.f * y2 - 0.5f * y3;
-    float c3 = 1.5f * (y1 - y2) + 0.5f * (y3 - y0);
-
-    return ((c3 * x + c2) * x + c1) * x + c0;
-}
 // laurent de soras
 inline float hermite4(float frac_pos, float xm1, float x0, float x1, float x2)
 {
@@ -173,28 +163,46 @@ void FxBus::mixSumInit() {
 
     // ------ page 1
 
-    temp 			=  	clamp( synthState_->fullState.masterfxConfig[ MASTERFX_TIME ], 0.0003f, 0.9997f);
-    temp			*= 	temp * temp;
-    fxTime 			= 	fxTime * 0.9f + temp * 0.1f;
+    if(synthState_->fullState.masterfxConfig[ MASTERFX_TIME ] != prevTime) {
+    	prevTime 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_TIME ];
+        temp 			=  	clamp( prevTime, 0.0003f, 0.9997f);
+        temp			*= 	temp * temp;
+        fxTime 			= 	fxTime * 0.9f + temp * 0.1f;
 
-    invspeed 		= 	1 - sqrt3(synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ]);
-    invtime			= 	1 - sqrt3(synthState_->fullState.masterfxConfig[ MASTERFX_TIME ]);
+        forwardFxTarget  = 	getQuantizedTime(fxTime, forwardBufferSizeReadable);
+        forwardDelayLen  = 	forwardDelayLen 	+ ( forwardFxTarget -  forwardDelayLen)	* 0.01f;
+
+        feedbackFxTarget = 	getQuantizedTime(fxTime, feedbackBufferSizeReadable);
+        feedbackDelayLen = 	feedbackDelayLen 	+ (feedbackFxTarget - feedbackDelayLen)	* 0.01f;
+
+    }
+
+    if(synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ] != prevSpeed) {
+    	prevSpeed 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ];
+        invspeed 		= 	1 - sqrt3(prevSpeed);
+
+        temp 			= 	prevSpeed;
+        temp 			*=	temp * temp;
+        fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
+    }
 
     fxFeedforward	= 	synthState_->fullState.masterfxConfig[ MASTERFX_FFORWARD ];
     fxFeedback 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
     fxInputLevel 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD];
-    envThreshold	= 	envThreshold * 0.9f + temp * 0.1f;
+    if(synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD] != prevEnvThreshold) {
+        prevEnvThreshold = synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD];
+        envThreshold	= 	envThreshold * 0.9f + prevEnvThreshold * 0.1f;
+    }
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE] + 0.001f;
-    envRelease	 	= 	envRelease * 0.9f + temp * 0.1f;
+    if(synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE] != prevEnvRelease) {
+    	prevEnvRelease 	= synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE];
+    	prevEnvRelease 	= 	prevEnvRelease + 0.005f;
+    	prevEnvRelease	*= 	prevEnvRelease;
+        envRelease	 	= 	envRelease * 0.9f + prevEnvRelease * 0.1f;
+    }
 
     // ------ page 2
-
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ];
-    temp 			*=	temp * temp;
-    fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_MOD ];
     temp 			= 	temp * (0.1f + invspeed * 0.9f);
@@ -219,29 +227,20 @@ void FxBus::mixSumInit() {
     // ------
 
     fxTone 			= 	fxTime * 0.15f + 0.11f - lfo2 * 0.02f;
-    fxDiffusion 	= 	clamp(0.5f + lfo2 * 0.45f, 0.1f, 1);
-
-    forwardFxTarget  = 	getQuantizedTime(fxTime, forwardBufferSizeReadable);
-    forwardDelayLen  = 	forwardDelayLen 	+ ( forwardFxTarget -  forwardDelayLen)	* 0.01f;
-
-    feedbackFxTarget = 	getQuantizedTime(fxTime, feedbackBufferSizeReadable);
-    feedbackDelayLen = 	feedbackDelayLen 	+ (feedbackFxTarget - feedbackDelayLen)	* 0.01f;
 
     // ------ env follow
 
 	envBlocknn += BLOCK_SIZE;
 
 	if(envBlocknn > envDetectSize) {
-		if(blocksum > envThreshold) {
+		if( blocksum > envThreshold) {
 			envDest = 1;
-			envM1 = 99;
-			envM2 = 0.01f;
-		} else {
-			if(envDest == 1) {
-				envDest = 0;
-				envM1 = envRelease * 99999;
-				envM2 = (1 / (envM1 + 1));
-			}
+			envM1 = 249;
+			envM2 = 0.004f;
+		} else if(envDest == 1) {
+			envDest = 0;
+			envM1 = envRelease * 800000;
+			envM2 = (1 / (envM1 + 1));
 		}
 	    blocksum = 0;
 	    envBlocknn = 0;
@@ -249,20 +248,16 @@ void FxBus::mixSumInit() {
 
     // ----------- allpass params -----------
 
-	float OffsetTmp = fxDiffusion;
-	vcfDiffusion = clamp((OffsetTmp + 9.0f * vcfDiffusion) * .1f, filterWindowMin, filterWindowMax);
-
 	const float bipolarf = (vcfFreq - 0.5f);
 	const float folded = fold(sigmoid(bipolarf * 19 * vcfDiffusion)) * 4; // -1 < folded < 1
-	const float offset = vcfDiffusion * vcfDiffusion * 0.34f;
 	const float lrDelta = 0.0095f * folded;
 	const float range = 0.47f + lfo2 * 0.1f;
 
 
-    f4L = clamp(((vcfFreq + offset + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+    f4L = clamp(((vcfFreq + lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
     coef4L = (1.0f - f4L) / (1.0f + f4L);
 
-    f4R = clamp(((vcfFreq + offset - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
+    f4R = clamp(((vcfFreq - lrDelta) * range) * 2, filterWindowMin, filterWindowMax);
 	coef4R = (1.0f - f4R) / (1.0f + f4R);
 
     // -----------

@@ -45,7 +45,7 @@ protected:
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
 
-    float fxTime = 0.98;
+    float fxTime = 0.98, prevTime = -1;
     float prevFxForward = 0;
     float prevFxFeedback = 0;
     float fxFeedforward = 0.5;
@@ -54,14 +54,14 @@ protected:
     float fxDiffusion = 0.2f;
     float fxInputLevel = 0.5f;
     float fxMod =  0;
-    float fxSpeed = 0;
+    float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
 	float feedbackLp = 0.65f;
 	float fxTimeShift = -0.6666667f;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
-	float envThreshold, envRelease;
+	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 
 	float fwL, fwR;
 	float fbL, fbR;

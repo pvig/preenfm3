@@ -40,6 +40,8 @@ Comb filter parameters (see screenshot)
 6. Release
 
 Threshold & Release params are for the envelope follower
+If audio is over threshold, the envelope reach its maximum very fast.
+Then, when signal go below threshold, the envelope enter release state.
 
 #### Global page : Master Fx 2
 

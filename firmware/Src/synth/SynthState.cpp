@@ -75,10 +75,10 @@ SynthState::SynthState() {
     fullState.masterfxConfig[MASTERFX_MOD] = 0.2f;
     fullState.masterfxConfig[MASTERFX_SPEED] = 0.5f;
     fullState.masterfxConfig[MASTERFX_ENVMOD] = -0.5f;
-    fullState.masterfxConfig[MASTERFX_TREMOLOENVFOLLOW] = 0.3f;
+    fullState.masterfxConfig[MASTERFX_TREMOLOENVFOLLOW] = -0.3f;
     fullState.masterfxConfig[MASTERFX_TREMOLOSPEED] = 0.15f;
     fullState.masterfxConfig[MASTERFX_TREMOLODEPTH] = 0.3f;
-    fullState.masterfxConfig[MASTERFX_ENVTHRESHOLD] = 0.7f;
+    fullState.masterfxConfig[MASTERFX_ENVTHRESHOLD] = 0.85f;
     fullState.masterfxConfig[MASTERFX_ENVRELEASE] = 0.5f;
 
     // Mixer
