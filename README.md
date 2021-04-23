@@ -55,14 +55,15 @@ Modulation parameters
 6. Tremolo Env mod
 
 
-##### Midi CC control change
+#### Midi CC : on Global midi channel
 
-34.    SEND1
-35.    SEND2
-36.    SEND3
-37.    SEND4
-38.    SEND5
-39.    SEND6
+34.    SEND 1
+35.    SEND 2
+36.    SEND 3
+37.    SEND 4
+38.    SEND 5
+39.    SEND 6
+
 40.    TIME
 41.    FEEDFORWARD
 42.    FEEDBACK
