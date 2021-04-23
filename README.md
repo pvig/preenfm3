@@ -54,3 +54,19 @@ Modulation parameters
 5. Tremolo Depth 
 6. Tremolo Env mod
 
+
+##### Midi CC control change
+
+34.    SEND1
+35.    SEND2
+36.    SEND3
+37.    SEND4
+38.    SEND5
+39.    SEND6
+40.    TIME
+41.    FEEDFORWARD
+42.    FEEDBACK
+43.    INPUT LEVEL
+44.    MOD LEVEL
+45.    MOD SPEED   
+
