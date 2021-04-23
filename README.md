@@ -6,7 +6,7 @@ Fork from https://github.com/Ixox/preenfm3
 ## master fx branch
 
 
-#### Inspired by the pure data/cyclone comb filter :
+#### comb algo from the pure data/cyclone comb filter :
 
 
 
@@ -20,15 +20,15 @@ Fork from https://github.com/Ixox/preenfm3
 
 
 
-### The filter is controlable with 3 menu pages
+### The filter is controlable with 3 menu pages :
 
 
-#### Mix page : Fx send
+#### Mix page 3 : Fx send
 
 Set send level for each instrument
 
 
-#### Global page : Master Fx 1
+#### Global page 3 : Master Fx 1
 
 Comb filter parameters (see screenshot)
 
@@ -40,10 +40,10 @@ Comb filter parameters (see screenshot)
 6. Release
 
 Threshold & Release params are for the envelope follower  
-If audio is over threshold, the envelope reach its maximum very fast.
+If audio is over threshold, the envelope reach its maximum very fast.  
 Then, when signal go below threshold, the envelope enter release state.
 
-#### Global page : Master Fx 2
+#### Global page 4 : Master Fx 2
 
 Modulation parameters  
 
