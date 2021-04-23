@@ -209,7 +209,7 @@ void FxBus::mixSumInit() {
     fxMod 			= 	fxMod * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVMOD] * 0.99f;
-    temp 			= 	temp * (0.4f + invspeed * 0.6f);
+    temp 			*= 	temp * (0.4f + invspeed * 0.6f);
     envModDepth 	= 	envModDepth * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLOSPEED];
