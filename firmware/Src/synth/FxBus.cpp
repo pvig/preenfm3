@@ -163,7 +163,7 @@ void FxBus::mixSumInit() {
 
     // ------ page 1
 
-    if(synthState_->fullState.masterfxConfig[ MASTERFX_TIME ] != prevTime) {
+    //if(synthState_->fullState.masterfxConfig[ MASTERFX_TIME ] != prevTime) {
     	prevTime 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_TIME ];
         temp 			=  	clamp( prevTime, 0.0003f, 0.9997f);
         temp			*= 	temp * temp;
@@ -175,32 +175,32 @@ void FxBus::mixSumInit() {
         feedbackFxTarget = 	getQuantizedTime(fxTime, feedbackBufferSizeReadable);
         feedbackDelayLen = 	feedbackDelayLen 	+ (feedbackFxTarget - feedbackDelayLen)	* 0.01f;
 
-    }
+    //}
 
-    if(synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ] != prevSpeed) {
+    //if(synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ] != prevSpeed) {
     	prevSpeed 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ];
         invspeed 		= 	1 - sqrt3(prevSpeed);
 
         temp 			= 	prevSpeed;
         temp 			*=	temp * temp;
         fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
-    }
+    //}
 
     fxFeedforward	= 	synthState_->fullState.masterfxConfig[ MASTERFX_FFORWARD ];
     fxFeedback 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
     fxInputLevel 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
-    if(synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD] != prevEnvThreshold) {
+    //if(synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD] != prevEnvThreshold) {
         prevEnvThreshold = synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD];
         envThreshold	= 	envThreshold * 0.9f + prevEnvThreshold * 0.1f;
-    }
+    //}
 
-    if(synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE] != prevEnvRelease) {
+    //if(synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE] != prevEnvRelease) {
     	prevEnvRelease 	= synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE];
     	prevEnvRelease 	= 	prevEnvRelease + 0.005f;
     	prevEnvRelease	*= 	prevEnvRelease;
         envRelease	 	= 	envRelease * 0.9f + prevEnvRelease * 0.1f;
-    }
+    //}
 
     // ------ page 2
 
