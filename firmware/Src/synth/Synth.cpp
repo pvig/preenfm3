@@ -320,7 +320,7 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         instrumentCompressor_[timbre].processPfm3(sampleFromTimbre);
 
         // Send to bus fx, to mix with other timbres
-        fxBus.mixSum(timbres_[timbre].getSampleBlock(), timbre);
+        fxBus.mixAdd(timbres_[timbre].getSampleBlock(), timbre);
     }
 
     // fxBus - mixing block process

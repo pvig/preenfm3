@@ -174,8 +174,8 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 6, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { 0, 8, 101, DISPLAY_TYPE_FLOAT, nullNames },
+   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
    { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
 },
 {
@@ -316,16 +316,16 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TIME];
                         break;
                     case 1:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_FFORWARD];
-                        break;
-                    case 2:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_FBACK];
                         break;
-                    case 3:
+                    case 2:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_INPUTLEVEL];
                         break;
-                    case 4:
+                    case 3:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVTHRESHOLD];
+                        break;
+                    case 4:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVATTACK];
                         break;
                     case 5:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVRELEASE];
@@ -647,16 +647,16 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Time");
                     break;
                 case 1:
-                    tft_->print("FeedForward");
-                    break;
-                case 2:
                     tft_->print("FeedBack");
                     break;
-                case 3:
+                case 2:
                     tft_->print("Input");
                     break;
-                case 4:
+                case 3:
                     tft_->print("Threshold");
+                    break;
+                case 4:
+                    tft_->print("Attack");
                     break;
                 case 5:
                     tft_->print("Release");

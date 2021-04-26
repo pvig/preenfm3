@@ -11,7 +11,7 @@ public:
     void init(SynthState *synthState);
 
 	void mixSumInit();
-    void mixSum(float *inStereo, int timbreNum);
+    void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
     float forwardBufferInterpolation(float readPos, bool isRight);
     float forwardHermiteInterpolation(int readPos);
@@ -56,12 +56,13 @@ protected:
     float fxMod =  0;
     float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
-	float feedbackLp = 0.65f;
+	float feedbackLp, feedbackHp;
 	float fxTimeShift = -0.6666667f;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
+	float envAttack, prevEnvAttack = -1;
 
 	float fwL, fwR;
 	float fbL, fbR;
@@ -77,20 +78,9 @@ protected:
 	float blocksum = 0, envDest = 0, envM1, envM2;
 	int envBlocknn = 0, envDetectSize = 32*32;
 
-	static const int forwardSampleCount = 3968;
-	static const int forwardBufferSize = forwardSampleCount * 2;
-	static const int forwardBufferSizeReadable = forwardBufferSize - 6;
-	static float forwardBuffer[forwardBufferSize];
-
-    int forwardWritePos = 0;
-    float forwardReadPos = 0;
-    float forwardDelayLen = 0;
-    float forwardFxTarget = 0;
-    int forwardReadPosInt = 0;
-
     float nodeL, nodeR;
 
-	static const int feedbackSampleCount = 4096;
+	static const int feedbackSampleCount = 8192;
 	static const int feedbackBufferSize = feedbackSampleCount * 2;
 	static const int feedbackBufferSizeReadable = feedbackBufferSize - 6;
 
@@ -122,7 +112,7 @@ protected:
 	float coef3R;
 	float coef4R;
 
-	float inLpF, inHpF, envFollowLpF, harmTremoloCutF;
+	float inLpF, inHpF, harmTremoloCutF;
 	float envLpA, envLpB;
 	float expAvg = 0, avgW = 0.01f;
 
