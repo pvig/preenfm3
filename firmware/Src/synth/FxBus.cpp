@@ -222,7 +222,7 @@ void FxBus::mixSumInit() {
 			envDest = 1;
 			envM1 = envAttack * 800000;
 			envM2 = (1 / (envM1 + 1));
-			envelope = 0;// restart env
+			//envelope = 0;// restart env
 		} else if(envDest == 1) {
 			// release
 			envDest = 0;
@@ -270,7 +270,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
     const float sampleMultipler = 17 * (float) 0x7fffff; // fx level , max = 0x7fffff
 
-	float feedbackAttn 	= 0.878f;
+	float feedbackAttn 	= 0.883f;
 	float tremoloEnvFollowMod, tremoloEnvFollowModAttn;
 	float tremoloModL, tremoloModR;
 	float fdbckModVal;
@@ -300,6 +300,8 @@ void FxBus::processBlock(int32_t *outBuff) {
     	feedbackReadPosIntR = ((int) feedbackReadPosR)&0xfffffffe;
     	feedbackReadPosIntR += 1;
 
+        // --- audio in
+
     	inR = *(sample);
     	inL = *(sample + 1);
 
@@ -315,20 +317,12 @@ void FxBus::processBlock(int32_t *outBuff) {
         v6R += inLpF * v7R;
         v7R += inLpF * (inL - v6R - v7R);
 
-    	// --- enveloppe
-
-        blocksum += fabsf(v6L);
-
-        envelope = (envelope * envM1 + envDest) * envM2;
-
-        envMod = envModDepth * envelope;
-
-    	// --- harmonic tremolo
+    	// --- audio in > harmonic tremolo
 
         tremoloEnvFollowMod = 1 + envelope * tremoloEnvFollow;
         tremoloEnvFollowModAttn = (tremoloEnvFollowMod + (1 - tremoloEnvFollowAbs));
 
-        _lx3L += harmTremoloCutF * _ly3L;
+        _lx3L += harmTremoloCutF * _ly3L; // low pass filter
         _ly3L += harmTremoloCutF * ((v6L) - _lx3L - _ly3L);
 
         lpL = _lx3L;
@@ -346,18 +340,13 @@ void FxBus::processBlock(int32_t *outBuff) {
         combInL = lpL * tremoloModL + hpL * (1 - tremoloModL);
         combInR = lpR * tremoloModR + hpR * (1 - tremoloModR);
 
-    	// --- feedback
-
-    	feedbackBuffer[ feedbackWritePos ] 		= combInL;
-    	feedbackBuffer[ feedbackWritePos + 1 ] 	= combInR;
-
     	//
 
     	fbLInterpol = feedbackHermiteInterpolation(feedbackReadPosIntL);
     	fbRInterpol = feedbackHermiteInterpolation(feedbackReadPosIntR);
 
-    	fbL = fbLInterpol + fxCrossover * fbRInterpol;
-    	fbR = fbRInterpol + fxCrossover * fbLInterpol;
+    	fbL = fbLInterpol;// + fxCrossover * fbRInterpol;
+    	fbR = fbRInterpol;// + fxCrossover * fbLInterpol;
 
     	// --- input tremolo
 
@@ -368,8 +357,13 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	float fdbck = clamp(fxFeedback , -1, 1 );
 
-    	nodeL = clamp( (vcaL +	fbL		* fdbck ) * feedbackAttn  , -1, 1);
-    	nodeR = clamp( (vcaR +	fbR	 	* fdbck ) * feedbackAttn  , -1, 1);
+    	nodeL =  (vcaL +	fbL		* fdbck ) * feedbackAttn ;
+    	nodeR =  (vcaR +	fbR	 	* fdbck ) * feedbackAttn ;
+
+    	// --- inject in feedback buffer
+
+    	feedbackBuffer[ feedbackWritePos ] 		= nodeL;
+    	feedbackBuffer[ feedbackWritePos + 1 ] 	= nodeR;
 
         // --- low pass
 
@@ -382,6 +376,14 @@ void FxBus::processBlock(int32_t *outBuff) {
         v3R += feedbackLp * (nodeR - v2R - v3R);
 
         nodeR = v2R;
+
+    	// --- enveloppe calculation
+
+        blocksum += fabsf(v2L);
+
+        envelope = (envelope * envM1 + envDest) * envM2;
+
+        envMod = envModDepth * envelope;
 
     	// --- final allpass
 
