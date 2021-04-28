@@ -3,25 +3,12 @@
 Fork from https://github.com/Ixox/preenfm3
 
 
-## master fx branch
+## Global fx
 
-
-#### comb algo from the pure data/cyclone comb filter :
-
-
-
-![Alt text](/doc/comb_cyclone.png?raw=true "Comb filter from pure data/cyclone")
-
-
-(screenshot from the help file of the cyclone object)
-
-
-#### input of the comb filter is fed with an harmonic tremolo
-
+#### Comb filter fed with an harmonic tremolo
 
 
 ### The filter is controlable with 3 menu pages :
-
 
 #### Mix page 3 : Fx send
 
@@ -30,18 +17,17 @@ Set send level for each instrument
 
 #### Global page 3 : Master Fx 1
 
-Comb filter parameters (see screenshot)
+Comb filter parameters
 
 1. Time
-2. FeedForward
-3. Feedback
-4. Input
-5. Threshold
+2. Feedback
+3. Input
+4. Threshold
+5. Bounce
 6. Release
 
-Threshold & Release params are for the envelope follower  
-If audio is over threshold, the envelope reach its maximum very fast.  
-Then, when signal go below threshold, the envelope enter release state.
+Threshold, Release params are for the envelope follower  
+Bounce modify lfo + envelope
 
 #### Global page 4 : Master Fx 2
 

@@ -63,6 +63,9 @@ protected:
 	float fxCrossover;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float envAttack, prevEnvAttack = -1;
+	float bounce, prevBounce = -1;
+	float timeCvControl = 0;
+	float timeCv = 0, prevTimeCv = 0, timeCvDelta = 0, prevTimeCvDelta = 0;
 
 	float fwL, fwR;
 	float fbL, fbR;
