@@ -175,14 +175,14 @@ void FxBus::mixSumInit() {
     fxFeedback 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
     fxInputLevel 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
 
-	prevEnvThreshold = synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD ];
+	prevEnvThreshold = 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD ];
 	envThreshold	= 	envThreshold * 0.9f + prevEnvThreshold * 0.1f;
 
-	prevBounce 	= synthState_->fullState.masterfxConfig[ MASTERFX_BOUNCE ] + 0.005f ;
-	prevBounce	*= 	prevEnvAttack * prevEnvAttack;
-	bounce	 	= 	bounce * 0.9f + prevBounce * 0.1f;
+	prevBounce 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_BOUNCE ] + 0.005f ;
+	prevBounce		= 	prevBounce * prevBounce;
+	bounceLevel	 	= 	bounceLevel * 0.999f + prevBounce * 0.001f;
 
-	prevEnvRelease 	= synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE ] + 0.005f ;
+	prevEnvRelease 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE ] + 0.005f ;
 	prevEnvRelease	*= 	prevEnvRelease * prevEnvRelease;
 	envRelease	 	= 	envRelease * 0.9f + prevEnvRelease * 0.1f;
 
@@ -348,8 +348,8 @@ void FxBus::processBlock(int32_t *outBuff) {
     	fbLInterpol = feedbackHermiteInterpolation(feedbackReadPosIntL);
     	fbRInterpol = feedbackHermiteInterpolation(feedbackReadPosIntR);
 
-    	fbL = fbLInterpol;// + fxCrossover * fbRInterpol;
-    	fbR = fbRInterpol;// + fxCrossover * fbLInterpol;
+    	fbL = fbLInterpol + fxCrossover * fbRInterpol;
+    	fbR = fbRInterpol + fxCrossover * fbLInterpol;
 
     	// --- input tremolo
 
@@ -428,8 +428,8 @@ void FxBus::processBlock(int32_t *outBuff) {
     		lfo2Inc = -lfo2Inc;
     	}
 
-    	lfoTremolo += lfoTremoloInc * fxTremoloSpeed * tremoloEnvFollowMod;
-    	lfoTremoloSin = tri2sin(lfoTremolo);
+    	lfoTremolo		+= lfoTremoloInc * fxTremoloSpeed * tremoloEnvFollowMod;
+    	lfoTremoloSin	= tri2sin(lfoTremolo);
 
     	if(lfoTremolo >= 1 ) {
     		lfoTremolo = 1;
@@ -443,21 +443,20 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// bounce
 
     	prevTimeCv = timeCv;
-    	timeCv = (((lfo1 * fxMod) + envMod) * feedbackFxTarget);
-    	timeCvDelta = timeCvDelta * 0.99f + (prevTimeCv - timeCv) * 0.01f;
+    	timeCv = (lfo1 * fxMod + envMod) * feedbackFxTarget;
+    	timeCvSpeed += (timeCv - prevTimeCv) * 0.0001f;
+    	bouncingCv 	+= timeCvSpeed;
 
-    	timeCvControl = ((1 + timeCvDelta * 8) * bounce + (1 - bounce)) * timeCv;
+    	timeCvControl = bounceLevel * bouncingCv + (1 - bounceLevel) * timeCv;
     }
-
 }
-
 
 float FxBus::feedbackHermiteInterpolation(int readPos) {
 
 	float y0 = feedbackBuffer[(readPos + feedbackBufferSize - 2) & (feedbackBufferSize - 1) ];
 	float y1 = feedbackBuffer[readPos];
-	float y2 = feedbackBuffer[(readPos + 2) ];
-	float y3 = feedbackBuffer[(readPos + 4) ];
+	float y2 = feedbackBuffer[readPos + 2];
+	float y3 = feedbackBuffer[readPos + 4];
 
 	float x = y2 - y1;
 	x -= floorf(x);
@@ -468,25 +467,15 @@ float FxBus::feedbackHermiteInterpolation(int readPos) {
 void FxBus::vcf2L(int readPos) {
 	// Left voice
 	float inmix = feedbackBuffer[readPos];
-
-    //v0L += feedbackHp * v1L;						// lowpass
-    //v1L += feedbackHp * ( (inmix) - v0L - v1L);
-
     v2L += feedbackLp * v3L;						// lowpass
-    v3L += feedbackLp * ( (inmix - v0L) - v2L - v3L);
-
+    v3L += feedbackLp * (inmix - v2L - v3L);
     feedbackBuffer[readPos] = (v2L);
 }
-void FxBus::vcf2R(int readPos) {
 
+void FxBus::vcf2R(int readPos) {
 	// Right voice
     float inmix = feedbackBuffer[readPos];
-
-    //v0R += feedbackHp * v1R;						// lowpass
-    //v1R += feedbackHp * ( (inmix) - v0R - v1R);
-
     v2R += feedbackLp * v3R;						// lowpass
-    v3R += feedbackLp * ((inmix - v0R) - v2R - v3R);
-
+    v3R += feedbackLp * (inmix - v2R - v3R);
     feedbackBuffer[readPos] = (v2R);
 }

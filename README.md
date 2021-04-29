@@ -23,8 +23,8 @@ Comb filter parameters
 2. Feedback
 3. Input
 4. Threshold
-5. Bounce
-6. Release
+5. Release
+6. Bounce
 
 Threshold, Release params are for the envelope follower  
 Bounce modify lfo + envelope
@@ -43,17 +43,17 @@ Modulation parameters
 
 #### Midi CC : on Global midi channel
 
-34.    SEND 1
-35.    SEND 2
-36.    SEND 3
-37.    SEND 4
-38.    SEND 5
-39.    SEND 6
+34.    Send level 1
+35.    Send level 2
+36.    Send level 3
+37.    Send level 4
+38.    Send level 5
+39.    Send level 6
 
-40.    TIME
-41.    FEEDFORWARD
-42.    FEEDBACK
-43.    INPUT LEVEL
-44.    MOD LEVEL
-45.    MOD SPEED   
+40.    Time
+41.    Bounce
+42.    Feedback
+43.    Input level
+44.    Mod level
+45.    Mod speed   
 
