@@ -28,13 +28,6 @@ inline float getQuantizedTime(float t, float maxSize)
 
 }
 inline
-float expf_fast(float a) {
-  //https://github.com/ekmett/approximate/blob/master/cbits/fast.c
-  union { float f; int x; } u;
-  u.x = (int) (12102203 * a + 1064866805);
-  return u.f;
-}
-inline
 float sqrt3(const float x)
 {
   union
@@ -62,12 +55,6 @@ inline
 float sigmoid(float x)
 {
     return x * (1.5f - 0.5f * x * x);
-}
-inline
-float sigmoidPos(float x)
-{
-    //x : 0 -> 1
-    return (sigmoid((x * 2) - 1) + 1) * 0.5f;
 }
 inline
 float fold(float x4) {
@@ -135,12 +122,10 @@ void FxBus::init(SynthState *synthState) {
 	vcfDiffusion = 0.175f;
 
 	feedbackLp = 0.195f;
-	feedbackHp = 0.01f;
 	fxCrossover = 0.0337f;
 	harmTremoloCutF = 0.424f;
 
 	inLpF = 0.56f;
-	inHpF = 0.01f;
 }
 
 /**
@@ -150,14 +135,20 @@ void FxBus::mixSumInit() {
     float temp;
 	sample = getSampleBlock();
 
-    for (int s = 0; s < BLOCK_SIZE; s++) {
+    for (int s = 0; s < 8; s++) {
+    	*(sample++) = 0;
+    	*(sample++) = 0;
+    	*(sample++) = 0;
+    	*(sample++) = 0;
+    	*(sample++) = 0;
+    	*(sample++) = 0;
     	*(sample++) = 0;
     	*(sample++) = 0;
     }
 
     // ------ page 1
 
-	prevTime 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_TIME ];
+	prevTime 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_TIME ];
 	temp 			=  	clamp( prevTime, 0.0003f, 0.9997f);
 	temp			*= 	temp * temp;
 	fxTime 			= 	fxTime * 0.9f + temp * 0.1f;
@@ -165,45 +156,46 @@ void FxBus::mixSumInit() {
 	feedbackFxTarget = 	getQuantizedTime(fxTime, feedbackBufferSizeReadable);
 	feedbackDelayLen = 	feedbackDelayLen 	+ (feedbackFxTarget - feedbackDelayLen)	* 0.01f;
 
-	prevSpeed 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_SPEED ];
+	prevSpeed 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFOSPEED ];
 	invspeed 		= 	1 - sqrt3(prevSpeed);
 
 	temp 			= 	prevSpeed;
 	temp 			*=	temp * temp;
 	fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
 
-    fxFeedback 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_FBACK ];
-    fxInputLevel 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_INPUTLEVEL ];
+    fxFeedback 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_FBACK ];
+    fxInputLevel 	= 	synthState_->fullState.masterfxConfig[ GLOBALFX_INPUTLEVEL ];
+    fxInputLevelAbs	=	1 - fabsf(fxInputLevel);
 
-	prevEnvThreshold = 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVTHRESHOLD ];
+	prevEnvThreshold = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVTHRESHOLD ];
 	envThreshold	= 	envThreshold * 0.9f + prevEnvThreshold * 0.1f;
 
-	prevBounce 		= 	synthState_->fullState.masterfxConfig[ MASTERFX_BOUNCE ] + 0.005f ;
+	prevBounce 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_BOUNCE ] + 0.005f ;
 	prevBounce		= 	prevBounce * prevBounce;
-	bounceLevel	 	= 	bounceLevel * 0.999f + prevBounce * 0.001f;
+	bounceLevel	 	= 	bounceLevel * 0.9f + prevBounce * 0.1f;
 
-	prevEnvRelease 	= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVRELEASE ] + 0.005f ;
+	prevEnvRelease 	= 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVRELEASE ] + 0.005f ;
 	prevEnvRelease	*= 	prevEnvRelease * prevEnvRelease;
 	envRelease	 	= 	envRelease * 0.9f + prevEnvRelease * 0.1f;
 
     // ------ page 2
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_MOD ];
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFODEPTH ];
     temp 			= 	temp * (0.05f + invspeed * 0.95f);
     fxMod 			= 	fxMod * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_ENVMOD] * 0.99f;
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] * 0.99f;
     temp 			*= 	temp * (0.4f + invspeed * 0.6f);
     envModDepth 	= 	envModDepth * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLOSPEED];
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_TREMOLOSPEED];
 	fxTremoloSpeed	= 	fxTremoloSpeed * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLODEPTH ];
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_TREMOLODEPTH ];
     temp 			= 	temp * (0.4f + invspeed * 0.6f) ;
 	fxTremoloDepth	= 	fxTremoloDepth * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ MASTERFX_TREMOLOENVFOLLOW] * 0.99f;
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_TREMOLOENVFOLLOW] * 0.99f;
     temp 			= 	temp * (0.4f + invspeed * 0.6f);
     tremoloEnvFollow= 	tremoloEnvFollow * 0.9f + temp * 0.1f;
     tremoloEnvFollowAbs = fabsf(tremoloEnvFollow);
@@ -254,13 +246,19 @@ void FxBus::mixSumInit() {
  * add timbre block to bus mix
  */
 void FxBus::mixAdd(float *inStereo, int timbreNum) {
-	const float level = synthState_->mixerState.instrumentState_[timbreNum].send * 0.025f; // divide for more headroom
+	const float level = synthState_->mixerState.instrumentState_[timbreNum].send * 0.02f; // divide for more headroom
 
 	sample = getSampleBlock();
-	for (int s = 0; s < (BLOCK_SIZE); s++) {
+	for (int s = 0; s < 8; s++) {
     	*(sample++) += *inStereo++ * level;
     	*(sample++) += *inStereo++ * level;
-    }
+    	*(sample++) += *inStereo++ * level;
+    	*(sample++) += *inStereo++ * level;
+    	*(sample++) += *inStereo++ * level;
+    	*(sample++) += *inStereo++ * level;
+    	*(sample++) += *inStereo++ * level;
+    	*(sample++) += *inStereo++ * level;
+	}
 }
 
 /**
@@ -268,7 +266,7 @@ void FxBus::mixAdd(float *inStereo, int timbreNum) {
  */
 void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
-    const float sampleMultipler = 16.5f * (float) 0x7fffff; // fx level , max = 0x7fffff
+    const float sampleMultipler = 20.5f * (float) 0x7fffff; // fx level , max = 0x7fffff
 
 	float feedbackAttn 	= 0.883f;
 	float tremoloEnvFollowMod, tremoloEnvFollowModAttn;
@@ -353,8 +351,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// --- input tremolo
 
-    	vcaL = (combInL * fxInputLevel) * ((tremoloModL * tremoloPanDepth + (1-tremoloPanDepth)) * 2 - 1);
-    	vcaR = (combInR * fxInputLevel) * ((tremoloModR * tremoloPanDepth + (1-tremoloPanDepth)) * 2 - 1);
+    	vcaL = (combInL) * ((tremoloModL * tremoloPanDepth + (1-tremoloPanDepth)) * 2 - 1);
+    	vcaR = (combInR) * ((tremoloModR * tremoloPanDepth + (1-tremoloPanDepth)) * 2 - 1);
 
     	// --- mix node
 
@@ -378,19 +376,24 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         nodeR = v2R;
 
+        //
+
+        outL = fxInputLevel * fbLInterpol + nodeL;
+        outR = fxInputLevel * fbRInterpol + nodeR;
+
     	// --- final allpass
 
-    	_ly1L = coef4L * (_ly1L + nodeL) - _lx1L; // allpass
-    	_lx1L = nodeL;
+    	_ly1L = coef4L * (_ly1L + outL) - _lx1L; // allpass
+    	_lx1L = outL;
 
-    	_ly1R = coef4R * (_ly1R + nodeR) - _lx1R; // allpass
-    	_lx1R = nodeR;
+    	_ly1R = coef4R * (_ly1R + outR) - _lx1R; // allpass
+    	_lx1R = outR;
 
-    	_ly1L = coef4L * (_ly1L + nodeL) - _lx1L; // allpass
-    	_lx1L = nodeL;
+    	_ly1L = coef4L * (_ly1L + outL) - _lx1L; // allpass
+    	_lx1L = outL;
 
-    	_ly1R = coef4R * (_ly1R + nodeR) - _lx1R; // allpass
-    	_lx1R = nodeR;
+    	_ly1R = coef4R * (_ly1R + outR) - _lx1R; // allpass
+    	_lx1R = outR;
 
     	// --- mix out
 
@@ -442,9 +445,11 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// bounce
 
-    	prevTimeCv = timeCv;
-    	timeCv = (lfo1 * fxMod + envMod) * feedbackFxTarget;
-    	timeCvSpeed += (timeCv - prevTimeCv) * 0.0001f;
+    	prevTimeCv 	= timeCv;
+    	timeCv 		= (lfo1 * fxMod + envMod) * feedbackFxTarget;
+    	cvDelta = -(prevTimeCv - timeCv) * 0.015f;
+    	timeCvSpeed += cvDelta;
+    	timeCvSpeed *= 0.99f;
     	bouncingCv 	+= timeCvSpeed;
 
     	timeCvControl = bounceLevel * bouncingCv + (1 - bounceLevel) * timeCv;
@@ -469,7 +474,7 @@ void FxBus::vcf2L(int readPos) {
 	float inmix = feedbackBuffer[readPos];
     v2L += feedbackLp * v3L;						// lowpass
     v3L += feedbackLp * (inmix - v2L - v3L);
-    feedbackBuffer[readPos] = (v2L);
+    feedbackBuffer[readPos] = v2L;
 }
 
 void FxBus::vcf2R(int readPos) {
@@ -477,5 +482,5 @@ void FxBus::vcf2R(int readPos) {
     float inmix = feedbackBuffer[readPos];
     v2R += feedbackLp * v3R;						// lowpass
     v3R += feedbackLp * (inmix - v2R - v3R);
-    feedbackBuffer[readPos] = (v2R);
+    feedbackBuffer[readPos] = v2R;
 }

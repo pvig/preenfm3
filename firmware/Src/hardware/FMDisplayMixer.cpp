@@ -313,44 +313,44 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             case MIXER_VALUE_GLOBAL_SETTINGS_3:
                 switch (encoder) {
                     case 0:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TIME];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TIME];
                         break;
                     case 1:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_FBACK];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_FBACK];
                         break;
                     case 2:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_INPUTLEVEL];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTLEVEL];
                         break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVTHRESHOLD];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVRELEASE];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVRELEASE];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_BOUNCE];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_BOUNCE];
                         break;
                 }
                 break;
             case MIXER_VALUE_GLOBAL_SETTINGS_4:
                 switch (encoder) {
                     case 0:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_SPEED];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED];
                         break;
                     case 1:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_MOD];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH];
                         break;
                     case 2:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_ENVMOD];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVMOD];
                          break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLOSPEED];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TREMOLOSPEED];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLODEPTH];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TREMOLODEPTH];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[MASTERFX_TREMOLOENVFOLLOW];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TREMOLOENVFOLLOW];
                         break;
                 }
                 break;

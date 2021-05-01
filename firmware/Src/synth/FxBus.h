@@ -13,13 +13,8 @@ public:
 	void mixSumInit();
     void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
-    float forwardBufferInterpolation(float readPos, bool isRight);
-    float forwardHermiteInterpolation(int readPos);
-    float feedbackBufferInterpolation(float readPos, bool isRight);
     float feedbackHermiteInterpolation(int readPos);
-    float feedMod();
     float fdbckMod();
-    void vcf1(int readPos);
     void vcf2L(int readPos);
     void vcf2R(int readPos);
 
@@ -46,25 +41,22 @@ protected:
 	float *sample;
 
     float fxTime = 0.98, prevTime = -1;
-    float prevFxForward = 0;
     float prevFxFeedback = 0;
-    float fxFeedforward = 0.5;
     float fxFeedback = 0.5;
     float fxTone = 0.25f;
     float fxDiffusion = 0.2f;
-    float fxInputLevel = 0.5f;
+    float fxInputLevel = 0.5f, fxInputLevelAbs;
     float fxMod =  0;
     float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
-	float feedbackLp, feedbackHp;
-	float fxTimeShift = -0.6666667f;
+	float feedbackLp;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float bounceLevel, prevBounce = -1, bouncingCv = 0;
 	float timeCvControl = 0;
-	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvAcceleration;
+	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 
 	float fwL, fwR;
 	float fbL, fbR;
@@ -80,10 +72,10 @@ protected:
 	float blocksum = 0, envDest = 0, envM1, envM2;
 	int envBlocknn = 0, envDetectSize = 32*32;
 
-    float nodeL, nodeR;
+    float nodeL, nodeR, outL, outR;
 
-	static const int feedbackSampleCount = 8192;
-	static const int feedbackBufferSize = feedbackSampleCount * 2;
+	static const int feedbackSampleCount 	= 8192;
+	static const int feedbackBufferSize 	= feedbackSampleCount * 2;
 	static const int feedbackBufferSizeReadable = feedbackBufferSize - 6;
 
 	static float feedbackBuffer[feedbackBufferSize];
@@ -95,10 +87,7 @@ protected:
     int feedbackReadPosInt 	= 0;
     float feedbackDelayLen 	= 0;
     float feedbackFxTarget 	= 0;
-	float tremoloPanDepth 	= 0.07f;
-
-    float inputGainCoef 	= 0;
-	float bpInputLevel 		= 0;
+	const float tremoloPanDepth 	= 0.07f;
 
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
@@ -114,11 +103,8 @@ protected:
 	float coef3R;
 	float coef4R;
 
-	float inLpF, inHpF, harmTremoloCutF;
-	float envLpA, envLpB;
-	float expAvg = 0, avgW = 0.01f;
+	float inLpF, harmTremoloCutF;
 
-	const float invBLOCKSIZE= (1/BLOCK_SIZE);
 	float vcfFreq;
 	float vcfDiffusion;
 

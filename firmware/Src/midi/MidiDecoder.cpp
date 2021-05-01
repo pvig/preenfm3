@@ -445,22 +445,22 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         switch (midiEvent.value[0])
         {
         case CC_MFX_TIME:
-            this->synthState_->fullState.masterfxConfig[MASTERFX_TIME] = INV127 * midiEvent.value[1];
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_TIME] = INV127 * midiEvent.value[1];
             break;
         case CC_MFX_FEEDBACK:
-            this->synthState_->fullState.masterfxConfig[MASTERFX_FBACK] = INV127 * midiEvent.value[1];
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_FBACK] = INV127 * (midiEvent.value[1] - 64);
             break;
         case CC_MFX_BOUNCE:
-            this->synthState_->fullState.masterfxConfig[MASTERFX_BOUNCE] = INV127 * midiEvent.value[1];
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_BOUNCE] = INV127 * midiEvent.value[1];
             break;
         case CC_MFX_INPUT_LEVEL:
-            this->synthState_->fullState.masterfxConfig[MASTERFX_INPUTLEVEL] = INV127 * midiEvent.value[1];
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_INPUTLEVEL] = INV127 * (midiEvent.value[1] - 64);
             break;
         case CC_MFX_MOD_LEVEL:
-            this->synthState_->fullState.masterfxConfig[MASTERFX_MOD] = INV127 * midiEvent.value[1];
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = INV127 * midiEvent.value[1];
             break;
         case CC_MFX_MOD_SPEED:
-            this->synthState_->fullState.masterfxConfig[MASTERFX_SPEED] = INV127 * midiEvent.value[1];
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = INV127 * midiEvent.value[1];
             break;
         case CC_MFX_SEND1:
             this->synth->setNewMixerValueFromMidi(0, MIXER_VALUE_SEND, (float)midiEvent.value[1] * INV127);
