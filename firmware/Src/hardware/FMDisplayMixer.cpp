@@ -650,7 +650,7 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("FeedBack");
                     break;
                 case 2:
-                    tft_->print("Input");
+                    tft_->print("Input add");
                     break;
                 case 3:
                     tft_->print("Threshold");
