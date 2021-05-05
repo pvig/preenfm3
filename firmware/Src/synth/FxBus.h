@@ -46,7 +46,7 @@ protected:
     float fxTone = 0.25f;
     float fxDiffusion = 0.2f;
     float fxInputLevel = 0.5f, fxInputLevelAbs;
-    float fxMod =  0;
+    float lfoDepth =  0;
     float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
 	float feedbackLp;
