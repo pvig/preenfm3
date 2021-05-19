@@ -13,10 +13,8 @@ public:
 	void mixSumInit();
     void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
-    float feedbackHermiteInterpolation(int readPos);
-    float fdbckMod();
-    void vcf2L(int readPos);
-    void vcf2R(int readPos);
+    float delay1HermiteInterpolation(int readPos);
+    float delay2HermiteInterpolation(int readPos);
 
 	float* getSampleBlock() {
 	    return sampleBlock_;
@@ -31,7 +29,8 @@ protected:
 	//lfo
 	float lfo1, lfo1tri;
 	float lfo1Inc = 0.00137521f;
-	float lfo2;
+	float lfo2tri, lfo2btri;
+	float lfo2, lfo2b;
 	float lfo2Inc = 0.000113519845f;
 	float lfoTremolo = 0, lfoTremoloSin = 0;
 	float lfoTremoloInc = 0.00039845f;
@@ -40,26 +39,27 @@ protected:
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
 
-    float fxTime = 0.98, prevTime = -1;
-    float prevFxFeedback = 0;
-    float fxFeedback = 0.5;
+    float fxTime = 0.98, prevTime = -1, fxTimeLinear;
+    float prevfeedbackGain = 0;
+    float feedbackGain = 0.5;
     float fxTone = 0.25f;
     float fxDiffusion = 0.2f;
     float fxInputLevel = 0.5f, fxInputLevelAbs;
     float lfoDepth =  0;
     float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
-	float feedbackLp;
+	float delay1Lp;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
+	float pingpongFactor;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float bounceLevel, prevBounce = -1, bouncingCv = 0;
 	float timeCvControl = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
+	float spread, ratio;
 
-	float fwL, fwR;
-	float fbL, fbR;
+	float fbPoint;
 	float combInR, combInL;
 	float lpR, lpL;
 	float lowcutR, lowcutL;
@@ -74,34 +74,63 @@ protected:
 
     float nodeL, nodeR, outL, outR;
 
-	static const int feedbackSampleCount 	= 8192;
-	static const int feedbackBufferSize 	= feedbackSampleCount * 2;
-	static const int feedbackBufferSizeReadable = feedbackBufferSize - 6;
+	static const int delay1BufferSize 	= 4096;
+	static float delay1Buffer[delay1BufferSize];
+    int delay1WritePos 	= 0;
+    float delay1ReadPos 	= 0;
+    int delay1ReadPosInt = 0;
+    float delay1DelayLen 	= 0;
+    float delay1FxTarget 	= 0;
 
-	static float feedbackBuffer[feedbackBufferSize];
-    int feedbackWritePos 	= 0;
-    float feedbackReadPosL 	= 0;
-    float feedbackReadPosR 	= 0;
-    int feedbackReadPosIntL = 0;
-    int feedbackReadPosIntR = 0;
-    int feedbackReadPosInt 	= 0;
-    float feedbackDelayLen 	= 0;
-    float feedbackFxTarget 	= 0;
+	static const int delay2BufferSize 	= 4096;
+	static float delay2Buffer[delay2BufferSize];
+    int delay2WritePos 	= 0;
+    float delay2ReadPos 	= 0;
+    int delay2ReadPosInt = 0;
+    float delay2DelayLen 	= 0;
+    float delay2FxTarget 	= 0;
+
 	const float tremoloPanDepth 	= 0.07f;
+
+	// tap delay input
+
+	static const int tapDelayBufferSize 	= 4096;
+	static float tapDelayBuffer[tapDelayBufferSize];
+    int tapDelayWritePos 		= 0;
+
+	static const int tapCount 	= 6;
+	static int tapDelayPos[tapCount];
+	static float tapDelayAmp[tapCount];
+
+	// diffuser
+
+	static const int diffuserBufferLen1 = 229;
+	static const int diffuserBufferLen2 = 173;
+	static const int diffuserBufferLen3 = 611;
+	static const int diffuserBufferLen4 = 447;
+
+	static float diffuserBuffer1[diffuserBufferLen1];
+	static float diffuserBuffer2[diffuserBufferLen2];
+	static float diffuserBuffer3[diffuserBufferLen3];
+	static float diffuserBuffer4[diffuserBufferLen4];
+    int diffuserWritePos1 	= 0;
+    int diffuserWritePos2 	= 0;
+    int diffuserWritePos3 	= 0;
+    int diffuserWritePos4 	= 0;
+
+    int diffuserReadPos1;
+    int diffuserReadPos2;
+    int diffuserReadPos3;
+    int diffuserReadPos4;
+
+    float diffuserCoef1 = 0.5f, diffuserCoef1b;
+    float diffuserCoef2 = 0.55f, diffuserCoef2b;
+
+    int rand1 = 0,rand2 = 0,rand3 = 0;
 
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
-    float f1L, f2L, f3L, f4L;
-    float f1R, f2R, f3R, f4R;
-	float coef1L;
-	float coef2L;
-	float coef3L;
-	float coef4L;
-	float coef1R;
-	float coef2R;
-	float coef3R;
-	float coef4R;
 
 	float inLpF, harmTremoloCutF;
 
