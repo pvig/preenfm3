@@ -14,7 +14,8 @@ public:
     void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
     float delay1HermiteInterpolation(int readPos);
-    float delay2HermiteInterpolation(int readPos);
+    float delay1Interpolation(float readPos);
+    float delay2Interpolation(float readPos);
 
 	float* getSampleBlock() {
 	    return sampleBlock_;
@@ -59,12 +60,13 @@ protected:
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 	float spread, ratio;
 
-	float fbPoint;
+	float fbPoint, fbPoint2;
 	float combInR, combInL;
 	float lpR, lpL;
 	float lowcutR, lowcutL;
 	float hpR, hpL;
 	float inR, inL;
+	float loopHp, hpVal;
 	float vcaR, vcaL;
 
 
@@ -74,7 +76,8 @@ protected:
 
     float nodeL, nodeR, outL, outR;
 
-	static const int delay1BufferSize 	= 4096;
+	static const int delay1BufferSize 	= 4000;
+	static const int delay1BufferSizeM1	= delay1BufferSize - 1;
 	static float delay1Buffer[delay1BufferSize];
     int delay1WritePos 	= 0;
     float delay1ReadPos 	= 0;
@@ -82,11 +85,12 @@ protected:
     float delay1DelayLen 	= 0;
     float delay1FxTarget 	= 0;
 
-	static const int delay2BufferSize 	= 4096;
+	static const int delay2BufferSize 	= 3500;
+	static const int delay2BufferSizeM1	= delay2BufferSize - 1;
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
+    int delay2ReadPosInt;
     float delay2ReadPos 	= 0;
-    int delay2ReadPosInt = 0;
     float delay2DelayLen 	= 0;
     float delay2FxTarget 	= 0;
 
@@ -131,6 +135,9 @@ protected:
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
+
+    float lowL = 0, highL = 0, bandL = 0;
+    float lowR = 0, highR = 0, bandR = 0;
 
 	float inLpF, harmTremoloCutF;
 

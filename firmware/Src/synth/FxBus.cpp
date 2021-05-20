@@ -144,15 +144,23 @@ void FxBus::init(SynthState *synthState) {
 	harmTremoloCutF = 0.424f;
 
 	inLpF = 0.3f;
+	loopHp = 0.1f;
 
 	diffuserCoef1b =  (1  - (diffuserCoef1 * diffuserCoef1));
 	diffuserCoef2b =  (1  - (diffuserCoef2 * diffuserCoef2));
 
-	tapDelayPos[0] 	= 228;
+	/*tapDelayPos[0] 	= 228;
 	tapDelayPos[1] 	= 2046;
 	tapDelayPos[2] 	= 1900;
 	tapDelayPos[3] 	= 1500;
 	tapDelayPos[4] 	= 722;
+	tapDelayPos[5] 	= 322;*/
+
+	tapDelayPos[0] 	= 500;
+	tapDelayPos[1] 	= 800;
+	tapDelayPos[2] 	= 1300;
+	tapDelayPos[3] 	= 2000;
+	tapDelayPos[4] 	= 1700;
 	tapDelayPos[5] 	= 322;
 
 	tapDelayAmp[0] 	= 0.6f;
@@ -292,7 +300,6 @@ void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
     const float sampleMultipler = 20.5f * (float) 0x7fffff; // fx level
 
-	float delay1Attn 	= 0.9997f;
 	float tremoloEnvFollowMod, tremoloEnvFollowModAttn;
 	float tremoloModL, tremoloModR, inLpMod;
 	float tapAccumulatorL,tapAccumulatorR;
@@ -306,15 +313,15 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	while( delay1ReadPos < 0 )
     		delay1ReadPos += delay1BufferSize;
-    	while( delay1ReadPos >= delay1BufferSize )
-    		delay1ReadPos -= delay1BufferSize;
+    	while( delay1ReadPos >= delay1BufferSizeM1 )
+    		delay1ReadPos -= delay1BufferSizeM1;
 
     	delay2ReadPos = delay2WritePos - (delay2DelayLen + timeCvControl);
 
     	while( delay2ReadPos < 0 )
     		delay2ReadPos += delay2BufferSize;
-    	while( delay2ReadPos >= delay2BufferSize )
-    		delay2ReadPos -= delay2BufferSize;
+    	while( delay2ReadPos >= delay2BufferSizeM1 )
+    		delay2ReadPos -= delay2BufferSizeM1;
 
         // --- audio in
 
@@ -390,8 +397,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// fbPoint
 
-		delay2ReadPosInt = (int) delay2ReadPos;
-		fbPoint = delay2HermiteInterpolation(delay2ReadPosInt);
+		fbPoint = delay2Interpolation(delay2ReadPos);
 
     	float fbVal = fbPoint	* feedbackGain;
 
@@ -416,7 +422,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // diffuser
 
-        monoIn = (nodeL + nodeR) * 0.5f;
+        monoIn = -(nodeL + nodeR) * 0.5f;
 
         // ---- ap 1
         diffuserReadPos1 = diffuserWritePos1 + 1 + rand1;
@@ -440,8 +446,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// --- read delay1
 
-		delay1ReadPosInt = (int) delay1ReadPos;
-		monoIn = delay1HermiteInterpolation(delay1ReadPosInt);
+		fbPoint2 = delay1Interpolation(delay1ReadPos);
+		monoIn = fbPoint2;
 
         // ---- ap 3
         diffuserReadPos3 = diffuserWritePos3 + 1 + rand3;
@@ -478,8 +484,8 @@ void FxBus::processBlock(int32_t *outBuff) {
     	delay2Buffer[ delay2WritePos ] 		= monoIn;
 
 
-    	loopOutL = delay1Buffer[ delay1ReadPosInt ];
-    	loopOutR = delay2Buffer[ delay2ReadPosInt ];
+    	loopOutL = fbPoint;
+    	loopOutR = fbPoint2;
 
     	// --- mix out
 
@@ -568,18 +574,23 @@ float FxBus::delay1HermiteInterpolation(int readPos) {
 
     return hermite4(x, y0, y1, y2, y3);
 }
+float FxBus::delay1Interpolation(float readPos) {
+	int readPosInt = (int) readPos;
+	float y0 = delay1Buffer[readPosInt];
+	float y1 = delay1Buffer[readPosInt + 1];
 
-float FxBus::delay2HermiteInterpolation(int readPos) {
+	float x = readPos - floorf(readPos);
 
-	float y0 = delay2Buffer[(readPos + delay2BufferSize - 1) & (delay2BufferSize - 1) ];
-	float y1 = delay2Buffer[readPos];
-	float y2 = delay2Buffer[(readPos + 1)& (delay2BufferSize - 1)];
-	float y3 = delay2Buffer[(readPos + 2)& (delay2BufferSize - 1)];
+    return y0 * (1 - x) + y1 * x;
+}
+float FxBus::delay2Interpolation(float readPos) {
+	int readPosInt = (int) readPos;
+	float y0 = delay2Buffer[readPosInt];
+	float y1 = delay2Buffer[readPosInt + 1];
 
-	float x = y2 - y1;
-	x -= floorf(x);
+	float x = readPos - floorf(readPos);
 
-    return hermite4(x, y0, y1, y2, y3);
+    return y0 * (1 - x) + y1 * x;
 }
 
 
