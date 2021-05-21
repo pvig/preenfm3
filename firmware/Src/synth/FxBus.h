@@ -76,7 +76,7 @@ protected:
 
     float nodeL, nodeR, outL, outR;
 
-	static const int delay1BufferSize 	= 4000;
+	static const int delay1BufferSize 	= 4407;
 	static const int delay1BufferSizeM1	= delay1BufferSize - 1;
 	static float delay1Buffer[delay1BufferSize];
     int delay1WritePos 	= 0;
@@ -85,7 +85,7 @@ protected:
     float delay1DelayLen 	= 0;
     float delay1FxTarget 	= 0;
 
-	static const int delay2BufferSize 	= 3500;
+	static const int delay2BufferSize 	= 4212;
 	static const int delay2BufferSizeM1	= delay2BufferSize - 1;
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
@@ -129,6 +129,10 @@ protected:
 
     float diffuserCoef1 = 0.5f, diffuserCoef1b;
     float diffuserCoef2 = 0.55f, diffuserCoef2b;
+
+	float monoIn, ap1In, ap2In, ap3In, ap4In;
+	float ap1Out, ap2Out, ap3Out, ap4Out;
+	float feedback1, feedback2;
 
     int rand1 = 0,rand2 = 0,rand3 = 0;
 
