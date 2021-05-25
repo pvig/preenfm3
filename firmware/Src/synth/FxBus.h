@@ -15,6 +15,8 @@ public:
 	void processBlock(int32_t *outBuff);
     float delay1HermiteInterpolation(int readPos);
     float delay1Interpolation(float readPos);
+    float diffuser1Interpolation(float readPos);
+    float diffuser3Interpolation(float readPos);
     float delay2Interpolation(float readPos);
 
 	float* getSampleBlock() {
@@ -32,7 +34,7 @@ protected:
 	float lfo1Inc = 0.00137521f;
 	float lfo2tri, lfo2btri;
 	float lfo2, lfo2b;
-	float lfo2Inc = 0.000113519845f;
+	float lfo2Inc = 0.000081113519845f;
 	float lfoTremolo = 0, lfoTremoloSin = 0;
 	float lfoTremoloInc = 0.00039845f;
 	float tremoloEnvFollowAbs, tremoloEnvFollow = 0;
@@ -49,7 +51,7 @@ protected:
     float lfoDepth =  0;
     float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
-	float delay1Lp;
+	float loopLpf, loopHpf;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
@@ -59,15 +61,17 @@ protected:
 	float timeCvControl = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 	float spread, ratio;
-
+	float loopDecoupler = 0.027f;
+	float loopDecoupler2 = 0.03f;
 	float fbPoint, fbPoint2;
 	float combInR, combInL;
+	float tremoloOut;
 	float lpR, lpL;
 	float lowcutR, lowcutL;
 	float hpR, hpL;
 	float inR, inL;
 	float loopHp, hpVal;
-	float vcaR, vcaL;
+	float vca, vcaR, vcaL;
 
 
 	float envelope = 0;
@@ -96,6 +100,13 @@ protected:
 
 	const float tremoloPanDepth 	= 0.07f;
 
+	//pre delay
+	static const int predelayBufferSize 	= 4096;
+	static float predelayBuffer[predelayBufferSize];
+    int predelaySize 			= predelayBufferSize;
+    int predelayWritePos 		= 0;
+    int predelayReadPos 		= 0;
+
 	// tap delay input
 
 	static const int tapDelayBufferSize 	= 4096;
@@ -112,6 +123,10 @@ protected:
 	static const int diffuserBufferLen2 = 173;
 	static const int diffuserBufferLen3 = 611;
 	static const int diffuserBufferLen4 = 447;
+	static const int diffuserBufferLen1M1 = diffuserBufferLen1 - 1;
+	static const int diffuserBufferLen2M1 = diffuserBufferLen2 - 1;
+	static const int diffuserBufferLen3M1 = diffuserBufferLen3 - 1;
+	static const int diffuserBufferLen4M1 = diffuserBufferLen4 - 1;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
 	static float diffuserBuffer2[diffuserBufferLen2];
@@ -122,13 +137,13 @@ protected:
     int diffuserWritePos3 	= 0;
     int diffuserWritePos4 	= 0;
 
-    int diffuserReadPos1;
+    float diffuserReadPos1;
     int diffuserReadPos2;
-    int diffuserReadPos3;
+    float diffuserReadPos3;
     int diffuserReadPos4;
 
-    float diffuserCoef1 = 0.5f, diffuserCoef1b;
-    float diffuserCoef2 = 0.55f, diffuserCoef2b;
+    float diffuserCoef1 = 0.51f, diffuserCoef1b;
+    float diffuserCoef2 = 0.5f, diffuserCoef2b;
 
 	float monoIn, ap1In, ap2In, ap3In, ap4In;
 	float ap1Out, ap2Out, ap3Out, ap4Out;
