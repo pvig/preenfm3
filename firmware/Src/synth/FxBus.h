@@ -17,7 +17,7 @@ public:
     float delay1Interpolation(float readPos);
     float diffuser1Interpolation(float readPos);
     float diffuser3Interpolation(float readPos);
-    float delay2Interpolation(float readPos);
+    float delay3Interpolation(float readPos);
 
 	float* getSampleBlock() {
 	    return sampleBlock_;
@@ -35,6 +35,10 @@ protected:
 	float lfo2tri, lfo2btri;
 	float lfo2, lfo2b;
 	float lfo2Inc = 0.000081113519845f;
+	float lfo2IncMod;
+	float lfo2ModVal;
+	int   lfo2ChangeCounter = 0;
+	const int   lfo2ChangePeriod = 17733;
 	float lfoTremolo = 0, lfoTremoloSin = 0;
 	float lfoTremoloInc = 0.00039845f;
 	float tremoloEnvFollowAbs, tremoloEnvFollow = 0;
@@ -51,7 +55,7 @@ protected:
     float lfoDepth =  0;
     float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
-	float loopLpf, loopHpf;
+	float loopLpf, monoInHpf;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
@@ -61,8 +65,14 @@ protected:
 	float timeCvControl = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 	float spread, ratio;
-	float loopDecoupler = 0.027f;
-	float loopDecoupler2 = 0.03f;
+	const float decoupler1 = 0.017f;
+	const float decoupler2 = 0.013f;
+	float loopDecoupler = 0;
+	float loopDecoupler2 = 0;
+	float loopDecouplerModVal;
+	int   loopDecouplerChangeCounter = 0;
+	const int   loopDecouplerChangePeriod = 15733;
+
 	float fbPoint, fbPoint2;
 	float combInR, combInL;
 	float tremoloOut;
@@ -80,7 +90,7 @@ protected:
 
     float nodeL, nodeR, outL, outR;
 
-	static const int delay1BufferSize 	= 4407;
+	static const int delay1BufferSize 	= 4007;
 	static const int delay1BufferSizeM1	= delay1BufferSize - 1;
 	static float delay1Buffer[delay1BufferSize];
     int delay1WritePos 	= 0;
@@ -89,19 +99,33 @@ protected:
     float delay1DelayLen 	= 0;
     float delay1FxTarget 	= 0;
 
-	static const int delay2BufferSize 	= 4212;
+	static const int delay2BufferSize 	= 137;
 	static const int delay2BufferSizeM1	= delay2BufferSize - 1;
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
     int delay2ReadPosInt;
-    float delay2ReadPos 	= 0;
-    float delay2DelayLen 	= 0;
-    float delay2FxTarget 	= 0;
+
+	static const int delay3BufferSize 	= 3912;
+	static const int delay3BufferSizeM1	= delay3BufferSize - 1;
+	static float delay3Buffer[delay3BufferSize];
+    int delay3WritePos 	= 0;
+    int delay3ReadPosInt;
+    float delay3ReadPos 	= 0;
+    float delay3DelayLen 	= 0;
+    float delay3FxTarget 	= 0;
+
+	static const int delay4BufferSize 	= 102;
+	static const int delay4BufferSizeM1	= delay4BufferSize - 1;
+	static float delay4Buffer[delay4BufferSize];
+    int delay4WritePos 	= 0;
+    int delay4ReadPosInt;
+
+
 
 	const float tremoloPanDepth 	= 0.07f;
 
 	//pre delay
-	static const int predelayBufferSize 	= 4096;
+	static const int predelayBufferSize 	= 2048;
 	static float predelayBuffer[predelayBufferSize];
     int predelaySize 			= predelayBufferSize;
     int predelayWritePos 		= 0;
