@@ -169,11 +169,18 @@ void FxBus::init(SynthState *synthState) {
 	tapDelayPos[4] 	= 722;
 	tapDelayPos[5] 	= 322;*/
 
-	tapDelayPos[0] 	= 228;
+	/*tapDelayPos[0] 	= 228;
 	tapDelayPos[1] 	= 2046;
 	tapDelayPos[2] 	= 1500;
 	tapDelayPos[3] 	= 1300;
 	tapDelayPos[4] 	= 722;
+	tapDelayPos[5] 	= 322;*/
+
+	tapDelayPos[0] 	= 142;
+	tapDelayPos[1] 	= 107;
+	tapDelayPos[2] 	= 379;
+	tapDelayPos[3] 	= 277;
+	tapDelayPos[4] 	= 228;
 	tapDelayPos[5] 	= 322;
 
 	tapDelayAmp[0] 	= 0.5f;
@@ -293,7 +300,7 @@ void FxBus::mixSumInit() {
 
 	if (lfo2ChangeCounter++ > lfo2ChangePeriod) {
 		lfo2ChangeCounter = 0;
-		lfo2ModVal = noise[0] * noise[0] * 1.5f;
+		lfo2ModVal = noise[0] * noise[0] * 0.5f;
 		lfo2IncMod = lfo2Inc * (1 + lfo2ModVal);
 	}
 
@@ -340,13 +347,17 @@ void FxBus::processBlock(int32_t *outBuff) {
     const float sampleMultipler = 40.5f * (float) 0x7fffff; // fx level
 
 	float tremoloEnvFollowMod, tremoloEnvFollowModAttn;
-	float tremoloMod, inLpMod;
+	float tremoloMod = 0, inLpMod;
 	float tapAccumulator;
-	float hiLL, hiLR;
+	float declouple1, declouple2, declouple3;
 	float loopOutL, loopOutR;
 	int tapPos;
 
 	for (int s = 0; s < BLOCK_SIZE; s++) {
+
+		declouple1 = lfo2 * loopDecoupler;
+		declouple2 = lfo2 * loopDecoupler2;
+		declouple3 = lfo2b * loopDecoupler2;
 
     	delay1ReadPos = delay1WritePos - (delay1DelayLen + timeCvControl);
     	while( delay1ReadPos < 0 )
@@ -355,19 +366,23 @@ void FxBus::processBlock(int32_t *outBuff) {
     		delay1ReadPos -= delay1BufferSizeM1;
 
 
-    	delay2ReadPosInt = delay2WritePos - delay2BufferSizeM1;
-    	if( delay2ReadPosInt < 0 )
-    		delay2ReadPosInt += delay2BufferSize;
+    	delay2ReadPos = delay2WritePos - (delay2DelayLen * (1 + declouple1) );;
+    	while( delay2ReadPos < 0 )
+    		delay2ReadPos += delay2BufferSize;
+    	while( delay2ReadPos >= delay2BufferSizeM1 )
+    		delay2ReadPos -= delay2BufferSizeM1;
 
-    	delay3ReadPos = delay3WritePos - (delay3DelayLen + timeCvControl);
+    	delay3ReadPos = delay3WritePos - (delay3DelayLen + lfo2);
     	while( delay3ReadPos < 0 )
     		delay3ReadPos += delay3BufferSize;
     	while( delay3ReadPos >= delay3BufferSizeM1 )
     		delay3ReadPos -= delay3BufferSizeM1;
 
-    	delay4ReadPosInt = delay4WritePos - delay4BufferSizeM1;
-    	if( delay4ReadPosInt < 0 )
-    		delay4ReadPosInt += delay4BufferSize;
+    	delay4ReadPos = delay4WritePos - (delay4DelayLen + lfo2b );
+    	while( delay4ReadPos < 0 )
+    		delay4ReadPos += delay4BufferSize;
+    	while( delay4ReadPos >= delay4BufferSizeM1 )
+    		delay4ReadPos -= delay4BufferSizeM1;
 
         // --- audio in
 
@@ -434,7 +449,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         tapAccumulator = 0;
 
         for(int aa=0; aa<tapCount; aa++) {
-            tapPos = (tapDelayWritePos + tapDelayPos[aa])&(tapDelayBufferSize - 1);
+            tapPos = (tapDelayWritePos + tapDelayPos[aa])&(tapDelayBufferSizeM1);
             tapAccumulator += tapDelayBuffer[ tapPos ] * tapDelayAmp[aa];
         }
 
@@ -465,9 +480,9 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // ---- ap 1
 
-        ap1In = monoIn + clamp( ap4Out * feedback1 * (1 + envMod + lfo2 * loopDecoupler), -1, 1);
+        ap1In = monoIn + clamp( ap4Out * feedback1 * (1 + envMod + declouple1), -1, 1);
 
-        diffuserReadPos1 = diffuserWritePos1 + 1 + lfo2b * loopDecoupler2;
+        diffuserReadPos1 = diffuserWritePos1 + 1 + declouple3;
     	if( diffuserReadPos1 >= diffuserBufferLen1M1 )
     		diffuserReadPos1 -= diffuserBufferLen1M1;
 
@@ -506,13 +521,13 @@ void FxBus::processBlock(int32_t *outBuff) {
     	delay2Buffer[ delay2WritePos ] 		= ap2Out;
 
     	// ----------------------------------------------> read delay2
-    	ap2Out = delay2Buffer[ delay2ReadPosInt ];
+    	ap2Out = delay2Interpolation(delay2ReadPos);
 
         // ---- ap 3
 
 		ap3In = monoIn + clamp( ap2Out * feedback2 * (1 + envMod + lfo2b * loopDecoupler), -1, 1);
 
-        diffuserReadPos3 = diffuserWritePos3 + 1 + lfo2 * loopDecoupler2;
+        diffuserReadPos3 = diffuserWritePos3 + 1 + declouple2;
     	if( diffuserReadPos3 >= diffuserBufferLen3M1 )
     		diffuserReadPos3 -= diffuserBufferLen3M1;
 
@@ -549,8 +564,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	delay4Buffer[ delay4WritePos ] 		= ap4Out;
 
     	// ----------------------------------------------> read delay4
-    	ap4Out = delay4Buffer[ delay4ReadPosInt ];
-
+    	ap4Out = delay4Interpolation(delay4ReadPos);
 
         // increment
 
@@ -568,7 +582,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     		diffuserWritePos4 = 0;
 
 
-    	// --- mix out
+    	// ================================================  mix out
 
     	loopOutL = ap1Out - ap2In + ap2Out;
     	loopOutR = ap3Out - ap4In + ap4Out;
@@ -694,10 +708,28 @@ float FxBus::delay1Interpolation(float readPos) {
 
     return y0 * (1 - x) + y1 * x;
 }
+float FxBus::delay2Interpolation(float readPos) {
+	int readPosInt = (int) readPos;
+	float y0 = delay2Buffer[readPosInt];
+	float y1 = delay2Buffer[readPosInt + 1];
+
+	float x = readPos - floorf(readPos);
+
+    return y0 * (1 - x) + y1 * x;
+}
 float FxBus::delay3Interpolation(float readPos) {
 	int readPosInt = (int) readPos;
 	float y0 = delay3Buffer[readPosInt];
 	float y1 = delay3Buffer[readPosInt + 1];
+
+	float x = readPos - floorf(readPos);
+
+    return y0 * (1 - x) + y1 * x;
+}
+float FxBus::delay4Interpolation(float readPos) {
+	int readPosInt = (int) readPos;
+	float y0 = delay4Buffer[readPosInt];
+	float y1 = delay4Buffer[readPosInt + 1];
 
 	float x = readPos - floorf(readPos);
 

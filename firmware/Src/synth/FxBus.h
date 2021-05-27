@@ -15,9 +15,12 @@ public:
 	void processBlock(int32_t *outBuff);
     float delay1HermiteInterpolation(int readPos);
     float delay1Interpolation(float readPos);
+    float delay2Interpolation(float readPos);
+    float delay3Interpolation(float readPos);
+    float delay4Interpolation(float readPos);
     float diffuser1Interpolation(float readPos);
     float diffuser3Interpolation(float readPos);
-    float delay3Interpolation(float readPos);
+
 
 	float* getSampleBlock() {
 	    return sampleBlock_;
@@ -99,11 +102,13 @@ protected:
     float delay1DelayLen 	= 0;
     float delay1FxTarget 	= 0;
 
-	static const int delay2BufferSize 	= 137;
+	static const int delay2BufferSize 	= 560;
 	static const int delay2BufferSizeM1	= delay2BufferSize - 1;
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
-    int delay2ReadPosInt;
+    int delay2ReadPos;
+    float delay2DelayLen 	= 0;
+    float delay2FxTarget 	= 0;
 
 	static const int delay3BufferSize 	= 3912;
 	static const int delay3BufferSizeM1	= delay3BufferSize - 1;
@@ -114,13 +119,13 @@ protected:
     float delay3DelayLen 	= 0;
     float delay3FxTarget 	= 0;
 
-	static const int delay4BufferSize 	= 102;
+	static const int delay4BufferSize 	= 1020;
 	static const int delay4BufferSizeM1	= delay4BufferSize - 1;
 	static float delay4Buffer[delay4BufferSize];
     int delay4WritePos 	= 0;
-    int delay4ReadPosInt;
-
-
+    int delay4ReadPos;
+    float delay4DelayLen 	= 0;
+    float delay4FxTarget 	= 0;
 
 	const float tremoloPanDepth 	= 0.07f;
 
@@ -133,7 +138,8 @@ protected:
 
 	// tap delay input
 
-	static const int tapDelayBufferSize 	= 4096;
+	static const int tapDelayBufferSize 	= 512;
+	static const int tapDelayBufferSizeM1	= tapDelayBufferSize - 1;
 	static float tapDelayBuffer[tapDelayBufferSize];
     int tapDelayWritePos 		= 0;
 
