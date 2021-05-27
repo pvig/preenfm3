@@ -93,7 +93,7 @@ protected:
 
     float nodeL, nodeR, outL, outR;
 
-	static const int delay1BufferSize 	= 4007;
+	static const int delay1BufferSize 	= 4217;
 	static const int delay1BufferSizeM1	= delay1BufferSize - 1;
 	static float delay1Buffer[delay1BufferSize];
     int delay1WritePos 	= 0;
@@ -102,7 +102,7 @@ protected:
     float delay1DelayLen 	= 0;
     float delay1FxTarget 	= 0;
 
-	static const int delay2BufferSize 	= 560;
+	static const int delay2BufferSize 	= 2620;
 	static const int delay2BufferSizeM1	= delay2BufferSize - 1;
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
@@ -110,7 +110,7 @@ protected:
     float delay2DelayLen 	= 0;
     float delay2FxTarget 	= 0;
 
-	static const int delay3BufferSize 	= 3912;
+	static const int delay3BufferSize 	= 4443;
 	static const int delay3BufferSizeM1	= delay3BufferSize - 1;
 	static float delay3Buffer[delay3BufferSize];
     int delay3WritePos 	= 0;
@@ -119,7 +119,7 @@ protected:
     float delay3DelayLen 	= 0;
     float delay3FxTarget 	= 0;
 
-	static const int delay4BufferSize 	= 1020;
+	static const int delay4BufferSize 	= 1820;
 	static const int delay4BufferSizeM1	= delay4BufferSize - 1;
 	static float delay4Buffer[delay4BufferSize];
     int delay4WritePos 	= 0;
@@ -127,9 +127,8 @@ protected:
     float delay4DelayLen 	= 0;
     float delay4FxTarget 	= 0;
 
-	const float tremoloPanDepth 	= 0.07f;
-
 	//pre delay
+
 	static const int predelayBufferSize 	= 2048;
 	static float predelayBuffer[predelayBufferSize];
     int predelaySize 			= predelayBufferSize;
@@ -138,7 +137,7 @@ protected:
 
 	// tap delay input
 
-	static const int tapDelayBufferSize 	= 512;
+    static const int tapDelayBufferSize 	= 512;
 	static const int tapDelayBufferSizeM1	= tapDelayBufferSize - 1;
 	static float tapDelayBuffer[tapDelayBufferSize];
     int tapDelayWritePos 		= 0;
@@ -172,8 +171,8 @@ protected:
     float diffuserReadPos3;
     int diffuserReadPos4;
 
-    float diffuserCoef1 = 0.51f, diffuserCoef1b;
-    float diffuserCoef2 = 0.5f, diffuserCoef2b;
+    float diffuserCoef1 = 0.6f, diffuserCoef1b;
+    float diffuserCoef2 = 0.7f, diffuserCoef2b;
 
 	float monoIn, ap1In, ap2In, ap3In, ap4In;
 	float ap1Out, ap2Out, ap3Out, ap4Out;
