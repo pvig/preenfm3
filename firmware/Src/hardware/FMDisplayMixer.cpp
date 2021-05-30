@@ -53,7 +53,7 @@ const struct Pfm3MixerButtonState panButtonState = {
 };
 
 const struct Pfm3MixerButtonState fxButtonState = {
-      "Fx send", MIXER_VALUE_SEND,
+      "Fx dry/wet", MIXER_VALUE_SEND,
       {0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames }
 };
 
@@ -644,7 +644,7 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
         case 2:
             switch (row) {
                 case 0:
-                    tft_->print("Time");
+                    tft_->print("Pre delay");
                     break;
                 case 1:
                     tft_->print("FeedBack");

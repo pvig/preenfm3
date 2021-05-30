@@ -11,13 +11,14 @@ public:
     void init(SynthState *synthState);
 
 	void mixSumInit();
-    void mixAdd(float *inStereo, int timbreNum);
+    void mixAdd(float *inStereo, int timbreNum, int32_t *outBuffer);
 	void processBlock(int32_t *outBuff);
     float delay1HermiteInterpolation(int readPos);
     float delay1Interpolation(float readPos);
     float delay2Interpolation(float readPos);
     float delay3Interpolation(float readPos);
     float delay4Interpolation(float readPos);
+    float predelayInterpolation(float readPos);
     float diffuser1Interpolation(float readPos);
     float diffuser3Interpolation(float readPos);
 
@@ -131,11 +132,12 @@ protected:
 	//pre delay
 
 	static const int predelayBufferSize 	= 4096;
+	static const int predelayBufferSizeM1 	= predelayBufferSize - 1;
 	static float predelayBuffer[predelayBufferSize];
     int predelaySize 			= predelayBufferSize;
     int predelaySizeM1 			= predelayBufferSize - 1;
     int predelayWritePos 		= 0;
-    int predelayReadPos 		= 0;
+    float predelayReadPos 		= 0;
 
 	// tap delay input
 
@@ -209,8 +211,6 @@ protected:
     float ap1In, ap2In, ap3In, ap4In;
 	float ap1Out, ap2Out, ap3Out, ap4Out;
 	float feedbackInL = 0, feedbackInR = 0;
-
-    int rand1 = 0,rand2 = 0,rand3 = 0;
 
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;

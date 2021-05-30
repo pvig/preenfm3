@@ -320,7 +320,7 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         instrumentCompressor_[timbre].processPfm3(sampleFromTimbre);
 
         // Send to bus fx, to mix with other timbres
-        fxBus.mixAdd(timbres_[timbre].getSampleBlock(), timbre);
+        fxBus.mixAdd(timbres_[timbre].getSampleBlock(), timbre, buffer1);
     }
 
     // fxBus - mixing block process
@@ -330,7 +330,8 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         float *sampleFromTimbre = timbres_[timbre].getSampleBlock();
 
         // Max is 0x7fffff * [-1:1]
-        float sampleMultipler = (float) 0x7fffff;
+        //float sampleMultipler = (float) 0x7fffff;
+        float sampleMultipler = (1 - synthState_->mixerState.instrumentState_[timbre].send) * (float) 0x7fffff;
 
         switch (synthState_->mixerState.instrumentState_[timbre].out) {
             // 0 => out1+out2, 1 => out1, 2=> out2
