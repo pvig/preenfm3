@@ -20,8 +20,12 @@ public:
     float delay4Interpolation(float readPos);
     float predelayInterpolation(float readPos);
     float diffuser1Interpolation(float readPos);
+    float diffuser1HermiteInterpolation(int readPos);
+    float diffuser2Interpolation(float readPos);
     float diffuser3Interpolation(float readPos);
-
+    float diffuser3HermiteInterpolation(int readPos);
+    float diffuser4Interpolation(float readPos);
+    float * crossFade(float t);
 
 	float* getSampleBlock() {
 	    return sampleBlock_;
@@ -39,10 +43,12 @@ protected:
 	float lfo2tri, lfo2btri;
 	float lfo2, lfo2b;
 	float lfo2Inc = 0.00011113519845f;
+	float lfo2IncModSampleInc = 0;
 	float lfo2IncMod;
 	float lfo2ModVal;
 	int   lfo2ChangeCounter = 0;
 	const int   lfo2ChangePeriod = 17733;
+	const int   lfo2ChangePeriodInv = 1 / lfo2ChangePeriod;
 	float lfoTremolo = 0, lfoTremoloSin = 0;
 	float lfoTremoloInc = 0.00039845f;
 	float tremoloEnvFollowAbs, tremoloEnvFollow = 0;
@@ -55,11 +61,12 @@ protected:
     float feedbackGain = 0.5;
     float fxTone = 0.25f;
     float fxDiffusion = 0.2f;
-    float fxInputLevel = 0.5f, fxInputLevelAbs;
+    float predelayMixLevel = 0.5f;
+    float predelayMixAttn = predelayMixLevel * 0.75;
     float lfoDepth =  0;
     float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
-	float loopLpf, monoInHpf;
+	float loopLpf, loopLpf2, loopHpf,  monoInHpf;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
@@ -94,7 +101,7 @@ protected:
 
     float nodeL, nodeR, outL, outR;
 
-	static const int delay1BufferSize 	= 1217;
+	static const int delay1BufferSize 	= 4453;
 	static const int delay1BufferSizeM1	= delay1BufferSize - 1;
 	static float delay1Buffer[delay1BufferSize];
     int delay1WritePos 	= 0;
@@ -103,7 +110,7 @@ protected:
     float delay1DelayLen 	= 0;
     float delay1FxTarget 	= 0;
 
-	static const int delay2BufferSize 	= 2620;
+	static const int delay2BufferSize 	= 2;//2620;
 	static const int delay2BufferSizeM1	= delay2BufferSize - 1;
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
@@ -111,7 +118,7 @@ protected:
     float delay2DelayLen 	= 0;
     float delay2FxTarget 	= 0;
 
-	static const int delay3BufferSize 	= 1443;
+	static const int delay3BufferSize 	= 4217;
 	static const int delay3BufferSizeM1	= delay3BufferSize - 1;
 	static float delay3Buffer[delay3BufferSize];
     int delay3WritePos 	= 0;
@@ -120,7 +127,7 @@ protected:
     float delay3DelayLen 	= 0;
     float delay3FxTarget 	= 0;
 
-	static const int delay4BufferSize 	= 1820;
+	static const int delay4BufferSize 	= 2;//3820;
 	static const int delay4BufferSizeM1	= delay4BufferSize - 1;
 	static float delay4Buffer[delay4BufferSize];
     int delay4WritePos 	= 0;
@@ -131,7 +138,7 @@ protected:
 
 	//pre delay
 
-	static const int predelayBufferSize 	= 4096;
+	static const int predelayBufferSize 	= 8000;
 	static const int predelayBufferSizeM1 	= predelayBufferSize - 1;
 	static float predelayBuffer[predelayBufferSize];
     int predelaySize 			= predelayBufferSize;
@@ -153,10 +160,10 @@ protected:
 
 	// input diffuser
 
-	static const int inputBufferLen1 = 142;
-	static const int inputBufferLen2 = 107;
-	static const int inputBufferLen3 = 379;
-	static const int inputBufferLen4 = 277;
+	static const int inputBufferLen1 = 229;
+	static const int inputBufferLen2 = 172;
+	static const int inputBufferLen3 = 611;
+	static const int inputBufferLen4 = 447;
 	static const int inputBufferLen1M1 = inputBufferLen1 - 1;
 	static const int inputBufferLen2M1 = inputBufferLen2 - 1;
 	static const int inputBufferLen3M1 = inputBufferLen3 - 1;
@@ -176,15 +183,15 @@ protected:
     int inputReadPos3;
     int inputReadPos4;
 
-    float inputCoef1 = 0.75f, inputCoef1b;
-    float inputCoef2 = 0.625f, inputCoef2b;
+    float inputCoef1 = 0.685f, inputCoef1b;
+    float inputCoef2 = 0.779f, inputCoef2b;
 
 	// diffuser decay
 
 	static const int diffuserBufferLen1 = 672;
-	static const int diffuserBufferLen2 = 1800;
+	static const int diffuserBufferLen2 = 2903;
 	static const int diffuserBufferLen3 = 908;
-	static const int diffuserBufferLen4 = 2656;
+	static const int diffuserBufferLen4 = 4283;
 	static const int diffuserBufferLen1M1 = diffuserBufferLen1 - 1;
 	static const int diffuserBufferLen2M1 = diffuserBufferLen2 - 1;
 	static const int diffuserBufferLen3M1 = diffuserBufferLen3 - 1;
@@ -204,8 +211,8 @@ protected:
     float diffuserReadPos3;
     int diffuserReadPos4;
 
-    float diffuserCoef1 = 0.6f, diffuserCoef1b;
-    float diffuserCoef2 = 0.5f, diffuserCoef2b;
+    float diffuserCoef1 = 0.87f, diffuserCoef1b;
+    float diffuserCoef2 = 0.88f, diffuserCoef2b;
 
 	float monoIn, diff1Out, diff2Out, diff3Out, diff4Out;
     float ap1In, ap2In, ap3In, ap4In;

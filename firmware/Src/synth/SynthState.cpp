@@ -69,8 +69,8 @@ SynthState::SynthState() {
 
     // Master FX
     fullState.masterfxConfig[GLOBALFX_TIME] = 0.8f;
+    fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.33f;
     fullState.masterfxConfig[GLOBALFX_FBACK] = 0.76f;
-    fullState.masterfxConfig[GLOBALFX_INPUTLEVEL] = -0.10f;
     fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.1f;
     fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.6f;
     fullState.masterfxConfig[GLOBALFX_ENVMOD] = -0.15f;

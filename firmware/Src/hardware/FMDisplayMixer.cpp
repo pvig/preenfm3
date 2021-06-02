@@ -154,38 +154,39 @@ const struct Pfm3MixerButton scalaButton = {
 
 
 const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 6 };
-const struct Pfm3MixerButtonStateParam globalSettings[4][6] = { {
-   { 0, 5, 6, DISPLAY_TYPE_STRINGS, mpeOptions },
-   { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
-   { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
-   { 0, 1, 2, DISPLAY_TYPE_STRINGS, enableNames },
-   { 420, 460, 401, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 2, 3, DISPLAY_TYPE_STRINGS, levelMeterWhere },
-},
-{
-   { 0, 127, 128, DISPLAY_TYPE_INT, nullNames },
-   { 0, 127, 128, DISPLAY_TYPE_INT, nullNames },
-   { 0, 127, 128, DISPLAY_TYPE_INT, nullNames },
-   { 0, 127, 128, DISPLAY_TYPE_INT, nullNames },
-   { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames }
-},
-{
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 8, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-},
-{
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-   { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-}
+const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
+    {
+        { 0, 5, 6, DISPLAY_TYPE_STRINGS, mpeOptions },
+        { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
+        { 0, 16, 17, DISPLAY_TYPE_STRINGS, midiWithNone },
+        { 0, 1, 2, DISPLAY_TYPE_STRINGS, enableNames },
+        { 420, 460, 401, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 2, 3, DISPLAY_TYPE_STRINGS, levelMeterWhere },
+    },
+    {
+        { 0, 127, 128, DISPLAY_TYPE_INT, nullNames },
+        { 0, 127, 128, DISPLAY_TYPE_INT, nullNames },
+        { 0, 127, 128, DISPLAY_TYPE_INT, nullNames },
+        { 0, 127, 128, DISPLAY_TYPE_INT, nullNames },
+        { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames }
+    },
+    {
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 8, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+    },
+    {
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+    }
 };
 
 
@@ -316,10 +317,10 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TIME];
                         break;
                     case 1:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_FBACK];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX];
                         break;
                     case 2:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTLEVEL];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_FBACK];
                         break;
                     case 3:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD];
@@ -647,10 +648,10 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Pre delay");
                     break;
                 case 1:
-                    tft_->print("FeedBack");
+                    tft_->print("Pre delay Mix");
                     break;
                 case 2:
-                    tft_->print("Input add");
+                    tft_->print("FeedBack");
                     break;
                 case 3:
                     tft_->print("Threshold");
