@@ -42,7 +42,7 @@ protected:
 	float lfo1Inc = 0.00137521f;
 	float lfo2tri, lfo2btri;
 	float lfo2, lfo2b;
-	float lfo2Inc = 0.00011113519845f;
+	float lfo2Inc = 0.0000711113519845f;
 	float lfo2IncModSampleInc = 0;
 	float lfo2IncMod;
 	float lfo2ModVal;
@@ -110,7 +110,7 @@ protected:
     float delay1DelayLen 	= 0;
     float delay1FxTarget 	= 0;
 
-	static const int delay2BufferSize 	= 2;//2620;
+	static const int delay2BufferSize 	= 3720;
 	static const int delay2BufferSizeM1	= delay2BufferSize - 1;
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
@@ -127,7 +127,7 @@ protected:
     float delay3DelayLen 	= 0;
     float delay3FxTarget 	= 0;
 
-	static const int delay4BufferSize 	= 2;//3820;
+	static const int delay4BufferSize 	= 3163;
 	static const int delay4BufferSizeM1	= delay4BufferSize - 1;
 	static float delay4Buffer[delay4BufferSize];
     int delay4WritePos 	= 0;
@@ -148,22 +148,22 @@ protected:
 
 	// tap delay input
 
-    static const int tapDelayBufferSize 	= 512;
+    static const int tapDelayBufferSize 	= 3000;
 	static const int tapDelayBufferSizeM1	= tapDelayBufferSize - 1;
 	static float tapDelayBuffer[tapDelayBufferSize];
     int tapDelayWritePos 		= 0;
 
-	static const int tapCount 	= 6;
+	static const int tapCount 	= 7;
 	static int tapDelayPos[tapCount];
 	static float tapDelayAmp[tapCount];
 
 
 	// input diffuser
 
-	static const int inputBufferLen1 = 229;
-	static const int inputBufferLen2 = 172;
-	static const int inputBufferLen3 = 611;
-	static const int inputBufferLen4 = 447;
+	static const int inputBufferLen1 = 141;
+	static const int inputBufferLen2 = 107;
+	static const int inputBufferLen3 = 379;
+	static const int inputBufferLen4 = 227;
 	static const int inputBufferLen1M1 = inputBufferLen1 - 1;
 	static const int inputBufferLen2M1 = inputBufferLen2 - 1;
 	static const int inputBufferLen3M1 = inputBufferLen3 - 1;
@@ -183,15 +183,15 @@ protected:
     int inputReadPos3;
     int inputReadPos4;
 
-    float inputCoef1 = 0.685f, inputCoef1b;
-    float inputCoef2 = 0.779f, inputCoef2b;
+    float inputCoef1 = 0.7f, inputCoef1b;
+    float inputCoef2 = 0.625f, inputCoef2b;
 
 	// diffuser decay
 
 	static const int diffuserBufferLen1 = 672;
-	static const int diffuserBufferLen2 = 2903;
+	static const int diffuserBufferLen2 = 1800;
 	static const int diffuserBufferLen3 = 908;
-	static const int diffuserBufferLen4 = 4283;
+	static const int diffuserBufferLen4 = 2656;
 	static const int diffuserBufferLen1M1 = diffuserBufferLen1 - 1;
 	static const int diffuserBufferLen2M1 = diffuserBufferLen2 - 1;
 	static const int diffuserBufferLen3M1 = diffuserBufferLen3 - 1;
@@ -211,8 +211,8 @@ protected:
     float diffuserReadPos3;
     int diffuserReadPos4;
 
-    float diffuserCoef1 = 0.87f, diffuserCoef1b;
-    float diffuserCoef2 = 0.88f, diffuserCoef2b;
+    float diffuserCoef1 = 0.75f, diffuserCoef1b;
+    float diffuserCoef2 = 0.65f, diffuserCoef2b;
 
 	float monoIn, diff1Out, diff2Out, diff3Out, diff4Out;
     float ap1In, ap2In, ap3In, ap4In;

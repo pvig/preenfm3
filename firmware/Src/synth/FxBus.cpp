@@ -173,49 +173,34 @@ void FxBus::init(SynthState *synthState) {
 	v7R = 0;
 
 	monoInHpf = 0.05f;
-	loopLpf = 0.52f;
-	loopLpf2 = 0.5f;
+	loopLpf = 0.43f;
+	loopLpf2 = loopLpf - 0.02f;
 	loopHpf = 0.1f;
 	harmTremoloCutF = 0.58f;
 
 	inLpF = 0.55f;
 
-	diffuserCoef1b =  (1  - (diffuserCoef1 * diffuserCoef1));
-	diffuserCoef2b =  (1  - (diffuserCoef2 * diffuserCoef2));
+	diffuserCoef1b =  diffuserCoef1 * (1  - (diffuserCoef1 * diffuserCoef1));
+	diffuserCoef2b =  diffuserCoef2 * (1  - (diffuserCoef2 * diffuserCoef2));
 
 	inputCoef1b =  (1  - (inputCoef1 * inputCoef1));
 	inputCoef2b =  (1  - (inputCoef2 * inputCoef2));
 
-	/*tapDelayPos[0] 	= 228;
-	tapDelayPos[1] 	= 2046;
-	tapDelayPos[2] 	= 1900;
-	tapDelayPos[3] 	= 1500;
-	tapDelayPos[4] 	= 722;
-	tapDelayPos[5] 	= 322;*/
+	tapDelayPos[0] 	= 187;
+	tapDelayPos[1] 	= 266;
+	tapDelayPos[2] 	= 1066;
+	tapDelayPos[3] 	= 1913;
+	tapDelayPos[4] 	= 1996;
+	tapDelayPos[5] 	= 1990;
+	tapDelayPos[6] 	= 2974;
 
-	/*tapDelayPos[0] 	= 228;
-	tapDelayPos[1] 	= 2046;
-	tapDelayPos[2] 	= 1500;
-	tapDelayPos[3] 	= 1300;
-	tapDelayPos[4] 	= 722;
-	tapDelayPos[5] 	= 322;*/
-
-	tapDelayPos[0] 	= 228;
-	tapDelayPos[1] 	= 2046;
-	tapDelayPos[2] 	= 1900;
-	tapDelayPos[3] 	= 1500;
-	tapDelayPos[4] 	= 722;
-	tapDelayPos[5] 	= 322;
-
-	tapDelayAmp[0] 	= 0.5f;
+	tapDelayAmp[0] 	= 0.6f;
 	tapDelayAmp[1] 	= 0.45f;
-	tapDelayAmp[2] 	= -0.55f;
-	tapDelayAmp[3] 	= 0.55f;
-	tapDelayAmp[4] 	= -0.45f;
-	tapDelayAmp[5] 	= -0.5f;
-
-
-
+	tapDelayAmp[2] 	= -0.4f;
+	tapDelayAmp[3] 	= 0.3f;
+	tapDelayAmp[4] 	= -0.2f;
+	tapDelayAmp[5] 	= -0.1f;
+	tapDelayAmp[6] 	= -0.05f;
 
 }
 
@@ -258,7 +243,7 @@ void FxBus::mixSumInit() {
 	temp 			*=	temp * temp;
 	fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
 
-    feedbackGain 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_FBACK ] * 0.75f;
+    feedbackGain 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_FBACK ];
 
     predelayMixLevel 	= 	synthState_->fullState.masterfxConfig[ GLOBALFX_PREDELAYMIX ];
     predelayMixAttn 	= 	predelayMixLevel * (1 - (predelayMixLevel * predelayMixLevel * 0.1f));
@@ -333,7 +318,7 @@ void FxBus::mixSumInit() {
 		loopDecoupler2 = decoupler2 * loopDecouplerModVal;
 	}
 
-	inLpF = 0.65f - (fxTimeLinear + fxTimeLinear * predelayMixLevel) * 0.15f;
+	inLpF = 0.5f - (fxTimeLinear + fxTimeLinear * predelayMixLevel) * 0.15f;
 
 }
 
@@ -460,14 +445,16 @@ void FxBus::processBlock(int32_t *outBuff) {
         	tapDelayWritePos = 0;
         }
 
-        tapAccumulator = 0;
+        tapAccumulator = monoIn;
 
         for(int aa=0; aa<tapCount; aa++) {
-            tapPos = (tapDelayWritePos + tapDelayPos[aa])&(tapDelayBufferSizeM1);
+            tapPos = (tapDelayWritePos + tapDelayPos[aa]);
+            if(tapPos >= tapDelayBufferSize)
+            	tapPos -= tapDelayBufferSize;
             tapAccumulator += tapDelayBuffer[ tapPos ] * tapDelayAmp[aa];
         }
 
-        monoIn = (tapAccumulator);// * (tremoloMod * 2 - 1);*/
+        monoIn = (tapAccumulator);
 
         // --- hi pass
 
@@ -516,7 +503,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         ap1In = monoIn + feedbackInL * envFeedbackMod;
 
-        diffuserReadPos1 = diffuserWritePos1 - (diffuserBufferLen1 + timeCvControl);
+        diffuserReadPos1 = diffuserWritePos1 - (diffuserBufferLen1 + timeCvControl + lfo2 * 24);
     	while( (diffuserReadPos1 < 0) )
     		diffuserReadPos1 += diffuserBufferLen1;
     	while( (diffuserReadPos1 >= diffuserBufferLen1M1) )
@@ -535,12 +522,12 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// ----------------------------------------------> read delay1
 		ap2In = delay1Interpolation(delay1ReadPos);
 
-        // --- low pass
+        // --- filter
 
-        v2L += loopLpf * v3L;						// lowpass
-        v3L += loopLpf * ( ap2In - v2L - v3L);
-        v4L += loopLpf2 * v5L;						// lowpass
-        v5L += loopLpf2 * ( v3L - v4L - v5L);
+        v2L += loopHpf * v3L;						// hipass
+        v3L += loopHpf * ( ap2In - v2L - v3L);
+        v4L += loopLpf * v5L;						// lowpass
+        v5L += loopLpf * ( (ap2In - v3L) - v4L - v5L);
 
         ap2In = v4L * envFeedbackMod;				// decay
 
@@ -553,11 +540,17 @@ void FxBus::processBlock(int32_t *outBuff) {
         diffuserBuffer2[diffuserWritePos2] 		= ap2In - diffuserCoef2 * diffuserBuffer2[diffuserReadPos2];
         ap2Out = ap2In * diffuserCoef2 + 	diffuser2Interpolation(diffuserReadPos2) * diffuserCoef2b;
 
+    	// ----------------------------------------------< inject in delay2
+    	delay2Buffer[ delay2WritePos ] 		= ap2Out;
+
+    	// ----------------------------------------------> read delay2
+    	ap2Out = delay2Interpolation(delay2ReadPos);
+
         // ---- ap 3
 
 		ap3In = monoIn + feedbackInR * envFeedbackMod;
 
-        diffuserReadPos3 = diffuserWritePos3 - (diffuserBufferLen3 + timeCvControl);
+        diffuserReadPos3 = diffuserWritePos3 - (diffuserBufferLen3 + timeCvControl + lfo2b * 48);
         //diffuserReadPos3 = diffuserWritePos3 + 1 + lfo2b;
 
     	while( (diffuserReadPos3 < 0) )
@@ -577,13 +570,13 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// ----------------------------------------------> read delay3
 		ap4In = delay3Interpolation(delay3ReadPos);
 
-        // --- low pass
-        v2R += loopLpf * v3R;						// lowpass
-        v3R += loopLpf * (ap4In - v2R - v3R);
-        v4R += loopLpf2 * v5R;						// lowpass
-        v5R += loopLpf2 * (v2R - v4R - v5R);
+        // --- filter
+        v2R += loopHpf * v3R;						// hipass
+        v3R += loopHpf * (ap4In - v2R - v3R);
+        //v4R += loopLpf2 * v5R;						// lowpass
+        //v5R += loopLpf2 * ((ap4In-v2R) - v4R - v5R);
 
-        ap4In = v4R * envFeedbackMod;				// decay
+        ap4In = (ap4In-v2R) * envFeedbackMod;				// decay
 
         // ---- ap 4
 
@@ -593,6 +586,12 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         diffuserBuffer4[diffuserWritePos4] 		= ap4In - diffuserCoef2 * diffuserBuffer4[diffuserReadPos4];
         ap4Out = ap4In * diffuserCoef2 + 	diffuser4Interpolation(diffuserReadPos4) * diffuserCoef2b;
+
+    	// ----------------------------------------------< inject in delay4
+    	delay4Buffer[ delay4WritePos ] 		= ap4Out;
+
+    	// ----------------------------------------------> read delay4
+    	ap4Out = delay4Interpolation(delay4ReadPos);
 
     	// ================================================  mix out
 
