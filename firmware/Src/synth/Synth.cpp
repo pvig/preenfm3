@@ -29,6 +29,20 @@ Synth::Synth(void) {
 Synth::~Synth(void) {
 }
 
+inline
+float sqrt3(const float x)
+{
+  union
+  {
+    int i;
+    float x;
+  } u;
+
+  u.x = x;
+  u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
+  return u.x;
+}
+
 void Synth::init(SynthState *synthState) {
     for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
         for (uint16_t k = 0; k < (sizeof(struct OneSynthParams) / sizeof(float)); k++) {
@@ -331,7 +345,7 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
 
         // Max is 0x7fffff * [-1:1]
         //float sampleMultipler = (float) 0x7fffff;
-        float sampleMultipler = (1 - synthState_->mixerState.instrumentState_[timbre].send) * (float) 0x7fffff;
+        float sampleMultipler = sqrt3(1 - synthState_->mixerState.instrumentState_[timbre].send) * (float) 0x7fffff;
 
         switch (synthState_->mixerState.instrumentState_[timbre].out) {
             // 0 => out1+out2, 1 => out1, 2=> out2

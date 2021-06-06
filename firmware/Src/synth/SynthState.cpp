@@ -70,9 +70,13 @@ SynthState::SynthState() {
     // Master FX
     fullState.masterfxConfig[GLOBALFX_TIME] = 0.8f;
     fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.33f;
-    fullState.masterfxConfig[GLOBALFX_FBACK] = 0.76f;
-    fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.1f;
-    fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.6f;
+    fullState.masterfxConfig[GLOBALFX_INPUTDIFFUSION] = 0.6f;
+    fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION] = 0.75f;
+    fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f;
+
+    fullState.masterfxConfig[GLOBALFX_FBACK] = 0.6f;
+    fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.18f;
+    fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.17f;
     fullState.masterfxConfig[GLOBALFX_ENVMOD] = -0.15f;
     fullState.masterfxConfig[GLOBALFX_TREMOLOENVFOLLOW] = -0.3f;
     fullState.masterfxConfig[GLOBALFX_TREMOLOSPEED] = 0.46f;

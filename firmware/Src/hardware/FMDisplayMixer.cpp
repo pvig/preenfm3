@@ -174,8 +174,8 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
     {
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { 0, 8, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     },
@@ -323,13 +323,13 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_FBACK];
                         break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDIFFUSION];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVRELEASE];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_BOUNCE];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING];
                         break;
                 }
                 break;
@@ -651,16 +651,16 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Pre delay Mix");
                     break;
                 case 2:
-                    tft_->print("FeedBack");
+                    tft_->print("Decay");
                     break;
                 case 3:
-                    tft_->print("Threshold");
+                    tft_->print("Input diffusion");
                     break;
                 case 4:
-                    tft_->print("Release");
+                    tft_->print("Decay diffusion");
                     break;
                 case 5:
-                    tft_->print("Bounce");
+                    tft_->print("Damping");
                     break;
             }
             break;

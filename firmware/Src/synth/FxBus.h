@@ -20,10 +20,10 @@ public:
     float delay4Interpolation(float readPos);
     float predelayInterpolation(float readPos);
     float diffuser1Interpolation(float readPos);
-    float diffuser1HermiteInterpolation(int readPos);
+    float diffuser1CubicInterpolation(float readPos);
     float diffuser2Interpolation(float readPos);
     float diffuser3Interpolation(float readPos);
-    float diffuser3HermiteInterpolation(int readPos);
+    float diffuser3CubicInterpolation(float readPos);
     float diffuser4Interpolation(float readPos);
     float * crossFade(float t);
 
@@ -36,13 +36,14 @@ public:
 	}
 
 protected:
+	#define _dattorroSampleRateMod 1.6100265448f //PREENFM_FREQUENCY / 29761.0f
 
 	//lfo
 	float lfo1, lfo1tri;
-	float lfo1Inc = 0.00137521f;
+	float lfo1Inc = 0.00137521f, lfo1IncAtn;
 	float lfo2tri, lfo2btri;
 	float lfo2, lfo2b;
-	float lfo2Inc = 0.0000711113519845f;
+	float lfo2Inc = 0.00001041666667f;
 	float lfo2IncModSampleInc = 0;
 	float lfo2IncMod;
 	float lfo2ModVal;
@@ -61,6 +62,9 @@ protected:
     float feedbackGain = 0.5;
     float fxTone = 0.25f;
     float fxDiffusion = 0.2f;
+    float inputDiffusion, prevInputDiffusion;
+    float decayDiffusion, prevDecayDiffusion;
+    float damping;
     float predelayMixLevel = 0.5f;
     float predelayMixAttn = predelayMixLevel * 0.75;
     float lfoDepth =  0;
@@ -101,7 +105,7 @@ protected:
 
     float nodeL, nodeR, outL, outR;
 
-	static const int delay1BufferSize 	= 4453;
+	static const int delay1BufferSize 	= 4453 * _dattorroSampleRateMod;
 	static const int delay1BufferSizeM1	= delay1BufferSize - 1;
 	static float delay1Buffer[delay1BufferSize];
     int delay1WritePos 	= 0;
@@ -110,7 +114,7 @@ protected:
     float delay1DelayLen 	= 0;
     float delay1FxTarget 	= 0;
 
-	static const int delay2BufferSize 	= 3720;
+	static const int delay2BufferSize 	= 3720 * _dattorroSampleRateMod;
 	static const int delay2BufferSizeM1	= delay2BufferSize - 1;
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
@@ -118,7 +122,7 @@ protected:
     float delay2DelayLen 	= 0;
     float delay2FxTarget 	= 0;
 
-	static const int delay3BufferSize 	= 4217;
+	static const int delay3BufferSize 	= 4217 * _dattorroSampleRateMod;
 	static const int delay3BufferSizeM1	= delay3BufferSize - 1;
 	static float delay3Buffer[delay3BufferSize];
     int delay3WritePos 	= 0;
@@ -127,7 +131,7 @@ protected:
     float delay3DelayLen 	= 0;
     float delay3FxTarget 	= 0;
 
-	static const int delay4BufferSize 	= 3163;
+	static const int delay4BufferSize 	= 3163 * _dattorroSampleRateMod;
 	static const int delay4BufferSizeM1	= delay4BufferSize - 1;
 	static float delay4Buffer[delay4BufferSize];
     int delay4WritePos 	= 0;
@@ -146,24 +150,12 @@ protected:
     int predelayWritePos 		= 0;
     float predelayReadPos 		= 0;
 
-	// tap delay input
-
-    static const int tapDelayBufferSize 	= 3000;
-	static const int tapDelayBufferSizeM1	= tapDelayBufferSize - 1;
-	static float tapDelayBuffer[tapDelayBufferSize];
-    int tapDelayWritePos 		= 0;
-
-	static const int tapCount 	= 7;
-	static int tapDelayPos[tapCount];
-	static float tapDelayAmp[tapCount];
-
-
 	// input diffuser
 
-	static const int inputBufferLen1 = 141;
-	static const int inputBufferLen2 = 107;
-	static const int inputBufferLen3 = 379;
-	static const int inputBufferLen4 = 227;
+	static const int inputBufferLen1 = 141;// * _dattorroSampleRateMod;
+	static const int inputBufferLen2 = 107;// * _dattorroSampleRateMod;
+	static const int inputBufferLen3 = 379;// * _dattorroSampleRateMod;
+	static const int inputBufferLen4 = 227;// * _dattorroSampleRateMod;
 	static const int inputBufferLen1M1 = inputBufferLen1 - 1;
 	static const int inputBufferLen2M1 = inputBufferLen2 - 1;
 	static const int inputBufferLen3M1 = inputBufferLen3 - 1;
@@ -188,13 +180,15 @@ protected:
 
 	// diffuser decay
 
-	static const int diffuserBufferLen1 = 672;
-	static const int diffuserBufferLen2 = 1800;
-	static const int diffuserBufferLen3 = 908;
-	static const int diffuserBufferLen4 = 2656;
+	static const int diffuserBufferLen1 = 672 	* _dattorroSampleRateMod;
+	static const int diffuserBufferLen2 = 1800 	* _dattorroSampleRateMod;
+	static const int diffuserBufferLen3 = 908 	* _dattorroSampleRateMod;
+	static const int diffuserBufferLen4 = 2656 	* _dattorroSampleRateMod;
 	static const int diffuserBufferLen1M1 = diffuserBufferLen1 - 1;
+	static const int diffuserBufferLen1M4 = diffuserBufferLen1 - 4;
 	static const int diffuserBufferLen2M1 = diffuserBufferLen2 - 1;
 	static const int diffuserBufferLen3M1 = diffuserBufferLen3 - 1;
+	static const int diffuserBufferLen3M4 = diffuserBufferLen3 - 4;
 	static const int diffuserBufferLen4M1 = diffuserBufferLen4 - 1;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
@@ -248,6 +242,8 @@ protected:
 	float _lx4L ;
 	float _lx4R ;
 
+    const long _kLeftTaps[7] = {266, 2974, 1913, 1996, 1990, 187, 1066};
+    const long _kRightTaps[7] = {266, 2974, 1913, 1996, 1990, 187, 1066};
 };
 
 #endif	// end FX_BUS_
