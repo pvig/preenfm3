@@ -40,10 +40,11 @@ protected:
 
 	//lfo
 	float lfo1, lfo1tri;
-	float lfo1Inc = 0.00137521f, lfo1IncAtn;
+	float lfo1btri, lfo1b;
+	float lfo1Inc = 0.000137521f;
 	float lfo2tri, lfo2btri;
 	float lfo2, lfo2b;
-	float lfo2Inc = 0.00001041666667f;
+	const float lfo2Inc = 0.00001041666667f;
 	float lfo2IncModSampleInc = 0;
 	float lfo2IncMod;
 	float lfo2ModVal;
@@ -77,7 +78,7 @@ protected:
 	float pingpongFactor;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float bounceLevel, prevBounce = -1, bouncingCv = 0;
-	float timeCvControl = 0;
+	float timeCvControl = 0, timeCvControlb = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 	float spread, ratio;
 	const float decoupler1 = 0.0047f;
@@ -142,7 +143,7 @@ protected:
 
 	//pre delay
 
-	static const int predelayBufferSize 	= 8000;
+	static const int predelayBufferSize 	= 16000;
 	static const int predelayBufferSizeM1 	= predelayBufferSize - 1;
 	static float predelayBuffer[predelayBufferSize];
     int predelaySize 			= predelayBufferSize;
@@ -152,10 +153,10 @@ protected:
 
 	// input diffuser
 
-	static const int inputBufferLen1 = 141;// * _dattorroSampleRateMod;
-	static const int inputBufferLen2 = 107;// * _dattorroSampleRateMod;
-	static const int inputBufferLen3 = 379;// * _dattorroSampleRateMod;
-	static const int inputBufferLen4 = 227;// * _dattorroSampleRateMod;
+	static const int inputBufferLen1 = 141 * _dattorroSampleRateMod;
+	static const int inputBufferLen2 = 107 * _dattorroSampleRateMod;
+	static const int inputBufferLen3 = 379 * _dattorroSampleRateMod;
+	static const int inputBufferLen4 = 227 * _dattorroSampleRateMod;
 	static const int inputBufferLen1M1 = inputBufferLen1 - 1;
 	static const int inputBufferLen2M1 = inputBufferLen2 - 1;
 	static const int inputBufferLen3M1 = inputBufferLen3 - 1;
@@ -242,8 +243,26 @@ protected:
 	float _lx4L ;
 	float _lx4R ;
 
-    const long _kLeftTaps[7] = {266, 2974, 1913, 1996, 1990, 187, 1066};
-    const long _kRightTaps[7] = {266, 2974, 1913, 1996, 1990, 187, 1066};
+	const int kl1 = 266;// * _dattorroSampleRateMod;
+	const int kl2 = 2974;// * _dattorroSampleRateMod;
+	const int kl3 = 1913;// * _dattorroSampleRateMod;
+	const int kl4 = 1996;// * _dattorroSampleRateMod;
+	const int kl5 = 1990;// * _dattorroSampleRateMod;
+	const int kl6 = 187;// * _dattorroSampleRateMod;
+	const int kl7 = 1066;// * _dattorroSampleRateMod;
+    const long _kLeftTaps[7] = {kl1 , kl2, kl3, kl4, kl5, kl6, kl7};
+
+
+	const int kr1 = 353;// * _dattorroSampleRateMod;
+	const int kr2 = 3627;// * _dattorroSampleRateMod;
+	const int kr3 = 1228;// * _dattorroSampleRateMod;
+	const int kr4 = 2673;// * _dattorroSampleRateMod;
+	const int kr5 = 2111;// * _dattorroSampleRateMod;
+	const int kr6 = 335;// * _dattorroSampleRateMod;
+	const int kr7 = 121;// * _dattorroSampleRateMod;
+
+    //const long _kRightTaps[7] = {266, 2974, 1913, 1996, 1990, 187, 1066};
+    const long _kRightTaps[7] = {kr1, kr2, kr3, kr4, kr5, kr6, kr7};
 };
 
 #endif	// end FX_BUS_

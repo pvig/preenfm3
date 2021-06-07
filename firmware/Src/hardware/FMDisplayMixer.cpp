@@ -673,16 +673,16 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Feed Depth");
                     break;
                 case 2:
-                    tft_->print("Feed Env");
+                    tft_->print("");
                     break;
                 case 3:
-                    tft_->print("Tremolo Speed");
+                    tft_->print("Hi pass");
                     break;
                 case 4:
-                    tft_->print("Tremolo Depth");
+                    tft_->print("Low pass");
                     break;
                 case 5:
-                    tft_->print("Tremolo Env");
+                    tft_->print("");
                     break;
             }
         break;
