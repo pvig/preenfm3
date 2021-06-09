@@ -5,43 +5,39 @@ Fork from https://github.com/Ixox/preenfm3
 
 ## Global fx
 
-#### Comb filter fed with an harmonic tremolo
+#### Reverb ~ Strange 8 
 
 
-### The filter is controlable with 3 menu pages :
-
-#### Mix page 3 : Fx send
+##### Mix page 3 : Fx send
 
 Set send level for each instrument
 
-
-#### Global page 3 : Master Fx 1
+##### Global page 3 : Master Fx 1
 
 Comb filter parameters
 
-1. Time
-2. Feedback
-3. Input
-4. Threshold
-5. Release
-6. Bounce
+1. Pre delay
+2. Pre delay Mix
+3. Decay
+4. Input diffusion
+5. Decay diffusion
+6. Input Damping
 
 Threshold, Release params are for the envelope follower  
 Bounce modify lfo + envelope
 
-#### Global page 4 : Master Fx 2
+##### Global page 4 : Master Fx 2
 
 Modulation parameters  
 
-1. FeedBack Speed 
-2. FeedBack Depth 
-3. FeedBack Env mod
-4. Tremolo Speed 
-5. Tremolo Depth 
-6. Tremolo Env mod
+1. Lfo Speed 
+2. Lfo Depth 
+3. Env Mod 
+4. Threshold
+5. Filter Hi 
+6. Filter Low
 
-
-#### Midi CC : on Global midi channel
+##### Midi CC : on Global midi channel
 
 34.    Send level 1
 35.    Send level 2
@@ -50,10 +46,14 @@ Modulation parameters
 38.    Send level 5
 39.    Send level 6
 
-40.    Time
-41.    Bounce
-42.    Feedback
-43.    Input level
-44.    Mod level
-45.    Mod speed   
+40.    ,,,
+41.    ,,,
+42.    ,,,
+43.    ,,,
+44.    ,,,
+45.    ,,,   
 
+
+## Credits
+JON DATTORRO for the reverb algorithm
+https://ccrma.stanford.edu/~dattorro/EffectDesignPart1.pdf

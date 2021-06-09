@@ -68,22 +68,22 @@ SynthState::SynthState() {
     fullState.randomizer.Modl = 1;
 
     // Master FX
-    fullState.masterfxConfig[GLOBALFX_TIME] = 0.8f;
-    fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.33f;
+    fullState.masterfxConfig[GLOBALFX_TIME] = 0.88f;
+    fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.67f;
     fullState.masterfxConfig[GLOBALFX_INPUTDIFFUSION] = 0.6f;
-    fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION] = 0.75f;
-    fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f;
+    fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION] = 0.9f;
+    fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] = 0.7f;
+    fullState.masterfxConfig[GLOBALFX_INPUTHIPASS] = 0.58f;
+    fullState.masterfxConfig[GLOBALFX_INPUTLOWPASS] = 0.18f;
 
     fullState.masterfxConfig[GLOBALFX_FBACK] = 0.6f;
     fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.18f;
     fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.17f;
     fullState.masterfxConfig[GLOBALFX_ENVMOD] = -0.15f;
-    fullState.masterfxConfig[GLOBALFX_TREMOLOENVFOLLOW] = -0.3f;
-    fullState.masterfxConfig[GLOBALFX_TREMOLOSPEED] = 0.46f;
-    fullState.masterfxConfig[GLOBALFX_TREMOLODEPTH] = 0.1f;
-    fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD] = 0.5f;
+    fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] = 0.95f;
+    fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD] = 0.75f;
     fullState.masterfxConfig[GLOBALFX_BOUNCE] = 0.50f;
-    fullState.masterfxConfig[GLOBALFX_ENVRELEASE] = 0.22f;
+    fullState.masterfxConfig[GLOBALFX_ENVRELEASE] = 0.57f;
 
     // Mixer
     fullState.mixerCurrentEdit = 0;

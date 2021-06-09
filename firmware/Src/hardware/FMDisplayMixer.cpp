@@ -182,10 +182,10 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
     {
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 12, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     }
 };
 
@@ -329,7 +329,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDAMPING];
                         break;
                 }
                 break;
@@ -345,13 +345,13 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVMOD];
                          break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TREMOLOSPEED];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TREMOLODEPTH];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTHIPASS];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TREMOLOENVFOLLOW];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTLOWPASS];
                         break;
                 }
                 break;
@@ -667,22 +667,22 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
         case 3:
             switch (row) {
                 case 0:
-                    tft_->print("Feed Speed");
+                    tft_->print("Lfo Speed");
                     break;
                 case 1:
-                    tft_->print("Feed Depth");
+                    tft_->print("Lfo Depth");
                     break;
                 case 2:
-                    tft_->print("");
+                    tft_->print("Env Mod");
                     break;
                 case 3:
-                    tft_->print("Hi pass");
+                    tft_->print("Threshold");
                     break;
                 case 4:
-                    tft_->print("Low pass");
+                    tft_->print("Low Cut");
                     break;
                 case 5:
-                    tft_->print("");
+                    tft_->print("Hi  Cut");
                     break;
             }
         break;

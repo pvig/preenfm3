@@ -38,6 +38,9 @@ public:
 protected:
 	#define _dattorroSampleRateMod 1.6100265448f //PREENFM_FREQUENCY / 29761.0f
 
+	const float headRoomDivider = 0.00001f;
+	const float headRoomMultiplier = 50000;
+
 	//lfo
 	float lfo1, lfo1tri;
 	float lfo1btri, lfo1b;
