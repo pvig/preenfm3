@@ -2,19 +2,13 @@
 
 Fork from https://github.com/Ixox/preenfm3
 
-
-## Global fx
-
-#### Reverb ~ Strange 8 
-
+## Some Reverb ~ Strange 8
 
 ##### Mix page 3 : Fx send
 
 Set send level for each instrument
 
 ##### Global page 3 : Master Fx 1
-
-Comb filter parameters
 
 1. Pre delay
 2. Pre delay Mix
@@ -23,12 +17,7 @@ Comb filter parameters
 5. Decay diffusion
 6. Input Damping
 
-Threshold, Release params are for the envelope follower  
-Bounce modify lfo + envelope
-
 ##### Global page 4 : Master Fx 2
-
-Modulation parameters  
 
 1. Lfo Speed 
 2. Lfo Depth 
