@@ -182,8 +182,8 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
     {
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { 0, 12, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 12, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     }

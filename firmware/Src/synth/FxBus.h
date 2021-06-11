@@ -38,8 +38,8 @@ public:
 protected:
 	#define _dattorroSampleRateMod 1.6100265448f //PREENFM_FREQUENCY / 29761.0f
 
-	const float headRoomDivider = 0.00001f;
-	const float headRoomMultiplier = 50000;
+	const float headRoomMultiplier = 0.6f;
+	const float headRoomDivider = 1;
 
 	//lfo
 	float lfo1, lfo1tri;
@@ -75,6 +75,7 @@ protected:
     float fxSpeed = 0, prevSpeed = -1;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
 	float loopLpf, loopLpf2, loopHpf,  monoInHpf;
+	float loopLpf_a,loopLpf_b;
 	float fxTremoloSpeed;
 	float fxTremoloDepth;
 	float fxCrossover;
@@ -130,7 +131,6 @@ protected:
 	static const int delay3BufferSizeM1	= delay3BufferSize - 1;
 	static float delay3Buffer[delay3BufferSize];
     int delay3WritePos 	= 0;
-    int delay3ReadPosInt;
     float delay3ReadPos 	= 0;
     float delay3DelayLen 	= 0;
     float delay3FxTarget 	= 0;
