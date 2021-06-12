@@ -36,7 +36,7 @@ public:
 	}
 
 protected:
-	#define _dattorroSampleRateMod 1.6100265448f //PREENFM_FREQUENCY / 29761.0f
+	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f	// delay length mod from original sample rate
 
 	const float headRoomMultiplier = 0.6f;
 	const float headRoomDivider = 1;
@@ -47,16 +47,13 @@ protected:
 	float lfo1Inc = 0.000137521f;
 	float lfo2tri, lfo2btri;
 	float lfo2, lfo2b;
-	const float lfo2Inc = 0.00001041666667f;
+	float lfo2Inc = 0.0001041666667f;
 	float lfo2IncModSampleInc = 0;
 	float lfo2IncMod;
 	float lfo2ModVal;
 	int   lfo2ChangeCounter = 0;
 	const int   lfo2ChangePeriod = 17733;
 	const int   lfo2ChangePeriodInv = 1 / lfo2ChangePeriod;
-	float lfoTremolo = 0, lfoTremoloSin = 0;
-	float lfoTremoloInc = 0.00039845f;
-	float tremoloEnvFollowAbs, tremoloEnvFollow = 0;
 
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
@@ -82,7 +79,7 @@ protected:
 	float pingpongFactor;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float bounceLevel, prevBounce = -1, bouncingCv = 0;
-	float timeCvControl = 0, timeCvControlb = 0;
+	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 	float spread, ratio;
 	const float decoupler1 = 0.0047f;
