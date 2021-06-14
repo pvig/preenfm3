@@ -71,10 +71,9 @@ SynthState::SynthState() {
     fullState.masterfxConfig[GLOBALFX_TIME] = 0.88f;
     fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.67f;
     fullState.masterfxConfig[GLOBALFX_INPUTDIFFUSION] = 0.6f;
-    fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION] = 0.9f;
-    fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] = 0.7f;
-    fullState.masterfxConfig[GLOBALFX_INPUTHIPASS] = 0.48f;
-    fullState.masterfxConfig[GLOBALFX_INPUTLOWPASS] = 0.58f;
+    fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION] = 0.75f;
+    fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] = 0.97f;
+    fullState.masterfxConfig[GLOBALFX_INPUTTILT] = 0.64f;
 
     fullState.masterfxConfig[GLOBALFX_FBACK] = 0.6f;
     fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.18f;

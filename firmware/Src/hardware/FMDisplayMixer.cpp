@@ -183,7 +183,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { 0, 12, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     }
@@ -348,10 +348,10 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTHIPASS];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTLOWPASS];
+                        //valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTLOWPASS];
                         break;
                 }
                 break;
@@ -673,16 +673,16 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Lfo Depth");
                     break;
                 case 2:
-                    tft_->print("Env Mod");
+                    tft_->print("Env Time");
                     break;
                 case 3:
                     tft_->print("Threshold");
                     break;
                 case 4:
-                    tft_->print("Low Cut");
+                    tft_->print("Input Tilt");
                     break;
                 case 5:
-                    tft_->print("Hi  Cut");
+                    tft_->print("Env Feedback");
                     break;
             }
         break;
