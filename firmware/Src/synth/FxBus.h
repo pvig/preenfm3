@@ -19,7 +19,7 @@ public:
     float delay3Interpolation(float readPos);
     float delay4Interpolation(float readPos);
     float predelayInterpolation(float readPos);
-    float diffuserInterpolation(float readPos, float diffuserBuffer[], int diffuserBufferLen);
+    float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float diffuser1Interpolation(float readPos);
     float diffuser1CubicInterpolation(float readPos);
     float diffuser2Interpolation(float readPos);
@@ -71,7 +71,7 @@ protected:
     float predelayMixAttn = predelayMixLevel * 0.75;
     float lfoDepth =  0;
     float fxSpeed = 0, speedLinear = 0;
-    float envMod, envModDepth, invtime = 1, invspeed = 1;
+    float envMod, envModDepth, invtime = 1, invspeed = 1, envModDepthNeg;
 	float loopLpf, loopLpf2, loopHpf,  inHpf, tiltInput;
 	float loopLpf_a,loopLpf_b;
 	float fxTremoloSpeed;
@@ -79,6 +79,7 @@ protected:
 	float fxCrossover;
 	float pingpongFactor;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
+	float envFeedback = 0;
 	float bounceLevel, prevBounce = -1, bouncingCv = 0;
 	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;

@@ -185,7 +185,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     }
 };
 
@@ -351,7 +351,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT];
                         break;
                     case 5:
-                        //valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTLOWPASS];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVFEEDBACK];
                         break;
                 }
                 break;
@@ -673,7 +673,7 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Lfo Depth");
                     break;
                 case 2:
-                    tft_->print("Env Time");
+                    tft_->print("Env Mod");
                     break;
                 case 3:
                     tft_->print("Threshold");
