@@ -12,6 +12,11 @@
 extern float diatonicScaleFrequency[];
 extern float sinTable[];
 
+inline float fold(float x4) {
+    // https://www.desmos.com/calculator/ge2wvg2wgj
+    // x4 = x / 4
+    return (fabsf(x4 + 0.25f - roundf(x4 + 0.25f)) - 0.25f);
+}
 inline
 float expf_fast(float a) {
   //https://github.com/ekmett/approximate/blob/master/cbits/fast.c
@@ -265,7 +270,7 @@ void FxBus::mixSumInit() {
 	prevEnvThreshold = temp * temp * headRoomDivider * 640;
 	envThreshold	= 	envThreshold * 0.9f + prevEnvThreshold * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] * 0.5f;
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] * 0.85f;
     envModDepth 	= 	envModDepth * 0.9f + temp * 0.1f;
 	envModDepthNeg	=	fabsf(envModDepth);
 
@@ -273,8 +278,8 @@ void FxBus::mixSumInit() {
     temp			*= 	temp;
     tiltInput		= 	tiltInput * 0.9f + temp * 0.1f;
 
-    inHpf			= 	clamp((tiltInput * tiltInput) , 0, 1);
-    inLpF			=	clamp(tiltInput + 0.05f, 0, 1);
+    inHpf			= 	clamp(tiltInput * fold(tiltInput * 20) , 0, 1);
+    inLpF			=	clamp(tiltInput + 0.02f, 0, 1);
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVFEEDBACK] * 0.25f;
 	envFeedback	= 	envFeedback * 0.9f + temp * 0.1f;
@@ -288,8 +293,8 @@ void FxBus::mixSumInit() {
 		if( blocksum > envThreshold) {
 			// attack
 			envDest = 1;
-			envM1 = 4999;
-			envM2 = 0.0002f;
+			envM1 = 999;
+			envM2 = 0.001f;
 			//envelope = 0;// restart env
 		} else if(envDest == 1) {
 			// release
@@ -348,11 +353,6 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 	for (int s = 0; s < BLOCK_SIZE; s++) {
 
-    	delay1ReadPos = modulo(delay1WritePos + 1, delay1BufferSize);
-    	delay2ReadPos = modulo(delay2WritePos + 1, delay2BufferSize);
-    	delay3ReadPos = modulo(delay3WritePos + 1, delay3BufferSize);
-    	delay4ReadPos = modulo(delay4WritePos + 1, delay4BufferSize);
-
         // --- audio in
 
     	inR = *(sample);
@@ -384,7 +384,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         blocksum 	+= 	fabsf(monoIn);
         envelope 	= 	(envelope * envM1 + envDest) * envM2;
-        envMod 		= 	(envModDepth < 0 ? envModDepthNeg * (1 - envelope) : envModDepth * envelope);
+      	float envprep = (envDest == 1)? envelope*envelope : envelope;
+        envMod 		= 	(envMod * 99 + (envModDepth < 0 ? envModDepthNeg * (1 - envprep) : envModDepth * envprep)) * 0.01f;
 
     	//--- pre delay
 
@@ -396,7 +397,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	predelayBuffer[predelayWritePos] = monoIn;
 
-    	monoIn = predelayMixAttn * predelayInterpolation(predelayReadPos) + (1 - predelayMixAttn) * monoIn;
+    	monoIn = predelayMixAttn * delayInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1) + (1 - predelayMixAttn) * monoIn;
 
     	// --- input diffuser
 
@@ -580,6 +581,11 @@ void FxBus::processBlock(int32_t *outBuff) {
         delay3WritePos		= modulo(delay3WritePos + 1 , delay3BufferSize);
         delay4WritePos		= modulo(delay4WritePos + 1 , delay4BufferSize);
 
+    	delay1ReadPos = modulo(delay1WritePos + 1, delay1BufferSize);
+    	delay2ReadPos = modulo(delay2WritePos + 1, delay2BufferSize);
+    	delay3ReadPos = modulo(delay3WritePos + 1, delay3BufferSize);
+    	delay4ReadPos = modulo(delay4WritePos + 1, delay4BufferSize);
+
     	// --- lfo increment
 
     	// ------- lfo 1
@@ -624,9 +630,9 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// -------- mods :
 
     	float envModdiv = envMod;// * envMod;//* 0.5f;
-    	timeCvControl1 = (lfo1  * lfoDepth + envModdiv) * diffuserBufferLen1;
+    	timeCvControl1 = (lfo1  * lfoDepth) * diffuserBufferLen1;
     	timeCvControl2 = (lfo2b  * lfoDepth + envModdiv) * diffuserBufferLen2;
-    	timeCvControl3 = (lfo2 * lfoDepth + envModdiv) * diffuserBufferLen3;
+    	timeCvControl3 = (lfo2 * lfoDepth) * diffuserBufferLen3;
     	timeCvControl4 = (lfo1b * lfoDepth + envModdiv) * diffuserBufferLen4;
     }
 }

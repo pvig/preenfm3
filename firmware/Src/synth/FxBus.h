@@ -39,8 +39,8 @@ public:
 protected:
 	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f
 
-	const float headRoomMultiplier = 40;
-	const float headRoomDivider = 0.01;
+	const float headRoomMultiplier = 400;
+	const float headRoomDivider = 0.0015f;
 
 	//lfo
 	float lfo1, lfo1tri;
@@ -104,7 +104,7 @@ protected:
 
 
 	float envelope = 0;
-	float blocksum = 0, envDest = 0, envM1, envM2;
+	float blocksum = 0, envDest = 0, envM1 = 0, envM2 = 0;
 	int envBlocknn = 0, envDetectSize = 32 * 32;
 
     float nodeL, nodeR, outL, outR;
