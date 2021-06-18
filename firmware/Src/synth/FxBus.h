@@ -64,8 +64,9 @@ protected:
     float feedbackGain = 0.5;
     float fxTone = 0.25f;
     float fxDiffusion = 0.2f;
+    float sizeParam, prevSizeParam;
     float inputDiffusion, prevInputDiffusion;
-    float decayDiffusion, prevDecayDiffusion;
+    float diffusion, prevDiffusion, decayDiffusion, prevDecayDiffusion;
     float damping;
     float predelayMixLevel = 0.5f;
     float predelayMixAttn = predelayMixLevel * 0.75;
@@ -114,7 +115,7 @@ protected:
 	static float delay1Buffer[delay1BufferSize];
     int delay1WritePos 	= 0;
     int delay1ReadPos 	= 0;
-    float delay1DelayLen 	= 0;
+    float delay1DelayLen 	= 0, delay1ReadLen;
     float delay1FxTarget 	= 0;
 
 	static const int delay2BufferSize 	= 3720 * _dattorroSampleRateMod;
@@ -122,7 +123,7 @@ protected:
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
     int delay2ReadPos;
-    float delay2DelayLen 	= 0;
+    float delay2DelayLen 	= 0, delay2ReadLen;
     float delay2FxTarget 	= 0;
 
 	static const int delay3BufferSize 	= 4217 * _dattorroSampleRateMod;
@@ -130,7 +131,7 @@ protected:
 	static float delay3Buffer[delay3BufferSize];
     int delay3WritePos 	= 0;
     int delay3ReadPos 	= 0;
-    float delay3DelayLen 	= 0;
+    float delay3DelayLen 	= 0, delay3ReadLen;
     float delay3FxTarget 	= 0;
 
 	static const int delay4BufferSize 	= 3163 * _dattorroSampleRateMod;
@@ -138,7 +139,7 @@ protected:
 	static float delay4Buffer[delay4BufferSize];
     int delay4WritePos 	= 0;
     int delay4ReadPos;
-    float delay4DelayLen 	= 0;
+    float delay4DelayLen 	= 0, delay4ReadLen;
     float delay4FxTarget 	= 0;
 
 
@@ -177,8 +178,8 @@ protected:
     int inputReadPos3;
     int inputReadPos4;
 
-    float inputCoef1 = 0.7f, inputCoef1b;
-    float inputCoef2 = 0.625f, inputCoef2b;
+    float inputCoef1 = 0.7f, inputCoef1b = 1 - (diffuserCoef1 * diffuserCoef1);
+    float inputCoef2 = 0.625f, inputCoef2b = 1 - (diffuserCoef2 * diffuserCoef2);
 
 	// diffuser decay
 
@@ -192,6 +193,10 @@ protected:
 	static const int diffuserBufferLen3M1 = diffuserBufferLen3 - 1;
 	static const int diffuserBufferLen3M4 = diffuserBufferLen3 - 4;
 	static const int diffuserBufferLen4M1 = diffuserBufferLen4 - 1;
+	float diffuserBuffer1ReadLen = diffuserBufferLen1;
+	float diffuserBuffer2ReadLen = diffuserBufferLen2;
+	float diffuserBuffer3ReadLen = diffuserBufferLen3;
+	float diffuserBuffer4ReadLen = diffuserBufferLen4;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
 	static float diffuserBuffer2[diffuserBufferLen2];
