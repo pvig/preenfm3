@@ -70,8 +70,8 @@ SynthState::SynthState() {
     // Master FX
     fullState.masterfxConfig[GLOBALFX_TIME] = 0.88f;
     fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.67f;
-    fullState.masterfxConfig[GLOBALFX_INPUTDIFFUSION] = 0.6f;
-    fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION] = 0.75f;
+    fullState.masterfxConfig[GLOBALFX_SIZE] = 0.72f;
+    fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
     fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] = 0.97f;
     fullState.masterfxConfig[GLOBALFX_INPUTTILT] = 0.64f;
 

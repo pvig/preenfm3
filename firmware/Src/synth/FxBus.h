@@ -13,20 +13,7 @@ public:
 	void mixSumInit();
     void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
-    float delay1HermiteInterpolation(int readPos);
-    float delay1Interpolation(float readPos);
-    float delay2Interpolation(float readPos);
-    float delay3Interpolation(float readPos);
-    float delay4Interpolation(float readPos);
-    float predelayInterpolation(float readPos);
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
-    float diffuser1Interpolation(float readPos);
-    float diffuser1CubicInterpolation(float readPos);
-    float diffuser2Interpolation(float readPos);
-    float diffuser3Interpolation(float readPos);
-    float diffuser3CubicInterpolation(float readPos);
-    float diffuser4Interpolation(float readPos);
-    float * crossFade(float t);
 
 	float* getSampleBlock() {
 	    return sampleBlock_;
@@ -39,13 +26,13 @@ public:
 protected:
 	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f
 
-	const float headRoomMultiplier = 400;
+	const float headRoomMultiplier = 200;
 	const float headRoomDivider = 0.0015f;
 
 	//lfo
 	float lfo1, lfo1tri;
 	float lfo1btri, lfo1b;
-	float lfo1Inc = 0.000137521f;
+	float lfo1Inc = 0.000237521f;
 	float lfo2tri, lfo2btri;
 	float lfo2, lfo2b;
 	float lfo2Inc = 0.0001941666667f;
@@ -64,8 +51,9 @@ protected:
     float feedbackGain = 0.5;
     float fxTone = 0.25f;
     float fxDiffusion = 0.2f;
+    float sizeParam, prevSizeParam;
     float inputDiffusion, prevInputDiffusion;
-    float decayDiffusion, prevDecayDiffusion;
+    float diffusion, prevDiffusion, decayDiffusion, prevDecayDiffusion;
     float damping;
     float predelayMixLevel = 0.5f;
     float predelayMixAttn = predelayMixLevel * 0.75;
@@ -73,11 +61,6 @@ protected:
     float fxSpeed = 0, speedLinear = 0;
     float envMod, envModDepth, invtime = 1, invspeed = 1, envModDepthNeg;
 	float loopLpf, loopLpf2, loopHpf,  inHpf, tiltInput;
-	float loopLpf_a,loopLpf_b;
-	float fxTremoloSpeed;
-	float fxTremoloDepth;
-	float fxCrossover;
-	float pingpongFactor;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float envFeedback = 0;
 	float bounceLevel, prevBounce = -1, bouncingCv = 0;
@@ -92,14 +75,11 @@ protected:
 	int   loopDecouplerChangeCounter = 0;
 	const int   loopDecouplerChangePeriod = 15733;
 
-	float fbPoint, fbPoint2;
 	float combInR, combInL;
-	float tremoloOut;
 	float lpR, lpL;
 	float lowcutR, lowcutL;
 	float hpR, hpL;
 	float inR, inL;
-	float loopHp, hpVal;
 	float vca, vcaR, vcaL;
 
 
@@ -114,7 +94,7 @@ protected:
 	static float delay1Buffer[delay1BufferSize];
     int delay1WritePos 	= 0;
     int delay1ReadPos 	= 0;
-    float delay1DelayLen 	= 0;
+    float delay1DelayLen 	= 0, delay1ReadLen;
     float delay1FxTarget 	= 0;
 
 	static const int delay2BufferSize 	= 3720 * _dattorroSampleRateMod;
@@ -122,7 +102,7 @@ protected:
 	static float delay2Buffer[delay2BufferSize];
     int delay2WritePos 	= 0;
     int delay2ReadPos;
-    float delay2DelayLen 	= 0;
+    float delay2DelayLen 	= 0, delay2ReadLen;
     float delay2FxTarget 	= 0;
 
 	static const int delay3BufferSize 	= 4217 * _dattorroSampleRateMod;
@@ -130,7 +110,7 @@ protected:
 	static float delay3Buffer[delay3BufferSize];
     int delay3WritePos 	= 0;
     int delay3ReadPos 	= 0;
-    float delay3DelayLen 	= 0;
+    float delay3DelayLen 	= 0, delay3ReadLen;
     float delay3FxTarget 	= 0;
 
 	static const int delay4BufferSize 	= 3163 * _dattorroSampleRateMod;
@@ -138,9 +118,11 @@ protected:
 	static float delay4Buffer[delay4BufferSize];
     int delay4WritePos 	= 0;
     int delay4ReadPos;
-    float delay4DelayLen 	= 0;
+    float delay4DelayLen 	= 0, delay4ReadLen;
     float delay4FxTarget 	= 0;
 
+
+    const float dcBlockerCoef = 0.999f;
 
 	//pre delay
 
@@ -177,8 +159,8 @@ protected:
     int inputReadPos3;
     int inputReadPos4;
 
-    float inputCoef1 = 0.7f, inputCoef1b;
-    float inputCoef2 = 0.625f, inputCoef2b;
+    float inputCoef1 = 0.7f, inputCoef1b = 1 - (diffuserCoef1 * diffuserCoef1);
+    float inputCoef2 = 0.625f, inputCoef2b = 1 - (diffuserCoef2 * diffuserCoef2);
 
 	// diffuser decay
 
@@ -192,6 +174,12 @@ protected:
 	static const int diffuserBufferLen3M1 = diffuserBufferLen3 - 1;
 	static const int diffuserBufferLen3M4 = diffuserBufferLen3 - 4;
 	static const int diffuserBufferLen4M1 = diffuserBufferLen4 - 1;
+	float diffuserBuffer1ReadLen = diffuserBufferLen1;
+	float diffuserBuffer2ReadLen = diffuserBufferLen2;
+	float diffuserBuffer3ReadLen = diffuserBufferLen3;
+	float diffuserBuffer4ReadLen = diffuserBufferLen4;
+
+	float diffuserBuffer2ReadLen_b,  diffuserBuffer4ReadLen_b;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
 	static float diffuserBuffer2[diffuserBufferLen2];
@@ -219,48 +207,28 @@ protected:
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
 
-    float lowL = 0, highL = 0, bandL = 0;
-    float lowR = 0, highR = 0, bandR = 0;
-
-	float inLpF, harmTremoloCutF;
+	float inLpF;
 
 	float vcfFreq;
 	float vcfDiffusion;
 
-	float _ly1L ;
-	float _ly1R ;
-	float _ly2L ;
-	float _ly2R ;
-	float _ly3L ;
-	float _ly3R ;
-	float _ly4L ;
-	float _ly4R ;
-	float _lx1L ;
-	float _lx1R ;
-	float _lx2L ;
-	float _lx2R ;
-	float _lx3L ;
-	float _lx3R ;
-	float _lx4L ;
-	float _lx4R ;
-
-	const int kl1 = 266 * _dattorroSampleRateMod;
-	const int kl2 = 2974 * _dattorroSampleRateMod;
-	const int kl3 = 1713 * _dattorroSampleRateMod;
-	const int kl4 = 1996 * _dattorroSampleRateMod;
-	const int kl5 = 1990 * _dattorroSampleRateMod;
-	const int kl6 = 187 * _dattorroSampleRateMod;
-	const int kl7 = 1066 * _dattorroSampleRateMod;
+	const int kl1 = 266 	* _dattorroSampleRateMod;
+	const int kl2 = 2974 	* _dattorroSampleRateMod;
+	const int kl3 = 1713 	* _dattorroSampleRateMod;
+	const int kl4 = 1996 	* _dattorroSampleRateMod;
+	const int kl5 = 1990 	* _dattorroSampleRateMod;
+	const int kl6 = 187 	* _dattorroSampleRateMod;
+	const int kl7 = 1066 	* _dattorroSampleRateMod;
     const long _kLeftTaps[7] = {kl1 , kl2, kl3, kl4, kl5, kl6, kl7};
 
 
-	const int kr1 = 353 * _dattorroSampleRateMod;
-	const int kr2 = 3627 * _dattorroSampleRateMod;
-	const int kr3 = 1228 * _dattorroSampleRateMod;
-	const int kr4 = 2673 * _dattorroSampleRateMod;
-	const int kr5 = 2111 * _dattorroSampleRateMod;
-	const int kr6 = 335 * _dattorroSampleRateMod;
-	const int kr7 = 121 * _dattorroSampleRateMod;
+	const int kr1 = 353 	* _dattorroSampleRateMod;
+	const int kr2 = 3627 	* _dattorroSampleRateMod;
+	const int kr3 = 1228 	* _dattorroSampleRateMod;
+	const int kr4 = 2673 	* _dattorroSampleRateMod;
+	const int kr5 = 2111 	* _dattorroSampleRateMod;
+	const int kr6 = 335 	* _dattorroSampleRateMod;
+	const int kr7 = 121 	* _dattorroSampleRateMod;
     const long _kRightTaps[7] = {kr1, kr2, kr3, kr4, kr5, kr6, kr7};
 
 };

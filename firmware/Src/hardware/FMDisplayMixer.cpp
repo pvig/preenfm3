@@ -323,10 +323,10 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_FBACK];
                         break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDIFFUSION];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAYDIFFUSION];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
                         break;
                     case 5:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDAMPING];
@@ -654,10 +654,10 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Decay");
                     break;
                 case 3:
-                    tft_->print("Input diffusion");
+                    tft_->print("Size");
                     break;
                 case 4:
-                    tft_->print("Decay diffusion");
+                    tft_->print("Diffusion");
                     break;
                 case 5:
                     tft_->print("Damping");
@@ -667,10 +667,10 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
         case 3:
             switch (row) {
                 case 0:
-                    tft_->print("Lfo Speed");
+                    tft_->print("Mod Speed");
                     break;
                 case 1:
-                    tft_->print("Lfo Depth");
+                    tft_->print("Mod Depth");
                     break;
                 case 2:
                     tft_->print("Env Mod");
