@@ -13,18 +13,18 @@ Set send level for each instrument
 1. Pre delay
 2. Pre delay Mix
 3. Decay
-4. Input diffusion
-5. Decay diffusion
-6. Input Damping
+4. Size
+5. Diffusion
+6. Damping
 
 ##### Global page 4 : Master Fx 2
 
-1. Lfo Speed 
-2. Lfo Depth 
+1. Mod Speed 
+2. Mod Depth 
 3. Env Mod 
 4. Threshold
-5. Filter Hi 
-6. Filter Low
+5. Input Tilt 
+6. Env Feedback
 
 ##### Midi CC : on Global midi channel
 

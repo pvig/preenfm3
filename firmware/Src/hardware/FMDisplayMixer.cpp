@@ -667,10 +667,10 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
         case 3:
             switch (row) {
                 case 0:
-                    tft_->print("Lfo Speed");
+                    tft_->print("Mod Speed");
                     break;
                 case 1:
-                    tft_->print("Lfo Depth");
+                    tft_->print("Mod Depth");
                     break;
                 case 2:
                     tft_->print("Env Mod");
