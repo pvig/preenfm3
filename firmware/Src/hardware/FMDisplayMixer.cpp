@@ -320,13 +320,13 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX];
                         break;
                     case 2:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_FBACK];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
                         break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_FBACK];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
                         break;
                     case 5:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDAMPING];
@@ -651,13 +651,13 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Pre delay Mix");
                     break;
                 case 2:
-                    tft_->print("Decay");
+                    tft_->print("Diffusion");
                     break;
                 case 3:
-                    tft_->print("Size");
+                    tft_->print("Decay");
                     break;
                 case 4:
-                    tft_->print("Diffusion");
+                    tft_->print("Size");
                     break;
                 case 5:
                     tft_->print("Damping");

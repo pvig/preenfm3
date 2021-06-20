@@ -26,8 +26,8 @@ public:
 protected:
 	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f
 
-	const float headRoomMultiplier = 200;
-	const float headRoomDivider = 0.0015f;
+	const float headRoomMultiplier = 1;//200;
+	const float headRoomDivider = 0.3f;//0.001f;
 
 	//lfo
 	float lfo1, lfo1tri;
@@ -49,8 +49,6 @@ protected:
     float fxTime = 0.98, prevTime = -1, fxTimeLinear;
     float prevfeedbackGain = 0;
     float feedbackGain = 0.5;
-    float fxTone = 0.25f;
-    float fxDiffusion = 0.2f;
     float sizeParam, prevSizeParam;
     float inputDiffusion, prevInputDiffusion;
     float diffusion, prevDiffusion, decayDiffusion, prevDecayDiffusion;
@@ -63,25 +61,14 @@ protected:
 	float loopLpf, loopLpf2, loopHpf,  inHpf, tiltInput;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float envFeedback = 0;
-	float bounceLevel, prevBounce = -1, bouncingCv = 0;
 	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
-	float spread, ratio;
-	const float decoupler1 = 0.0047f;
-	const float decoupler2 = 0.0033f;
-	float loopDecoupler = 0;
-	float loopDecoupler2 = 0;
-	float loopDecouplerModVal;
-	int   loopDecouplerChangeCounter = 0;
-	const int   loopDecouplerChangePeriod = 15733;
 
 	float combInR, combInL;
 	float lpR, lpL;
 	float lowcutR, lowcutL;
 	float hpR, hpL;
 	float inR, inL;
-	float vca, vcaR, vcaL;
-
 
 	float envelope = 0;
 	float blocksum = 0, envDest = 0, envM1 = 0, envM2 = 0;
@@ -206,6 +193,7 @@ protected:
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
+    float dcBlock1a, dcBlock1b;
 
 	float inLpF;
 

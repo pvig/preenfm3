@@ -164,6 +164,9 @@ void FxBus::init(SynthState *synthState) {
     v7L = 0;
 	v7R = 0;
 
+	dcBlock1a = 0;
+	dcBlock1b = 0;
+
 	inHpf = 0.1f;
 	loopHpf = 0.1f;
 	loopLpf2 = 0.95f;
@@ -271,10 +274,10 @@ void FxBus::mixSumInit() {
     temp			*= 	temp;
     tiltInput		= 	tiltInput * 0.9f + temp * 0.1f;
 
-    inHpf			= 	clamp(tiltInput * fold(tiltInput * 20) , 0, 1);
+    inHpf			= 	clamp(- 0.2f + tiltInput * (0.8f + fold(tiltInput * 16) * 0.33f) , 0, 1);
     inLpF			=	clamp(tiltInput + 0.02f, 0, 1);
 
-    temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVFEEDBACK] * 0.25f;
+    temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVFEEDBACK] * 0.225f;
 	envFeedback	= 	envFeedback * 0.9f + temp * 0.1f;
 
 
@@ -337,6 +340,10 @@ void FxBus::processBlock(int32_t *outBuff) {
     	inL = *(sample + 1);
 
     	monoIn = (inR + inL);
+
+        v0L = monoIn - v1L + dcBlockerCoef * v0L;			// dc blocker
+        v1L = monoIn;
+        monoIn = v0L;
 
         // --- cut high
 
@@ -441,12 +448,6 @@ void FxBus::processBlock(int32_t *outBuff) {
         v2R = v2L - v3R + dcBlockerCoef * v2R;			// dc blocker
         v3R = v2L;
 
-        v2L = v2R - v3L + dcBlockerCoef * v2L;			// dc blocker
-        v3L = v2R;
-
-        v2R = v2L - v3R + dcBlockerCoef * v2R;			// dc blocker
-        v3R = v2L;
-
         ap2In = v2R * decayVal;				// decay
 
     	// ---- ap 2
@@ -514,6 +515,10 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	feedbackInL = ap4Out;
     	feedbackInR = ap2Out;
+
+		/*dcBlock1a = ap1Out - dcBlock1b + dcBlockerCoef * dcBlock1a;			// dc blocker
+		dcBlock1b = ap1Out;
+		ap1Out = dcBlock1a;*/
 
     	//outL = ap1Out;// + ap1Out - ap2In - ap2Out ;
         outL = ap1Out;
@@ -607,10 +612,10 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// -------- mods :
 
-    	timeCvControl1 = diffuserBufferLen1 - diffuserBuffer1ReadLen + (lfo1  	* lfoDepth + envMod) * diffuserBuffer1ReadLen;
-    	timeCvControl2 = diffuserBufferLen2 - diffuserBuffer2ReadLen ;//+ (lfo2b  	* lfoDepth + envMod) * diffuserBuffer2ReadLen_b;
-    	timeCvControl3 = diffuserBufferLen3 - diffuserBuffer3ReadLen + (lfo2 	* lfoDepth + envMod) * diffuserBuffer3ReadLen;
-    	timeCvControl4 = diffuserBufferLen4 - diffuserBuffer4ReadLen ;//+ (lfo1b 	* lfoDepth + envMod) * diffuserBuffer4ReadLen_b;
+    	timeCvControl1 = diffuserBufferLen1 - diffuserBuffer1ReadLen + lfo2 +  (lfo1  	* lfoDepth + envMod) * diffuserBuffer1ReadLen;
+    	timeCvControl2 = diffuserBufferLen2 - diffuserBuffer2ReadLen + lfo1b +  (lfo2b  	* lfoDepth + envMod) * diffuserBuffer2ReadLen_b;
+    	timeCvControl3 = diffuserBufferLen3 - diffuserBuffer3ReadLen + lfo1 +  (lfo2 	* lfoDepth + envMod) * diffuserBuffer3ReadLen;
+    	timeCvControl4 = diffuserBufferLen4 - diffuserBuffer4ReadLen + lfo2b +  (lfo1b 	* lfoDepth + envMod) * diffuserBuffer4ReadLen_b;
     }
 }
 

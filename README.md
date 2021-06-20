@@ -12,9 +12,9 @@ Set send level for each instrument
 
 1. Pre delay
 2. Pre delay Mix
-3. Decay
-4. Size
-5. Diffusion
+3. Diffusion
+4. Decay
+5. Size
 6. Damping
 
 ##### Global page 4 : Master Fx 2
@@ -35,7 +35,7 @@ Set send level for each instrument
 38.    Send level 5
 39.    Send level 6
 
-40.    ,,,
+40.    not sure yet..
 41.    ,,,
 42.    ,,,
 43.    ,,,
@@ -46,3 +46,6 @@ Set send level for each instrument
 ## Credits
 JON DATTORRO for the reverb algorithm
 https://ccrma.stanford.edu/~dattorro/EffectDesignPart1.pdf
+
+Dale Johnson of ValleyAudio for lot of code inspiration from the Plateau reverb
+https://github.com/ValleyAudio/ValleyRackFree/
