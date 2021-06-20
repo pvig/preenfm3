@@ -26,8 +26,8 @@ public:
 protected:
 	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f
 
-	const float headRoomMultiplier = 1;//200;
-	const float headRoomDivider = 0.3f;//0.001f;
+	const float headRoomMultiplier = 1000;
+	const float headRoomDivider = 0.0025f;
 
 	//lfo
 	float lfo1, lfo1tri;
@@ -146,8 +146,8 @@ protected:
     int inputReadPos3;
     int inputReadPos4;
 
-    float inputCoef1 = 0.7f, inputCoef1b = 1 - (diffuserCoef1 * diffuserCoef1);
-    float inputCoef2 = 0.625f, inputCoef2b = 1 - (diffuserCoef2 * diffuserCoef2);
+    float inputCoef1 = 0.7f;
+    float inputCoef2 = 0.625f;
 
 	// diffuser decay
 
@@ -166,7 +166,8 @@ protected:
 	float diffuserBuffer3ReadLen = diffuserBufferLen3;
 	float diffuserBuffer4ReadLen = diffuserBufferLen4;
 
-	float diffuserBuffer2ReadLen_b,  diffuserBuffer4ReadLen_b;
+	const float diffuserBuffer2ReadLen_b = 0.5f;
+	const float diffuserBuffer4ReadLen_b = 0.6180339887f;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
 	static float diffuserBuffer2[diffuserBufferLen2];
@@ -196,9 +197,6 @@ protected:
     float dcBlock1a, dcBlock1b;
 
 	float inLpF;
-
-	float vcfFreq;
-	float vcfDiffusion;
 
 	const int kl1 = 266 	* _dattorroSampleRateMod;
 	const int kl2 = 2974 	* _dattorroSampleRateMod;
