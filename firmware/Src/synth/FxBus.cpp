@@ -236,14 +236,15 @@ void FxBus::mixSumInit() {
 
 	diffusion 	= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
 	if(diffusion != prevDiffusion) {
-		//inputCoef1 		= 	0.01f + diffusion * 0.75f;
-		//inputCoef2 		= 	0.01f + diffusion * 0.625f;
-		diffuserCoef1 	= 	-(0.01f + diffusion * 0.7f);
+		float inputDiff = clamp(diffusion, 0.4f, 1);
+		inputCoef1 		= 	0.01f + inputDiff * 0.75f;
+		inputCoef2 		= 	0.01f + inputDiff * 0.625f;
+		diffuserCoef1 	= 	-(0.01f + diffusion * 0.625f);
 		diffuserCoef2 	= 	0.01f + diffusion * 0.5f;
 	}
 	prevDiffusion = diffusion;
 
-	damping 		= synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] * 0.6f;
+	damping 		= synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] * 0.76f;
 	damping 		*= damping;
 	loopLpf 		= 0.05f + damping * 0.95f;
 
@@ -266,19 +267,18 @@ void FxBus::mixSumInit() {
     envModDepth 	= 	envModDepth * 0.9f + temp * 0.1f;
 	envModDepthNeg	=	fabsf(envModDepth);
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_INPUTTILT ] * 0.75f;
-    temp			*= 	temp;
-    tiltInput		= 	tiltInput * 0.9f + temp * 0.1f;
+    float tilt		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_INPUTTILT ] * 0.75f;
+    tiltInput		= 	tiltInput * 0.9f + (tilt*tilt) * 0.1f;
 
     inHpf			= 	clamp(- 0.2f + tiltInput * (0.8f + fold(tiltInput * 16) * 0.33f) , 0, 1);
-    inLpF			=	clamp(tiltInput * 0.7f + 0.02f, 0, 1);
+    inLpF			=	clamp(tilt * 0.7f + 0.02f, 0, 1);
 
     /*hp_b1 = expf_fast(-6.28f * ( 440.f * powf(2.f, tiltInput - 0.5f) ));
     hp_a0 = (1 + hp_b1) * 0.5f;
     hp_a1 = - hp_a0;*/
 
 
-    temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVFEEDBACK] * 0.225f;
+    temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVFEEDBACK] * 0.8f;
 	envFeedback	= 	envFeedback * 0.9f + temp * 0.1f;
 
 
@@ -389,6 +389,10 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // ---- diffuser 1
 
+        //inputReadPos1 = modulo(inputWritePos1 + 1, inputBufferLen1);
+    	//inputBuffer1[inputWritePos1] = monoIn - inputCoef1 * inputBuffer1[inputReadPos1];
+    	//diff1Out = monoIn * inputCoef1 + 	inputBuffer1[inputReadPos1] * inputCoef1b;
+
         inputReadPos1 = modulo(inputWritePos1 + 1, inputBufferLen1);
     	float in_ap1 = inputBuffer1[inputReadPos1];
         float in_apSum1 = monoIn + in_ap1 * inputCoef1;
@@ -428,7 +432,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         v5R = monoIn;
         monoIn = v4R;
 
-    	float decayVal = clamp((feedbackGain + envFeedback * envelope), 0, 0.75f); // ------ decay
+    	float decayVal = clamp((feedbackGain + envFeedback * envelope), 0, 0.78f); // ------ decay
 
         // ---- ap 1
 
@@ -506,10 +510,16 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// ----------------------------------------------> read delay3
 		ap4In = delay3Buffer[ (int) delay3ReadPos ];
 
-        /*v2L = ap4In - v3L + dcBlockerCoef * v2L;			// dc blocker
+        /*v2L = v4L - v3L + dcBlockerCoef * v2L;			// dc blocker
+        v3L = v4L;
+
+        v2R = v2L - v3R + dcBlockerCoef * v2R;			// dc blocker
+        v3R = v2L;*/
+
+        v2L = ap4In - v3L + dcBlockerCoef * v2L;			// dc blocker
         v3L = ap4In;
 
-        ap4In = v2L;*/
+        ap4In = v2L;
 
 		ap4In *= decayVal;				// decay
 

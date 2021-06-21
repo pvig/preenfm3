@@ -26,8 +26,8 @@ public:
 protected:
 	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f
 
-	const float headRoomMultiplier = 1000000;
-	const float headRoomDivider = 0.0000025f;
+	const float headRoomMultiplier = 40 * 0.6f;
+	const float headRoomDivider = 0.025f;
 
 	//lfo
 	float lfo1, lfo1tri;
