@@ -26,8 +26,8 @@ public:
 protected:
 	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f
 
-	const float headRoomMultiplier = 1000;
-	const float headRoomDivider = 0.0025f;
+	const float headRoomMultiplier = 1000000;
+	const float headRoomDivider = 0.0000025f;
 
 	//lfo
 	float lfo1, lfo1tri;
@@ -64,6 +64,8 @@ protected:
 	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 
+	const float apAttn = 0.95f;
+
 	float combInR, combInL;
 	float lpR, lpL;
 	float lowcutR, lowcutL;
@@ -75,6 +77,8 @@ protected:
 	int envBlocknn = 0, envDetectSize = 32 * 32;
 
     float nodeL, nodeR, outL, outR;
+
+    float int1 = 0, int2 = 0, int3 = 0, int4 = 0;
 
 	static const int delay1BufferSize 	= 4453 * _dattorroSampleRateMod;
 	static const int delay1BufferSizeM1	= delay1BufferSize - 1;
@@ -195,7 +199,8 @@ protected:
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
     float dcBlock1a, dcBlock1b;
-
+    float hp_y0, hp_y1, hp_x1;
+    float hp_a0, hp_a1, hp_b1;
 	float inLpF;
 
 	const int kl1 = 266 	* _dattorroSampleRateMod;
