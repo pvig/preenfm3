@@ -68,14 +68,14 @@ SynthState::SynthState() {
     fullState.randomizer.Modl = 1;
 
     // Master FX
-    fullState.masterfxConfig[GLOBALFX_TIME] = 0.88f;
-    fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.67f;
+    fullState.masterfxConfig[GLOBALFX_TIME] = 0.32f;
+    fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.35f;
     fullState.masterfxConfig[GLOBALFX_SIZE] = 0.72f;
-    fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
+    fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.7f;
     fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] = 0.97f;
     fullState.masterfxConfig[GLOBALFX_INPUTTILT] = 0.64f;
 
-    fullState.masterfxConfig[GLOBALFX_FBACK] = 0.6f;
+    fullState.masterfxConfig[GLOBALFX_DECAY] = 0.6f;
     fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.18f;
     fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.17f;
     fullState.masterfxConfig[GLOBALFX_ENVMOD] = -0.01f;

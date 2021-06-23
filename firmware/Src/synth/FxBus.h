@@ -14,11 +14,9 @@ public:
     void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
-
 	float* getSampleBlock() {
 	    return sampleBlock_;
 	}
-
 	const float* getSampleBlock() const {
 	    return sampleBlock_;
 	}
@@ -26,32 +24,37 @@ public:
 protected:
 	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f
 
-	const float headRoomMultiplier = 1;//200;
-	const float headRoomDivider = 0.3f;//0.001f;
+	float headRoomMultiplier = 40 * 0.6f;
+	float headRoomDivider = 0.025f;
 
 	//lfo
-	float lfo1, lfo1tri;
-	float lfo1btri, lfo1b;
+	float lfo1;
+	float lfo1tri;
 	float lfo1Inc = 0.000237521f;
-	float lfo2tri, lfo2btri;
-	float lfo2, lfo2b;
-	float lfo2Inc = 0.0001941666667f;
-	float lfo2IncModSampleInc = 0;
-	float lfo2IncMod;
-	float lfo2ModVal;
-	int   lfo2ChangeCounter = 0;
-	const int   lfo2ChangePeriod = 17733;
-	const int   lfo2ChangePeriodInv = 1 / lfo2ChangePeriod;
+
+	float lfo2tri;
+	float lfo2;
+	float lfo2Inc = lfo1Inc * 1.5f; //0.0001941666667f;
+
+	float lfo3tri;
+	float lfo3;
+	float lfo3Inc = lfo1Inc * 1.05f;
+
+	float lfo4tri;
+	float lfo4;
+	float lfo4Inc = lfo1Inc * 1.8f;
+
 
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
 
     float fxTime = 0.98, prevTime = -1, fxTimeLinear;
-    float prevfeedbackGain = 0;
-    float feedbackGain = 0.5;
+    float prevdecayVal = 0;
+    float decayVal = 0.5, prevDecayVal = -1;
+    const float decayMaxVal = 0.73f;
     float sizeParam, prevSizeParam;
     float inputDiffusion, prevInputDiffusion;
-    float diffusion, prevDiffusion, decayDiffusion, prevDecayDiffusion;
+    float diffusion, prevDiffusion;
     float damping;
     float predelayMixLevel = 0.5f;
     float predelayMixAttn = predelayMixLevel * 0.75;
@@ -60,21 +63,19 @@ protected:
     float envMod, envModDepth, invtime = 1, invspeed = 1, envModDepthNeg;
 	float loopLpf, loopLpf2, loopHpf,  inHpf, tiltInput;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
-	float envFeedback = 0;
+	float envDecayMod = 0;
 	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 
-	float combInR, combInL;
-	float lpR, lpL;
-	float lowcutR, lowcutL;
-	float hpR, hpL;
 	float inR, inL;
 
 	float envelope = 0;
 	float blocksum = 0, envDest = 0, envM1 = 0, envM2 = 0;
 	int envBlocknn = 0, envDetectSize = 32 * 32;
 
-    float nodeL, nodeR, outL, outR;
+    float outL, outR;
+
+    float int1 = 0, int2 = 0, int3 = 0, int4 = 0;
 
 	static const int delay1BufferSize 	= 4453 * _dattorroSampleRateMod;
 	static const int delay1BufferSizeM1	= delay1BufferSize - 1;
@@ -146,8 +147,8 @@ protected:
     int inputReadPos3;
     int inputReadPos4;
 
-    float inputCoef1 = 0.7f, inputCoef1b = 1 - (diffuserCoef1 * diffuserCoef1);
-    float inputCoef2 = 0.625f, inputCoef2b = 1 - (diffuserCoef2 * diffuserCoef2);
+    float inputCoef1 = 0.7f;
+    float inputCoef2 = 0.625f;
 
 	// diffuser decay
 
@@ -166,7 +167,8 @@ protected:
 	float diffuserBuffer3ReadLen = diffuserBufferLen3;
 	float diffuserBuffer4ReadLen = diffuserBufferLen4;
 
-	float diffuserBuffer2ReadLen_b,  diffuserBuffer4ReadLen_b;
+	const float diffuserBuffer2ReadLen_b = 0.5f;
+	const float diffuserBuffer4ReadLen_b = 0.6180339887f;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
 	static float diffuserBuffer2[diffuserBufferLen2];
@@ -182,8 +184,8 @@ protected:
     float diffuserReadPos3;
     float diffuserReadPos4;
 
-    float diffuserCoef1 = 0.75f, diffuserCoef1b;
-    float diffuserCoef2 = 0.65f, diffuserCoef2b;
+    float diffuserCoef1 = 0.75f;
+    float diffuserCoef2 = 0.65f;
 
 	float monoIn, diff1Out, diff2Out, diff3Out, diff4Out;
     float ap1In, ap2In, ap3In, ap4In;
@@ -194,11 +196,9 @@ protected:
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
     float dcBlock1a, dcBlock1b;
-
+    float hp_y0, hp_y1, hp_x1;
+    float hp_a0, hp_a1, hp_b1;
 	float inLpF;
-
-	float vcfFreq;
-	float vcfDiffusion;
 
 	const int kl1 = 266 	* _dattorroSampleRateMod;
 	const int kl2 = 2974 	* _dattorroSampleRateMod;
