@@ -323,7 +323,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
                         break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_FBACK];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
                         break;
                     case 4:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
@@ -351,7 +351,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVFEEDBACK];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVDECAY];
                         break;
                 }
                 break;

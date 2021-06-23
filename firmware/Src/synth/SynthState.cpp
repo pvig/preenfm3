@@ -75,7 +75,7 @@ SynthState::SynthState() {
     fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] = 0.97f;
     fullState.masterfxConfig[GLOBALFX_INPUTTILT] = 0.64f;
 
-    fullState.masterfxConfig[GLOBALFX_FBACK] = 0.6f;
+    fullState.masterfxConfig[GLOBALFX_DECAY] = 0.6f;
     fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.18f;
     fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.17f;
     fullState.masterfxConfig[GLOBALFX_ENVMOD] = -0.01f;
