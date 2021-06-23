@@ -156,7 +156,7 @@ void FxBus::init(SynthState *synthState) {
 	hp_x1 = 0;
 
 	inHpf = 0.1f;
-	loopHpf = 0.01f;
+	loopHpf = 0.04f;
 }
 
 /**
