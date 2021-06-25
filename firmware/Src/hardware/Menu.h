@@ -51,11 +51,10 @@ enum MASTERFXPARAMS {
     GLOBALFX_LFOSPEED,
     GLOBALFX_ENVMOD,
     GLOBALFX_ENVTHRESHOLD,
-    GLOBALFX_BOUNCE,
     GLOBALFX_ENVRELEASE,
     GLOBALFX_INPUTTILT,
     GLOBALFX_ENVDECAY,
-    MASTERFXPARAMS_SIZE
+    GLOBALFX_PARAMS_SIZE
 };
 
 enum SynthEditMode {
@@ -172,7 +171,7 @@ struct FullState {
     struct PreviousMenuChoice previousMenuChoice;
     uint8_t midiConfigValue[MIDICONFIG_SIZE + 1];
 
-    float masterfxConfig[MASTERFXPARAMS_SIZE + 1];
+    float masterfxConfig[GLOBALFX_PARAMS_SIZE + 1];
 
     uint8_t preenFMBankNumber;
     uint8_t preenFMPresetNumber;

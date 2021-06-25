@@ -70,7 +70,6 @@ enum AllControlChange {
     CC_MFX_SEND5,
     CC_MFX_SEND6,
     CC_MFX_TIME,
-    CC_MFX_BOUNCE,
     CC_MFX_FEEDBACK,
     CC_MFX_INPUT_LEVEL,
     CC_MFX_MOD_LEVEL,

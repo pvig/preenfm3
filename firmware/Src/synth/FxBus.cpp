@@ -199,7 +199,7 @@ void FxBus::mixSumInit() {
     if(prevDecayVal != decayVal) {
         envRelease 			= 	0.005f + decayVal * decayVal * 0.7f;
 
-    	headRoomMultiplier = (1.5f + (1 - decayVal * decayVal) * 2.5f) * 40;// * 0.6f;
+    	headRoomMultiplier = (1 + (1 - decayVal * decayVal) * 0.75f) * 40;// * 0.6f;
     	headRoomDivider = 0.025f;
     }
     prevDecayVal = decayVal;
@@ -280,7 +280,7 @@ void FxBus::mixSumInit() {
 		if( blocksum > envThreshold) {
 			// attack
 			envDest = 1;
-			envM1 = 9;//999;
+			envM1 = 9;
 			envM2 = 0.1f;
 			//envelope = 0;// restart env
 		} else if(envDest == 1) {

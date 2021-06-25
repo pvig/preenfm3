@@ -450,9 +450,6 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_MFX_FEEDBACK:
             this->synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = INV127 * (midiEvent.value[1] - 64);
             break;
-        case CC_MFX_BOUNCE:
-            this->synthState_->fullState.masterfxConfig[GLOBALFX_BOUNCE] = INV127 * midiEvent.value[1];
-            break;
         case CC_MFX_INPUT_LEVEL:
             this->synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = INV127 * (midiEvent.value[1] - 64);
             break;
