@@ -14,6 +14,7 @@ public:
     void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
+    float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
 	float* getSampleBlock() {
 	    return sampleBlock_;
 	}
@@ -162,13 +163,13 @@ protected:
 	static const int diffuserBufferLen3M1 = diffuserBufferLen3 - 1;
 	static const int diffuserBufferLen3M4 = diffuserBufferLen3 - 4;
 	static const int diffuserBufferLen4M1 = diffuserBufferLen4 - 1;
-	float diffuserBuffer1ReadLen = diffuserBufferLen1;
-	float diffuserBuffer2ReadLen = diffuserBufferLen2;
-	float diffuserBuffer3ReadLen = diffuserBufferLen3;
-	float diffuserBuffer4ReadLen = diffuserBufferLen4;
+	float diffuserBuffer1ReadLen = diffuserBufferLen1M1;
+	float diffuserBuffer2ReadLen = diffuserBufferLen2M1;
+	float diffuserBuffer3ReadLen = diffuserBufferLen3M1;
+	float diffuserBuffer4ReadLen = diffuserBufferLen4M1;
 
-	const float diffuserBuffer2ReadLen_b = 0.5f;
-	const float diffuserBuffer4ReadLen_b = 0.6180339887f;
+	const float diffuserBuffer2ReadLen_b = diffuserBuffer2ReadLen * 0.5f;
+	const float diffuserBuffer4ReadLen_b = diffuserBuffer4ReadLen * 0.6180339887f;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
 	static float diffuserBuffer2[diffuserBufferLen2];
@@ -187,7 +188,7 @@ protected:
     float diffuserCoef1 = 0.75f;
     float diffuserCoef2 = 0.65f;
 
-	float monoIn, diff1Out, diff2Out, diff3Out, diff4Out;
+	float monoIn, preDelayOut = 0, diff1Out, diff2Out, diff3Out, diff4Out;
     float ap1In, ap2In, ap3In, ap4In;
 	float ap1Out, ap2Out, ap3Out, ap4Out;
 	float feedbackInL = 0, feedbackInR = 0;
@@ -195,7 +196,7 @@ protected:
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
-    float dcBlock1a, dcBlock1b;
+    float dcBlock1a, dcBlock1b, dcBlock2a, dcBlock2b;
     float hp_y0, hp_y1, hp_x1;
     float hp_a0, hp_a1, hp_b1;
 	float inLpF;

@@ -81,6 +81,9 @@ extern float noise[32];
 
 FxBus::FxBus() {
 	lfo1 = 0;
+	lfo2 = 0.25f;
+	lfo3 = 0.5f;
+	lfo4 = 0.75f;
 }
 
 void FxBus::init(SynthState *synthState) {
@@ -150,6 +153,9 @@ void FxBus::init(SynthState *synthState) {
 
 	dcBlock1a = 0;
 	dcBlock1b = 0;
+	dcBlock2a = 0;
+	dcBlock2b = 0;
+
 
 	hp_y0 = 0;
 	hp_y1 = 0;
@@ -226,7 +232,7 @@ void FxBus::mixSumInit() {
 
 	diffusion 	= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
 	if(diffusion != prevDiffusion) {
-		float inputDiff = clamp(diffusion, 0.4f, 1);
+		float inputDiff = clamp(diffusion, 0.4f, 1) - 0.05f;
 		inputCoef1 		= 	(0.01f + inputDiff * 0.75f);
 		inputCoef2 		= 	(0.01f + inputDiff * 0.625f);
 		diffuserCoef1 	= 	-(0.01f + diffusion * 0.625f);
@@ -250,10 +256,10 @@ void FxBus::mixSumInit() {
     lfoDepth 		= 	lfoDepth * 0.9f + temp * 0.1f;
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVTHRESHOLD];
-	prevEnvThreshold = temp * temp * headRoomDivider * 640;
+	prevEnvThreshold = temp * temp * 64;
 	envThreshold	= 	envThreshold * 0.9f + prevEnvThreshold * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] * 0.90f;
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] * 0.9f;
     envModDepth 	= 	envModDepth * 0.9f + temp * 0.1f;
 	envModDepthNeg	=	fabsf(envModDepth);
 
@@ -263,14 +269,8 @@ void FxBus::mixSumInit() {
     inHpf			= 	clamp(- 0.2f + tiltInput * (0.8f + fold(tiltInput * 16) * 0.33f) , 0, 1);
     inLpF			=	clamp(tilt * 0.7f + 0.02f, 0, 1);
 
-    /*hp_b1 = expf_fast(-6.28f * ( 440.f * powf(2.f, tiltInput - 0.5f) ));
-    hp_a0 = (1 + hp_b1) * 0.5f;
-    hp_a1 = - hp_a0;*/
-
-
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVDECAY] * 0.8f;
 	envDecayMod	= 	envDecayMod * 0.9f + temp * 0.1f;
-
 
     // ------ env follow coef calc
 
@@ -280,8 +280,8 @@ void FxBus::mixSumInit() {
 		if( blocksum > envThreshold) {
 			// attack
 			envDest = 1;
-			envM1 = 9;
-			envM2 = 0.1f;
+			envM1 = 31;
+			envM2 = 0.03125f;
 			//envelope = 0;// restart env
 		} else if(envDest == 1) {
 			// release
@@ -361,7 +361,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         blocksum 	+= 	fabsf(monoIn);
         envelope 	= 	(envelope * envM1 + envDest) * envM2;
       	float envprep = (envDest == 1)? envelope*envelope : envelope;
-        envMod 		= 	(envMod * 79 + (envModDepth < 0 ? envModDepthNeg * (1 - envprep) : envModDepth * envprep)) * 0.0125f;	//	lowpass on envMod
+        envMod 		= 	(envMod * 49 + (envModDepth < 0 ? envModDepthNeg * (1 - envprep) : envModDepth * envprep)) * 0.02f;	//	lowpass on envMod
 
     	//--- pre delay
 
@@ -373,7 +373,9 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	predelayBuffer[predelayWritePos] = monoIn;
 
-    	monoIn = predelayMixAttn * delayInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1) + (1 - predelayMixAttn) * monoIn;
+    	preDelayOut = delayAllpassInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1, preDelayOut);
+
+    	monoIn = predelayMixAttn * preDelayOut + (1 - predelayMixAttn) * monoIn;
 
     	// --- input diffuser
 
@@ -414,15 +416,15 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	monoIn = diff4Out;
 
-        v4R = monoIn - v5R + dcBlockerCoef * v4R;			// dc blocker
-        v5R = monoIn;
-        monoIn = v4R;
+		dcBlock1a = monoIn - dcBlock1b + dcBlockerCoef * dcBlock1a;			// dc blocker
+		dcBlock1b = monoIn;
+		monoIn = dcBlock1a;
 
-    	float decayValMod = clamp((decayVal + envDecayMod * envelope), 0, decayMaxVal + 0.05f); // ------ decay
+    	float decayValMod = clamp((decayVal + envDecayMod * envelope), 0, decayMaxVal + 0.1f); // ------ decay
 
         // ---- ap 1
 
-        ap1In = monoIn + feedbackInL * decayValMod * (0.95f + lfo2 * 0.05f);
+        ap1In = monoIn + feedbackInL * decayValMod /** (0.99f + lfo2 * 0.01f)*/;
 
         diffuserReadPos1 = diffuserWritePos1 - (timeCvControl1);
         while( (diffuserReadPos1 >= diffuserBufferLen1) )
@@ -434,7 +436,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	ap1Out 	= 	int1 - inSum1 * diffuserCoef1;
         diffuserBuffer1[diffuserWritePos1] 		= inSum1;
-    	int1 = delayInterpolation(diffuserReadPos1, diffuserBuffer1, diffuserBufferLen1M1);
+    	int1 = delayAllpassInterpolation(diffuserReadPos1, diffuserBuffer1, diffuserBufferLen1M1, int1);
 
     	// ----------------------------------------------< inject in delay1
     	delay1Buffer[ delay1WritePos ] 		= ap1Out;
@@ -442,13 +444,13 @@ void FxBus::processBlock(int32_t *outBuff) {
 		ap2In = delay1Buffer[ (int)delay1ReadPos ];
 
         // ---------------------------------------------------- filter
-        v4L += loopLpf * v5L;						// lowpass
-        v5L += loopLpf * ( ap2In - v4L - v5L);
+        v4R += loopLpf * v5R;						// lowpass
+        v5R += loopLpf * ( ap2In - v4R - v5R);
 
         v2R += loopHpf * v3R;						// hipass
-        v3R += loopHpf * (v4L - v2R - v3R);
+        v3R += loopHpf * (v4R - v2R - v3R);
 
-        ap2In = (v4L - v2R) * decayValMod;				// decay
+        ap2In = (v4R - v2R) * decayValMod;				// decay
 
     	// ---- ap 2
 
@@ -462,7 +464,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	ap2Out 	= 	int2 - inSum2 * diffuserCoef2;
         diffuserBuffer2[diffuserWritePos2] 		= inSum2;
-    	int2 = delayInterpolation(diffuserReadPos2, diffuserBuffer2, diffuserBufferLen2M1);
+    	int2 = delayAllpassInterpolation(diffuserReadPos2, diffuserBuffer2, diffuserBufferLen2M1, int2);
 
     	// ----------------------------------------------< inject in delay2
     	delay2Buffer[ delay2WritePos ] 		= ap2Out;
@@ -472,7 +474,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // ---- ap 3
 
-		ap3In = monoIn + feedbackInR * decayVal * (0.95f + lfo3 * 0.05f);
+		ap3In = monoIn + feedbackInR * decayVal;// * (0.9999f + lfo3 * 0.0001f);
 
         diffuserReadPos3 = diffuserWritePos3 - (timeCvControl3);
 
@@ -485,19 +487,28 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	ap3Out 	= 	int3 - inSum3 * diffuserCoef1;
         diffuserBuffer3[diffuserWritePos3] 		= inSum3;
-    	int3 = delayInterpolation(diffuserReadPos3, diffuserBuffer3, diffuserBufferLen3M1);
+    	int3 = delayAllpassInterpolation(diffuserReadPos3, diffuserBuffer3, diffuserBufferLen3M1, int3);
 
     	// ----------------------------------------------< inject in delay3
     	delay3Buffer[ delay3WritePos ] 		= ap3Out;
     	// ----------------------------------------------> read delay3
 		ap4In = delay3Buffer[ (int) delay3ReadPos ];
 
-        v2L = ap4In - v3L + dcBlockerCoef * v2L;			// dc blocker
-        v3L = ap4In;
+        // ---------------------------------------------------- filter
+        /*v4L += loopLpf * v5L;						// lowpass
+        v5L += loopLpf * ( ap2In - v4L - v5L);
 
-        ap4In = v2L;
+        v2L += loopHpf * v3L;						// hipass
+        v3L += loopHpf * (v4L - v2L - v3L);
 
-		ap4In *= decayValMod;				// decay
+        ap4In = (v4L - v2L) * decayValMod;				// decay*/
+
+		dcBlock2a = ap4In - dcBlock2b + dcBlockerCoef * dcBlock2a;			// dc blocker
+		dcBlock2b = ap4In;
+
+		ap4In = dcBlock2a;
+
+        ap4In *= decayValMod;				// decay
 
         // ---- ap 4
 
@@ -512,7 +523,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	ap4Out 	= 	int4 - inSum4 * -diffuserCoef2;
         diffuserBuffer4[diffuserWritePos4] 		= inSum4;
-       	int4 = delayInterpolation(diffuserReadPos4, diffuserBuffer4, diffuserBufferLen4M1);
+       	int4 = delayAllpassInterpolation(diffuserReadPos4, diffuserBuffer4, diffuserBufferLen4M1, int4);
 
     	// ----------------------------------------------< inject in delay4
     	delay4Buffer[ delay4WritePos ] 		= ap4Out;
@@ -524,11 +535,6 @@ void FxBus::processBlock(int32_t *outBuff) {
     	feedbackInL = ap4Out;
     	feedbackInR = ap2Out;
 
-		/*dcBlock1a = ap1Out - dcBlock1b + dcBlockerCoef * dcBlock1a;			// dc blocker
-		dcBlock1b = ap1Out;
-		ap1Out = dcBlock1a;*/
-
-    	//outL = ap1Out;// + ap1Out - ap2In - ap2Out ;
         outL = ap1Out;
         outL += delay1Buffer[ 		modulo(_kLeftTaps[0] + delay1WritePos, delay1BufferSize	)		];
         outL += delay1Buffer[ 		modulo(_kLeftTaps[1] + delay1WritePos, delay1BufferSize	)		];
@@ -538,7 +544,6 @@ void FxBus::processBlock(int32_t *outBuff) {
         outL -= diffuserBuffer4[ 	modulo(_kLeftTaps[5] + diffuserWritePos4, diffuserBufferLen4)	];
         outL -= delay4Buffer[ 		modulo(_kLeftTaps[6] + delay4WritePos, delay4BufferSize)		];
 
-    	//outR = ap3Out;// + ap3Out - ap4In - ap4Out ;
         outR = ap3Out;
         outR += delay3Buffer[ 		modulo(_kRightTaps[0] + delay3WritePos, delay3BufferSize) 		];
         outR += delay3Buffer[ 		modulo(_kRightTaps[1] + delay3WritePos, delay3BufferSize) 		];
@@ -635,13 +640,21 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// -------- mods :
 
-    	timeCvControl1 = diffuserBufferLen1 - diffuserBuffer1ReadLen + lfo2 	+  	(lfo1  	* lfoDepth + envMod) * diffuserBuffer1ReadLen;
-    	timeCvControl2 = diffuserBufferLen2 - diffuserBuffer2ReadLen + lfo4 	+ 	(lfo3 	* lfoDepth + envMod) * diffuserBuffer2ReadLen_b;
-    	timeCvControl3 = diffuserBufferLen3 - diffuserBuffer3ReadLen + lfo1 	+  	(lfo2 	* lfoDepth + envMod) * diffuserBuffer3ReadLen;
-    	timeCvControl4 = diffuserBufferLen4 - diffuserBuffer4ReadLen + lfo3 	+ 	(lfo4 	* lfoDepth + envMod) * diffuserBuffer4ReadLen_b;
+    	timeCvControl1 = diffuserBufferLen1 - diffuserBuffer1ReadLen  	+  	clamp(lfo1  * lfoDepth + envMod, 0, 0.9f) * diffuserBuffer1ReadLen;
+    	timeCvControl2 = diffuserBufferLen2 - diffuserBuffer2ReadLen  	+ 	clamp(lfo3 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer2ReadLen_b;
+    	timeCvControl3 = diffuserBufferLen3 - diffuserBuffer3ReadLen  	+  	clamp(lfo2 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer3ReadLen;
+    	timeCvControl4 = diffuserBufferLen4 - diffuserBuffer4ReadLen  	+ 	clamp(lfo4 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer4ReadLen_b;
     }
 }
-
+float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
+	//return delayInterpolation(readPos, buffer, bufferLenM1);
+	//v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
+	int readPosInt = (int) readPos;
+	float y0 = buffer[readPosInt];
+	float y1 = buffer[((readPosInt >= bufferLenM1) ? readPosInt - bufferLenM1 : readPosInt + 1)];
+	float x = readPos - floorf(readPos);
+    return y1 + (1 - x) * (y0 - prevVal);
+}
 float FxBus::delayInterpolation(float readPos, float buffer[], int bufferLenM1) {
 	int readPosInt = (int) readPos;
 	float y0 = buffer[readPosInt];
