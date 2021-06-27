@@ -4,9 +4,9 @@ Fork from https://github.com/Ixox/preenfm3
 
 ## Some Reverb ~ Strange 8
 
-##### Mix page 3 : Fx send
+##### Mix page 3 : Dry/wet
 
-Set send level for each instrument
+Set fx level for each instrument
 
 ##### Global page 3 : Master Fx 1
 
