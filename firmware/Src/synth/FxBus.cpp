@@ -214,7 +214,7 @@ void FxBus::mixSumInit() {
     predelayMixLevel 	= 	synthState_->fullState.masterfxConfig[ GLOBALFX_PREDELAYMIX ];
     predelayMixAttn 	= 	predelayMixLevel * (1 - (predelayMixLevel * predelayMixLevel * 0.1f));
 
-	temp 	= clamp(synthState_->fullState.masterfxConfig[GLOBALFX_SIZE], 0.01f, 1);
+	temp 	= clamp(synthState_->fullState.masterfxConfig[GLOBALFX_SIZE], 0.03f, 1);
 	sizeParam = sizeParam * 0.99f + temp * 0.01f;
 
 	if(sizeParam != prevSizeParam) {
@@ -230,7 +230,7 @@ void FxBus::mixSumInit() {
 	}
 	prevSizeParam = sizeParam;
 
-	diffusion 	= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
+	diffusion 	= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] * (0.85f + sizeParam * 0.15f);
 	if(diffusion != prevDiffusion) {
 		float inputDiff = clamp(diffusion, 0.4f, 1) - 0.05f;
 		inputCoef1 		= 	(0.01f + inputDiff * 0.75f);
@@ -373,7 +373,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	predelayBuffer[predelayWritePos] = monoIn;
 
-    	preDelayOut = delayAllpassInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1, preDelayOut);
+    	preDelayOut = delayInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1);
 
     	monoIn = predelayMixAttn * preDelayOut + (1 - predelayMixAttn) * monoIn;
 
@@ -441,7 +441,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// ----------------------------------------------< inject in delay1
     	delay1Buffer[ delay1WritePos ] 		= ap1Out;
     	// ----------------------------------------------> read delay1
-		ap2In = delay1Buffer[ (int)delay1ReadPos ];
+		ap2In = delay1Buffer[ delay1ReadPos ];
 
         // ---------------------------------------------------- filter
         v4R += loopLpf * v5R;						// lowpass
@@ -470,7 +470,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	delay2Buffer[ delay2WritePos ] 		= ap2Out;
     	// ----------------------------------------------> read delay2
 
-    	ap2Out = delay2Buffer[ (int) delay2ReadPos ];
+    	ap2Out = delay2Buffer[ delay2ReadPos ];
 
         // ---- ap 3
 
@@ -492,16 +492,9 @@ void FxBus::processBlock(int32_t *outBuff) {
     	// ----------------------------------------------< inject in delay3
     	delay3Buffer[ delay3WritePos ] 		= ap3Out;
     	// ----------------------------------------------> read delay3
-		ap4In = delay3Buffer[ (int) delay3ReadPos ];
+		ap4In = delay3Buffer[ delay3ReadPos ];
 
         // ---------------------------------------------------- filter
-        /*v4L += loopLpf * v5L;						// lowpass
-        v5L += loopLpf * ( ap2In - v4L - v5L);
-
-        v2L += loopHpf * v3L;						// hipass
-        v3L += loopHpf * (v4L - v2L - v3L);
-
-        ap4In = (v4L - v2L) * decayValMod;				// decay*/
 
 		dcBlock2a = ap4In - dcBlock2b + dcBlockerCoef * dcBlock2a;			// dc blocker
 		dcBlock2b = ap4In;
@@ -521,14 +514,14 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	float inSum4 = ap4In + int4 * diffuserCoef2;
 
-    	ap4Out 	= 	int4 - inSum4 * -diffuserCoef2;
+    	ap4Out 	= 	int4 - inSum4 * diffuserCoef2;
         diffuserBuffer4[diffuserWritePos4] 		= inSum4;
        	int4 = delayAllpassInterpolation(diffuserReadPos4, diffuserBuffer4, diffuserBufferLen4M1, int4);
 
     	// ----------------------------------------------< inject in delay4
     	delay4Buffer[ delay4WritePos ] 		= ap4Out;
     	// ----------------------------------------------> read delay4
-    	ap4Out = delay4Buffer[ (int) delay4ReadPos ];
+    	ap4Out = delay4Buffer[ delay4ReadPos ];
 
     	// ================================================  mix out
 

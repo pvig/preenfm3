@@ -168,8 +168,8 @@ protected:
 	float diffuserBuffer3ReadLen = diffuserBufferLen3M1;
 	float diffuserBuffer4ReadLen = diffuserBufferLen4M1;
 
-	const float diffuserBuffer2ReadLen_b = diffuserBuffer2ReadLen * 0.5f;
-	const float diffuserBuffer4ReadLen_b = diffuserBuffer4ReadLen * 0.6180339887f;
+	const float diffuserBuffer2ReadLen_b = diffuserBuffer2ReadLen * 0.3333f;//0.5f;
+	const float diffuserBuffer4ReadLen_b = diffuserBuffer4ReadLen * 0.1237f;//0.6180339887f;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
 	static float diffuserBuffer2[diffuserBufferLen2];
