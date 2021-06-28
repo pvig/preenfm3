@@ -52,7 +52,7 @@ protected:
     float fxTime = 0.98, prevTime = -1, fxTimeLinear;
     float prevdecayVal = 0;
     float decayVal = 0.5, prevDecayVal = -1;
-    const float decayMaxVal = 0.73f;
+    const float decayMaxVal = 0.9f;
     float sizeParam, prevSizeParam;
     float inputDiffusion, prevInputDiffusion;
     float diffusion, prevDiffusion;

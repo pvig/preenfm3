@@ -277,11 +277,11 @@ void FxBus::mixSumInit() {
 	envBlocknn += BLOCK_SIZE;
 
 	if(envBlocknn > envDetectSize) {
-		if( blocksum > envThreshold) {
+		if( envDest != 1 && blocksum > envThreshold) {
 			// attack
 			envDest = 1;
-			envM1 = 31;
-			envM2 = 0.03125f;
+			envM1 = 3;
+			envM2 = 0.25f;
 			//envelope = 0;// restart env
 		} else if(envDest == 1) {
 			// release
