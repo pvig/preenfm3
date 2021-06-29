@@ -155,7 +155,8 @@ void FxBus::init(SynthState *synthState) {
 	dcBlock1b = 0;
 	dcBlock2a = 0;
 	dcBlock2b = 0;
-
+	dcBlock3a = 0;
+	dcBlock3b = 0;
 
 	hp_y0 = 0;
 	hp_y1 = 0;
@@ -447,10 +448,15 @@ void FxBus::processBlock(int32_t *outBuff) {
         v4R += loopLpf * v5R;						// lowpass
         v5R += loopLpf * ( ap2In - v4R - v5R);
 
-        v2R += loopHpf * v3R;						// hipass
+		dcBlock3a = v4R - dcBlock3b + dcBlockerCoef * dcBlock3a;			// dc blocker
+		dcBlock3b = v4R;
+
+		ap2In = dcBlock3a * decayValMod;
+
+        /*v2R += loopHpf * v3R;						// hipass
         v3R += loopHpf * (v4R - v2R - v3R);
 
-        ap2In = (v4R - v2R) * decayValMod;				// decay
+        ap2In = (v4R - v2R) * decayValMod;				// decay*/
 
     	// ---- ap 2
 

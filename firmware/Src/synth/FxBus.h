@@ -196,7 +196,7 @@ protected:
     // Filter
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
-    float dcBlock1a, dcBlock1b, dcBlock2a, dcBlock2b;
+    float dcBlock1a, dcBlock1b, dcBlock2a, dcBlock2b, dcBlock3a, dcBlock3b;
     float hp_y0, hp_y1, hp_x1;
     float hp_a0, hp_a1, hp_b1;
 	float inLpF;
