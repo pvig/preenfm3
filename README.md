@@ -1,30 +1,56 @@
 # preenfm3
 
-Fork from https://github.com/Ixox/preenfm3
+Fork from https://github.com/Ixox/preenfm3  
 
 ## Some Reverb ~ Strange 8
 
+##### the Dattoro Reverb blocks
+
+input > lp & hp > pre delay > input diffuser > reverb tank ( (allpass>delay>lp>allpass>delay) > (allpass>delay>allpass>delay) ) > output from various point in the tank  
+
+--------------
+
 ##### Mix page 3 : Dry/wet
 
-Set fx level for each instrument
+Set fx level for each instrument  
+
+--------------
 
 ##### Global page 3 : Master Fx 1
 
-1. Pre delay
-2. Pre delay Mix
-3. Diffusion
-4. Decay
-5. Size
-6. Damping
+* Pre delay 
+    * Time of pre delay
+* Pre delay Mix 
+    * the input diffuser is fed with a mix of audio input and pre delayed input.
+* Diffusion 
+    * set the input & tank diffuser allpass coefficient
+* Decay 
+    * tank feedback
+* Size 
+    * size of the tank delay
+* Damping 
+    * cut off of the tank lowpass
+
+--------------
 
 ##### Global page 4 : Master Fx 2
 
-1. Mod Speed 
-2. Mod Depth 
-3. Env Mod 
-4. Threshold
-5. Input Tilt 
-6. Env Feedback
+* Mod Speed 
+    * lfo speed (4 of them)
+* Mod Depth 
+    * lfo mod depth, modulate the 4 delay allpass in the tank
+* Env Mod 
+    * envelope mod depth, make the tail pitch shifting up or down
+* Threshold 
+    * audio level at which envelope trigger
+* Input Tilt 
+    * input filter from lowpass ~0 to high pass ~1
+* Env Feedback 
+    * feedback (decay) modulation with the envelope
+
+the envelope release rate is relative to the decay param.  
+
+--------------
 
 ##### Midi CC : on Global midi channel
 
@@ -42,6 +68,7 @@ Set fx level for each instrument
 44.    ,,,
 45.    ,,,   
 
+--------------
 
 ## Credits
 JON DATTORRO for the reverb algorithm
