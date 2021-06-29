@@ -4,9 +4,14 @@ Fork from https://github.com/Ixox/preenfm3
 
 ## Some Reverb ~ Strange 8
 
-##### the Dattoro Reverb blocks
-
-input > lp & hp > pre delay > input diffuser > reverb tank ( (allpass>delay>lp>allpass>delay) > (allpass>delay>allpass>delay) ) > output from various point in the tank  
+##### the Dattoro Reverb blocks  
+  
+input  
+lp & hp (tilt)  
+pre delay  
+input diffuser   
+reverb tank ( (allpass>delay>lp>allpass>delay) > (allpass>delay>allpass>delay) )  
+output from various point in the tank  
 
 --------------
 
