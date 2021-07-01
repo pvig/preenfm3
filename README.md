@@ -79,5 +79,5 @@ the envelope release rate is relative to the decay param.
 JON DATTORRO for the reverb algorithm
 https://ccrma.stanford.edu/~dattorro/EffectDesignPart1.pdf
 
-Dale Johnson of ValleyAudio for lot of code inspiration from the Plateau reverb
-https://github.com/ValleyAudio/ValleyRackFree/
+Dale Johnson of ValleyAudio for some great code example & ideas from the Plateau reverb
+https://github.com/ValleyAudio/ValleyRackFree/  
