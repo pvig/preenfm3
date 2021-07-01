@@ -265,7 +265,7 @@ void FxBus::mixSumInit() {
 	temp 			*=	temp * temp;
 	fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFODEPTH ] * 0.7f;
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFODEPTH ] * 0.9f;
     temp 			*= 	1 - speedLinear * 0.9f;
     lfoDepth 		= 	lfoDepth * 0.9f + temp * 0.1f;
 
@@ -601,10 +601,10 @@ void FxBus::processBlock(int32_t *outBuff) {
 
      	// -------- mods :
 
-    	timeCvControl1 = diffuserBufferLen1 - diffuserBuffer1ReadLen  	+  	clamp(lfo1  * lfoDepth + envMod, 0, 0.9f) * diffuserBuffer1ReadLen;
-    	timeCvControl2 = diffuserBufferLen2 - diffuserBuffer2ReadLen  	+ 	clamp(lfo3 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer2ReadLen_b;
-    	timeCvControl3 = diffuserBufferLen3 - diffuserBuffer3ReadLen  	+  	clamp(lfo2 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer3ReadLen;
-    	timeCvControl4 = diffuserBufferLen4 - diffuserBuffer4ReadLen  	+ 	clamp(lfo4 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer4ReadLen_b;
+    	timeCvControl1 = clamp(diffuserBufferLen1 - diffuserBuffer1ReadLen  	+  	clamp(lfo1  * lfoDepth + envMod, 0, 0.9f) * diffuserBuffer1ReadLen_b, -diffuserBuffer1ReadLen, diffuserBuffer1ReadLen);
+    	timeCvControl2 = clamp(diffuserBufferLen2 - diffuserBuffer2ReadLen  	+ 	clamp(lfo3 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer2ReadLen_b, -diffuserBuffer2ReadLen, diffuserBuffer2ReadLen);
+    	timeCvControl3 = clamp(diffuserBufferLen3 - diffuserBuffer3ReadLen  	+  	clamp(lfo2 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer3ReadLen_b, -diffuserBuffer3ReadLen, diffuserBuffer3ReadLen);
+    	timeCvControl4 = clamp(diffuserBufferLen4 - diffuserBuffer4ReadLen  	+ 	clamp(lfo4 	* lfoDepth + envMod, 0, 0.9f) * diffuserBuffer4ReadLen_b, -diffuserBuffer4ReadLen, diffuserBuffer4ReadLen);
     }
 }
 float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
