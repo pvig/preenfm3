@@ -66,11 +66,11 @@ the envelope release rate is relative to the decay param.
 38.    Send level 5
 39.    Send level 6
 
-40.    not sure yet..
-41.    ,,,
-42.    ,,,
-43.    ,,,
-44.    ,,,
+40.    PREDELAYTIME
+41.    DECAY
+42.    TILT
+43.    SIZE
+44.    LFOSPEED
 45.    ,,,   
 
 --------------

@@ -120,7 +120,6 @@ protected:
 	static const int predelayBufferSizeM1 	= predelayBufferSize - 1;
 	static float predelayBuffer[predelayBufferSize];
     int predelaySize 			= predelayBufferSize;
-    int predelaySizeM1 			= predelayBufferSize - 1;
     int predelayWritePos 		= 0;
     float predelayReadPos 		= 0;
 
@@ -169,10 +168,10 @@ protected:
 	float diffuserBuffer3ReadLen = diffuserBufferLen3M1;
 	float diffuserBuffer4ReadLen = diffuserBufferLen4M1;
 
-	const float diffuserBuffer1ReadLen_b = diffuserBuffer1ReadLen * 0.1333f;//0.5f;
-	const float diffuserBuffer2ReadLen_b = diffuserBuffer2ReadLen * 0.3237f;//0.6180339887f;
-	const float diffuserBuffer3ReadLen_b = diffuserBuffer3ReadLen * 0.17f;//0.5f;
-	const float diffuserBuffer4ReadLen_b = diffuserBuffer4ReadLen * 0.5237f;//0.6180339887f;
+	float diffuserBuffer1ReadLen_b = diffuserBuffer1ReadLen * 0.1333f;//0.5f;
+	float diffuserBuffer2ReadLen_b = diffuserBuffer2ReadLen * 0.3237f;//0.6180339887f;
+	float diffuserBuffer3ReadLen_b = diffuserBuffer3ReadLen * 0.17f;//0.5f;
+	float diffuserBuffer4ReadLen_b = diffuserBuffer4ReadLen * 0.5237f;//0.6180339887f;
 
 	static float diffuserBuffer1[diffuserBufferLen1];
 	static float diffuserBuffer2[diffuserBufferLen2];

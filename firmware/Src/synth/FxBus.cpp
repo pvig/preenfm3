@@ -209,16 +209,10 @@ void FxBus::mixSumInit() {
 
     // ------ page 1
 
-    fxTimeLinear	= 	synthState_->fullState.masterfxConfig[ GLOBALFX_TIME ];
+    fxTimeLinear	= 	synthState_->fullState.masterfxConfig[ GLOBALFX_PREDELAYTIME ];
 	prevTime 		=  	clamp( fxTimeLinear, 0.0003f, 0.9996f);
 	prevTime		*= 	prevTime * prevTime;
 	fxTime 			= 	fxTime * 0.9f + prevTime * 0.1f;
-
-	delay1FxTarget = 	getQuantizedTime(fxTime, delay1BufferSize);
-	delay1DelayLen = 	(delay1DelayLen 	+ (delay1FxTarget - delay1DelayLen)	* 0.01f);
-
-	delay3FxTarget = 	delay3BufferSizeM1;
-	delay3DelayLen = 	(delay3DelayLen 	+ (delay3FxTarget - delay3DelayLen)	* 0.01f);
 
 	predelaySize 	= 	fxTimeLinear * predelayBufferSizeM1;
 
@@ -249,6 +243,11 @@ void FxBus::mixSumInit() {
 		diffuserBuffer2ReadLen = -1 + diffuserBufferLen2M1 * sizeParam;
 		diffuserBuffer3ReadLen = -1 + diffuserBufferLen3M1 * sizeParam;
 		diffuserBuffer4ReadLen = -1 + diffuserBufferLen4M1 * sizeParam;
+
+		diffuserBuffer1ReadLen_b = diffuserBuffer1ReadLen * 0.1333f;
+		diffuserBuffer2ReadLen_b = diffuserBuffer2ReadLen * 0.3237f;
+		diffuserBuffer3ReadLen_b = diffuserBuffer3ReadLen * 0.17f;
+		diffuserBuffer4ReadLen_b = diffuserBuffer4ReadLen * 0.5237f;
 	}
 	prevSizeParam = sizeParam;
 
@@ -274,7 +273,7 @@ void FxBus::mixSumInit() {
 	fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFODEPTH ] * 0.9f;
-    temp 			*= 	1 - speedLinear * 0.9f;
+    temp 			*= 	1 - speedLinear * 0.9f * (1 - sizeParam * 0.98f);
     lfoDepth 		= 	lfoDepth * 0.9f + temp * 0.1f;
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVTHRESHOLD];
@@ -288,7 +287,7 @@ void FxBus::mixSumInit() {
     float tilt		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_INPUTTILT ] * 0.75f;
     tiltInput		= 	tiltInput * 0.9f + (tilt*tilt) * 0.1f;
 
-    inHpf			= 	clamp(- 0.2f + tiltInput * (0.8f + fold(tiltInput * 16) * 0.33f) , 0, 1);
+    inHpf			= 	clamp(- 0.15f + tiltInput * (0.8f + fold(tiltInput * 32) * 0.2f) , 0, 1);
     inLpF			=	clamp(tilt * 0.7f + 0.02f, 0, 1);
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVDECAY] * 0.8f;
@@ -387,13 +386,11 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	//--- pre delay
 
-    	predelayReadPos = modulo2(predelayWritePos - predelaySize, predelayBufferSize);
-
     	predelayBuffer[predelayWritePos] = monoIn;
 
-    	//preDelayOut = delayInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1);
-    	preDelayOut = delayAllpassInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1, preDelayOut);
-
+    	predelayReadPos = modulo2(predelayWritePos - predelaySize, predelayBufferSize);
+    	preDelayOut = delayInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1);
+    	//preDelayOut = delayAllpassInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1, preDelayOut);
     	monoIn = predelayMixAttn * preDelayOut + (1 - predelayMixAttn) * monoIn;
 
     	// --- input diffuser
@@ -442,7 +439,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         ap1In = monoIn + feedbackInL * decayValMod;
 
-		diffuserReadPos1 = modulo2(diffuserWritePos1 - (timeCvControl1), diffuserBufferLen1);
+		diffuserReadPos1 = modulo2(diffuserWritePos1 - timeCvControl1, diffuserBufferLen1);
 
 		float inSum1 = ap1In + int1 * diffuserCoef1;
 
@@ -468,7 +465,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	// ---- ap 2
 
-		diffuserReadPos2 = modulo2(diffuserWritePos2 - (timeCvControl2), diffuserBufferLen2);
+		diffuserReadPos2 = modulo2(diffuserWritePos2 - timeCvControl2, diffuserBufferLen2);
 
 		float inSum2 = ap2In + int2 * diffuserCoef2;
 
@@ -486,7 +483,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 		ap3In = monoIn + feedbackInR * decayVal;
 
-		diffuserReadPos3 = modulo2(diffuserWritePos3 - (timeCvControl3), diffuserBufferLen3);
+		diffuserReadPos3 = modulo2(diffuserWritePos3 - timeCvControl3, diffuserBufferLen3);
 
 		float inSum3 = ap3In + int3 * diffuserCoef1;
 
@@ -511,7 +508,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // ---- ap 4
 
-        diffuserReadPos4 = modulo2(diffuserWritePos4 - (timeCvControl4), diffuserBufferLen4);
+        diffuserReadPos4 = modulo2(diffuserWritePos4 - timeCvControl4, diffuserBufferLen4);
 
     	float inSum4 = ap4In + int4 * diffuserCoef2;
 
@@ -585,10 +582,10 @@ void FxBus::processBlock(int32_t *outBuff) {
 
      	// -------- mods :
 
-    	timeCvControl1 = clamp(diffuserBufferLen1 - diffuserBuffer1ReadLen  	+  	clamp(lfo1  * lfoDepth + envMod, 0, 1) * diffuserBuffer1ReadLen_b, -diffuserBuffer1ReadLen, diffuserBuffer1ReadLen);
-    	timeCvControl2 = clamp(diffuserBufferLen2 - diffuserBuffer2ReadLen  	+ 	clamp(lfo3 	* lfoDepth + envMod, 0, 1) * diffuserBuffer2ReadLen_b, -diffuserBuffer2ReadLen, diffuserBuffer2ReadLen);
-    	timeCvControl3 = clamp(diffuserBufferLen3 - diffuserBuffer3ReadLen  	+  	clamp(lfo2 	* lfoDepth + envMod, 0, 1) * diffuserBuffer3ReadLen_b, -diffuserBuffer3ReadLen, diffuserBuffer3ReadLen);
-    	timeCvControl4 = clamp(diffuserBufferLen4 - diffuserBuffer4ReadLen  	+ 	clamp(lfo4 	* lfoDepth + envMod, 0, 1) * diffuserBuffer4ReadLen_b, -diffuserBuffer4ReadLen, diffuserBuffer4ReadLen);
+    	timeCvControl1 = clamp(diffuserBufferLen1 - diffuserBuffer1ReadLen  	+  	clamp(lfo1  * lfoDepth + envMod, 0, 1) * diffuserBuffer1ReadLen_b, -diffuserBufferLen1M1, diffuserBufferLen1);
+    	timeCvControl2 = clamp(diffuserBufferLen2 - diffuserBuffer2ReadLen  	+ 	clamp(lfo3 	* lfoDepth + envMod, 0, 1) * diffuserBuffer2ReadLen_b, -diffuserBufferLen2M1, diffuserBufferLen2);
+    	timeCvControl3 = clamp(diffuserBufferLen3 - diffuserBuffer3ReadLen  	+  	clamp(lfo2 	* lfoDepth + envMod, 0, 1) * diffuserBuffer3ReadLen_b, -diffuserBufferLen3M1, diffuserBufferLen3);
+    	timeCvControl4 = clamp(diffuserBufferLen4 - diffuserBuffer4ReadLen  	+ 	clamp(lfo4 	* lfoDepth + envMod, 0, 1) * diffuserBuffer4ReadLen_b, -diffuserBufferLen4M1, diffuserBufferLen4);
     }
 }
 float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {

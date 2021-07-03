@@ -314,7 +314,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             case MIXER_VALUE_GLOBAL_SETTINGS_3:
                 switch (encoder) {
                     case 0:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_TIME];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME];
                         break;
                     case 1:
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX];
