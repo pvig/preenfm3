@@ -52,6 +52,15 @@ float sqrt3(const float x)
   u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
   return u.x;
 }
+inline
+float fastroot(float f,int n)
+{
+ long *lp,l;
+ lp=(long*)(&f);
+ l=*lp;l-=0x3F800000l;l>>=(n-1);l+=0x3F800000l;
+ *lp=l;
+ return f;
+}
 inline float getQuantizedTime(float t, float maxSize)
 {
 	return t * maxSize;
@@ -205,6 +214,27 @@ void FxBus::mixSumInit() {
     	*(sample++) = 0;
     }
 
+    // ------ env follow coef calc
+
+ 	envBlocknn += BLOCK_SIZE;
+
+ 	if(envBlocknn > envDetectSize) {
+ 		if(envDest == 0 && blocksum > envThreshold) {
+ 			// attack
+ 			envDest = 1;
+ 			envM1 = 9;
+ 			envM2 = 0.1f;
+ 			//envelope = 0;// restart env
+ 		} else if(envDest == 1) {
+ 			// release
+ 			envDest = 0;
+ 			envM1 = envRelease * 800000;
+ 			envM2 = (1 / (envM1 + 1));
+ 		}
+ 	    blocksum = 0;
+ 	    envBlocknn = 0;
+ 	}
+
     // assign user param to variables :
 
     // ------ page 1
@@ -216,16 +246,17 @@ void FxBus::mixSumInit() {
 
 	predelaySize 	= 	fxTimeLinear * predelayBufferSizeM1;
 
-    decayVal 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] * decayMaxVal;
-
+    decayVal 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ];
     if(prevDecayVal != decayVal) {
-        envRelease 			= 	0.005f + decayVal * decayVal * 0.7f;
+    	decayFdbck = fastroot(decayVal, 4) * decayMaxVal;
 
-    	headRoomMultiplier = (1 + (1 - decayVal * decayVal) * 0.75f) * 40;// * 0.6f;
+    	float decayValSquare = decayVal * decayVal;
+        envRelease 			= 	0.005f + decayValSquare * 0.6f;
+
+    	headRoomMultiplier = (1 + (1 - decayValSquare) * 0.75f) * 40;// * 0.6f;
     	headRoomDivider = 0.025f;
     }
     prevDecayVal = decayVal;
-
 
     predelayMixLevel 	= 	synthState_->fullState.masterfxConfig[ GLOBALFX_PREDELAYMIX ];
     predelayMixAttn 	= 	predelayMixLevel * (1 - (predelayMixLevel * predelayMixLevel * 0.1f));
@@ -252,14 +283,26 @@ void FxBus::mixSumInit() {
 	prevSizeParam = sizeParam;
 
 	diffusion 	= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] * (0.85f + sizeParam * 0.15f);
-	if(diffusion != prevDiffusion) {
+    /*if(envDest == 1) {
+    	//smooth the env attack glitch
+    	temp = 0.75f;
+
+		//		inputCoef1 		= 	(0.53f + inputCoef1 * 9) * 0.1f;
+		//		inputCoef2 		= 	(0.5f + inputCoef2 * 9) * 0.1f;
+		//		diffuserCoef1 	= 	(-(0.46f) + diffuserCoef1 * 9) * 0.1f;
+		//		diffuserCoef2 	= 	(-(0.45f) + diffuserCoef2 * 9) * 0.1f;
+		//		prevDiffusion = -1;
+    }
+	diffusion 	= (diffusion * 9 + temp) * 0.1f;*/
+
+    if(diffusion != prevDiffusion) {
 		float inputDiff = clamp(diffusion, 0.4f, 1) - 0.05f;
 		inputCoef1 		= 	(0.01f + inputDiff * 0.75f);
 		inputCoef2 		= 	(0.01f + inputDiff * 0.625f);
 		diffuserCoef1 	= 	-(0.01f + diffusion * 0.625f);
 		diffuserCoef2 	= 	-(0.01f + diffusion * 0.5f);
-	}
-	prevDiffusion = diffusion;
+		prevDiffusion = diffusion;
+    }
 
 	damping 		= synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDAMPING] * 0.76f;
 	damping 		*= damping;
@@ -277,8 +320,8 @@ void FxBus::mixSumInit() {
     lfoDepth 		= 	lfoDepth * 0.9f + temp * 0.1f;
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVTHRESHOLD];
-	prevEnvThreshold = temp * temp * 16;
-	envThreshold	= 	envThreshold * 0.9f + prevEnvThreshold * 0.1f;
+    temp *= temp * 16;
+	envThreshold	= 	envThreshold * 0.9f + temp * 0.1f;
 
     temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] * 0.9f;
     envModDepth 	= 	envModDepth * 0.9f + temp * 0.1f;
@@ -293,26 +336,7 @@ void FxBus::mixSumInit() {
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVDECAY] * 0.8f;
 	envDecayMod	= 	envDecayMod * 0.9f + temp * 0.1f;
 
-    // ------ env follow coef calc
 
-	envBlocknn += BLOCK_SIZE;
-
-	if(envBlocknn > envDetectSize) {
-		if( envDest != 1 && blocksum > envThreshold) {
-			// attack
-			envDest = 1;
-			envM1 = 3;
-			envM2 = 0.25f;
-			//envelope = 0;// restart env
-		} else if(envDest == 1) {
-			// release
-			envDest = 0;
-			envM1 = envRelease * 800000;
-			envM2 = (1 / (envM1 + 1));
-		}
-	    blocksum = 0;
-	    envBlocknn = 0;
-	}
 
 }
 
@@ -361,9 +385,9 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	inLpMod = inLpF + envelope * 0.05f;
 
-        v6R += inLpMod * v7R;
+        v6R += inLpMod * v7R;						// lowpass
         v7R += inLpMod * (monoIn - v6R - v7R);
-        v6L += inLpMod * v7L;
+        v6L += inLpMod * v7L;						// lowpass
         v7L += inLpMod * (v6R - v6L - v7L);
 
         monoIn = v6L;
@@ -381,8 +405,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         blocksum 	+= 	fabsf(monoIn);
         envelope 	= 	(envelope * envM1 + envDest) * envM2;
-      	float envprep = (envDest == 1)? envelope*envelope : envelope;
-        envMod 		= 	(envMod * 9 + (envModDepth < 0 ? envModDepthNeg * (1 - envprep) : envModDepth * envprep)) * 0.1f;	//	lowpass on envMod
+
+        envMod 		= 	(envMod * 9 + (envModDepth < 0 ? envModDepthNeg * (1 - envelope) : envModDepth * envelope)) * 0.1f;	//	lowpass on envMod
 
     	//--- pre delay
 
@@ -390,7 +414,6 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	predelayReadPos = modulo2(predelayWritePos - predelaySize, predelayBufferSize);
     	preDelayOut = delayInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1);
-    	//preDelayOut = delayAllpassInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1, preDelayOut);
     	monoIn = predelayMixAttn * preDelayOut + (1 - predelayMixAttn) * monoIn;
 
     	// --- input diffuser
@@ -433,7 +456,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 		dcBlock1b = monoIn;
 		monoIn = dcBlock1a;
 
-    	float decayValMod = clamp((decayVal + envDecayMod * envelope), 0, decayMaxVal + 0.1f); // ------ decay
+    	float decayValMod = clamp((decayFdbck + envDecayMod * envelope), 0, decayMaxVal + 0.1f); // ------ decay
 
         // ---- ap 1
 
@@ -458,8 +481,6 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 		dcBlock3a = v4R - dcBlock3b + dcBlockerCoef * dcBlock3a;			// dc blocker
 		dcBlock3b = v4R;
-		/*dcBlock4a = dcBlock3a - dcBlock4b + dcBlockerCoef * dcBlock4a;			// dc blocker
-		dcBlock4b = dcBlock3a;*/
 
 		ap2In = dcBlock3a * decayValMod;
 

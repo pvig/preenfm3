@@ -459,24 +459,6 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_MFX_MOD_SPEED:
             this->synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = INV127 * midiEvent.value[1];
             break;
-        case CC_MFX_SEND1:
-            this->synth->setNewMixerValueFromMidi(0, MIXER_VALUE_SEND, (float)midiEvent.value[1] * INV127);
-            break;
-        case CC_MFX_SEND2:
-            this->synth->setNewMixerValueFromMidi(1, MIXER_VALUE_SEND, (float)midiEvent.value[1] * INV127);
-            break;
-        case CC_MFX_SEND3:
-            this->synth->setNewMixerValueFromMidi(2, MIXER_VALUE_SEND, (float)midiEvent.value[1] * INV127);
-            break;
-        case CC_MFX_SEND4:
-            this->synth->setNewMixerValueFromMidi(3, MIXER_VALUE_SEND, (float)midiEvent.value[1] * INV127);
-            break;
-        case CC_MFX_SEND5:
-            this->synth->setNewMixerValueFromMidi(4, MIXER_VALUE_SEND, (float)midiEvent.value[1] * INV127);
-            break;
-        case CC_MFX_SEND6:
-            this->synth->setNewMixerValueFromMidi(5, MIXER_VALUE_SEND, (float)midiEvent.value[1] * INV127);
-            break;
         }
     }
 
@@ -713,6 +695,9 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             break;
         case CC_MIXER_PAN:
             this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_PAN, (float) midiEvent.value[1] - 63);
+            break;
+        case CC_MIXER_SEND:
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
             break;
         case CC_MPE_SLIDE_CC74:
         	// No CC74 on global midi channel

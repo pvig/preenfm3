@@ -26,8 +26,8 @@ public:
 protected:
 	#define _dattorroSampleRateMod PREENFM_FREQUENCY / 29761.0f
 
-	float headRoomMultiplier = 40 * 0.6f;
-	float headRoomDivider = 0.025f;
+	float headRoomMultiplier = 1;
+	float headRoomDivider = 1;
 
 	//lfo
 	float lfo1;
@@ -52,7 +52,7 @@ protected:
 
     float fxTime = 0.98, prevTime = -1, fxTimeLinear;
     float prevdecayVal = 0;
-    float decayVal = 0.5, prevDecayVal = -1;
+    float decayVal = 0.5, prevDecayVal = -1, decayFdbck = 0;
     const float decayMaxVal = 0.9f;
     float sizeParam, prevSizeParam;
     float inputDiffusion, prevInputDiffusion;
@@ -73,7 +73,7 @@ protected:
 
 	float envelope = 0;
 	float blocksum = 0, envDest = 0, envM1 = 0, envM2 = 0;
-	int envBlocknn = 0, envDetectSize = 32 * 32;
+	int envBlocknn = 0, envDetectSize = 32 * 128;
 
     float outL, outR;
 
