@@ -27,7 +27,7 @@ int modulo(int d, int max) {
   return unlikely(d >= max) ? d - max : d;
 }
 inline
-float modulo2(float readPos, int bufferLen) {
+float modulo2(float readPos, float bufferLen) {
 	if( unlikely(readPos >= bufferLen) )
 		readPos -= bufferLen;
     if( unlikely(readPos < 0) )
@@ -105,12 +105,7 @@ float FxBus::diffuserBuffer4[diffuserBufferLen4] __attribute__((section(".ram_d2
 
 extern float noise[32];
 
-FxBus::FxBus() {
-	lfo1 = 0;
-	lfo2 = 0.25f;
-	lfo3 = 0.5f;
-	lfo4 = 0.75f;
-}
+FxBus::FxBus() {}
 
 void FxBus::init(SynthState *synthState) {
     this->synthState_ = synthState;
@@ -191,9 +186,6 @@ void FxBus::init(SynthState *synthState) {
 	hp_y0 = 0;
 	hp_y1 = 0;
 	hp_x1 = 0;
-
-	inHpf = 0.1f;
-	loopHpf = 0.04f;
 }
 
 /**
@@ -283,17 +275,6 @@ void FxBus::mixSumInit() {
 	prevSizeParam = sizeParam;
 
 	diffusion 	= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] * (0.85f + sizeParam * 0.15f);
-    /*if(envDest == 1) {
-    	//smooth the env attack glitch
-    	temp = 0.75f;
-
-		//		inputCoef1 		= 	(0.53f + inputCoef1 * 9) * 0.1f;
-		//		inputCoef2 		= 	(0.5f + inputCoef2 * 9) * 0.1f;
-		//		diffuserCoef1 	= 	(-(0.46f) + diffuserCoef1 * 9) * 0.1f;
-		//		diffuserCoef2 	= 	(-(0.45f) + diffuserCoef2 * 9) * 0.1f;
-		//		prevDiffusion = -1;
-    }
-	diffusion 	= (diffusion * 9 + temp) * 0.1f;*/
 
     if(diffusion != prevDiffusion) {
 		float inputDiff = clamp(diffusion, 0.4f, 1) - 0.05f;
@@ -315,8 +296,8 @@ void FxBus::mixSumInit() {
 	temp 			*=	temp * temp;
 	fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFODEPTH ] * 0.9f;
-    temp 			*= 	1 - speedLinear * 0.9f * (1 - sizeParam * 0.98f);
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFODEPTH ] * 0.6f;
+    temp 			= 	temp * (1 - speedLinear * 0.9f) * (1 - sizeParam * 0.5f);
     lfoDepth 		= 	lfoDepth * 0.9f + temp * 0.1f;
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVTHRESHOLD];
@@ -335,8 +316,6 @@ void FxBus::mixSumInit() {
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVDECAY] * 0.8f;
 	envDecayMod	= 	envDecayMod * 0.9f + temp * 0.1f;
-
-
 
 }
 
@@ -406,7 +385,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         blocksum 	+= 	fabsf(monoIn);
         envelope 	= 	(envelope * envM1 + envDest) * envM2;
 
-        envMod 		= 	(envMod * 9 + (envModDepth < 0 ? envModDepthNeg * (1 - envelope) : envModDepth * envelope)) * 0.1f;	//	lowpass on envMod
+        envMod 		= 	(envMod * 19 + (envModDepth < 0 ? envModDepthNeg * (1 - envelope) : envModDepth * envelope)) * 0.05f;	//	lowpass on envMod
 
     	//--- pre delay
 
@@ -604,9 +583,9 @@ void FxBus::processBlock(int32_t *outBuff) {
      	// -------- mods :
 
     	timeCvControl1 = clamp(diffuserBufferLen1 - diffuserBuffer1ReadLen  	+  	clamp(lfo1  * lfoDepth + envMod, 0, 1) * diffuserBuffer1ReadLen_b, -diffuserBufferLen1M1, diffuserBufferLen1);
-    	timeCvControl2 = clamp(diffuserBufferLen2 - diffuserBuffer2ReadLen  	+ 	clamp(lfo3 	* lfoDepth + envMod, 0, 1) * diffuserBuffer2ReadLen_b, -diffuserBufferLen2M1, diffuserBufferLen2);
-    	timeCvControl3 = clamp(diffuserBufferLen3 - diffuserBuffer3ReadLen  	+  	clamp(lfo2 	* lfoDepth + envMod, 0, 1) * diffuserBuffer3ReadLen_b, -diffuserBufferLen3M1, diffuserBufferLen3);
-    	timeCvControl4 = clamp(diffuserBufferLen4 - diffuserBuffer4ReadLen  	+ 	clamp(lfo4 	* lfoDepth + envMod, 0, 1) * diffuserBuffer4ReadLen_b, -diffuserBufferLen4M1, diffuserBufferLen4);
+    	timeCvControl2 = clamp(diffuserBufferLen2 - diffuserBuffer2ReadLen  	+ 	clamp(lfo2 	* lfoDepth + envMod, 0, 1) * diffuserBuffer2ReadLen_b, -diffuserBufferLen2M1, diffuserBufferLen2);
+    	timeCvControl3 = clamp(diffuserBufferLen3 - diffuserBuffer3ReadLen  	+  	clamp(lfo3	* lfoDepth + envMod, 0, 1) * diffuserBuffer3ReadLen_b, -diffuserBufferLen3M1, diffuserBufferLen3);
+    	timeCvControl4 = clamp(diffuserBufferLen4 - diffuserBuffer4ReadLen  	+ 	clamp(lfo4	* lfoDepth + envMod, 0, 1) * diffuserBuffer4ReadLen_b, -diffuserBufferLen4M1, diffuserBufferLen4);
     }
 }
 float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {

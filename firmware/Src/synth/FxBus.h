@@ -30,21 +30,21 @@ protected:
 	float headRoomDivider = 1;
 
 	//lfo
-	float lfo1;
+	float lfo1 = 0;
 	float lfo1tri;
 	float lfo1Inc = 0.000237521f;
 
+	float lfo2 = 0;
 	float lfo2tri;
-	float lfo2;
-	float lfo2Inc = lfo1Inc * 1.5f; //0.0001941666667f;
+	float lfo2Inc = lfo1Inc * 1.5f;
 
+	float lfo3 = 0.5f;
 	float lfo3tri;
-	float lfo3;
-	float lfo3Inc = lfo1Inc * 1.05f;
+	float lfo3Inc = lfo1Inc;
 
+	float lfo4 = 0.5f;
 	float lfo4tri;
-	float lfo4;
-	float lfo4Inc = lfo1Inc * 1.8f;
+	float lfo4Inc = lfo2Inc;
 
 
 	float sampleBlock_[BLOCK_SIZE * 2];
@@ -63,11 +63,14 @@ protected:
     float lfoDepth =  0;
     float fxSpeed = 0, speedLinear = 0;
     float envMod, envModDepth, invtime = 1, invspeed = 1, envModDepthNeg;
-	float loopLpf, loopLpf2, loopHpf,  inHpf, tiltInput;
+	float loopLpf, loopLpf2, tiltInput;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float envDecayMod = 0;
 	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
+
+	float loopHpf = 0.04f;
+	float inHpf = 0.1f;
 
 	float inR, inL;
 
