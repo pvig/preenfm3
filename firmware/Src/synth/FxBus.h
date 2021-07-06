@@ -32,11 +32,11 @@ protected:
 	//lfo
 	float lfo1 = 0;
 	float lfo1tri;
-	float lfo1Inc = 0.000237521f;
+	float lfo1Inc = 0.000337521f;
 
 	float lfo2 = 0;
 	float lfo2tri;
-	float lfo2Inc = lfo1Inc * 1.5f;
+	float lfo2Inc = lfo1Inc * 1.07f;
 
 	float lfo3 = 0.5f;
 	float lfo3tri;
@@ -62,7 +62,7 @@ protected:
     float predelayMixAttn = predelayMixLevel * 0.75;
     float lfoDepth =  0;
     float fxSpeed = 0, speedLinear = 0;
-    float envMod, envModDepth, invtime = 1, invspeed = 1, envModDepthNeg;
+    float envMod, envModDepth, invtime = 1, invspeed = 1;
 	float loopLpf, loopLpf2, tiltInput;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float envDecayMod = 0;
@@ -132,15 +132,14 @@ protected:
 	static const int inputBufferLen2 = 107 * _dattorroSampleRateMod;
 	static const int inputBufferLen3 = 379 * _dattorroSampleRateMod;
 	static const int inputBufferLen4 = 227 * _dattorroSampleRateMod;
-	static const int inputBufferLen1M1 = inputBufferLen1 - 1;
-	static const int inputBufferLen2M1 = inputBufferLen2 - 1;
-	static const int inputBufferLen3M1 = inputBufferLen3 - 1;
-	static const int inputBufferLen4M1 = inputBufferLen4 - 1;
-
 	static float inputBuffer1[inputBufferLen1];
 	static float inputBuffer2[inputBufferLen2];
 	static float inputBuffer3[inputBufferLen3];
 	static float inputBuffer4[inputBufferLen4];
+	float inputBuffer1ReadLen = inputBufferLen1;
+	float inputBuffer2ReadLen = inputBufferLen2;
+	float inputBuffer3ReadLen = inputBufferLen3;
+	float inputBuffer4ReadLen = inputBufferLen4;
     int inputWritePos1 	= 0;
     int inputWritePos2 	= 0;
     int inputWritePos3 	= 0;
