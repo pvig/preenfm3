@@ -245,7 +245,7 @@ void FxBus::mixSumInit() {
     	float decayValSquare = decayVal * decayVal;
         envRelease 			= 	0.005f + decayValSquare * 0.6f;
 
-    	headRoomMultiplier = (1 + (1 - decayValSquare) * 0.75f) * 40;// * 0.6f;
+    	headRoomMultiplier = (1 + (1 - decayValSquare) * 0.75f) * 40 * 0.65f;
     	headRoomDivider = 0.025f;
     }
     prevDecayVal = decayVal;
@@ -274,10 +274,10 @@ void FxBus::mixSumInit() {
 		diffuserBuffer3ReadLen = -1 + diffuserBufferLen3M1 * sizeParam;
 		diffuserBuffer4ReadLen = -1 + diffuserBufferLen4M1 * sizeParam;
 
-		diffuserBuffer1ReadLen_b = diffuserBuffer1ReadLen * 0.1333f;
-		diffuserBuffer2ReadLen_b = diffuserBuffer2ReadLen * 0.3237f;
-		diffuserBuffer3ReadLen_b = diffuserBuffer3ReadLen * 0.17f;
-		diffuserBuffer4ReadLen_b = diffuserBuffer4ReadLen * 0.5237f;
+		diffuserBuffer1ReadLen_b = diffuserBuffer1ReadLen * (0.1333f 	* 2);
+		diffuserBuffer2ReadLen_b = diffuserBuffer2ReadLen * (0.2237f 	* 2);
+		diffuserBuffer3ReadLen_b = diffuserBuffer3ReadLen * (0.18f 		* 2);
+		diffuserBuffer4ReadLen_b = diffuserBuffer4ReadLen * (0.4237f 	* 2);
 	}
 	prevSizeParam = sizeParam;
 
@@ -303,8 +303,8 @@ void FxBus::mixSumInit() {
 	temp 			*=	temp * temp;
 	fxSpeed 		= 	fxSpeed * 0.9f + temp * 0.1f;
 
-    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFODEPTH ] * 0.7f;
-    temp 			= 	temp * (1 - speedLinear * 0.95f) * (1 - sizeParam * 0.5f);
+    temp 			= 	synthState_->fullState.masterfxConfig[ GLOBALFX_LFODEPTH ] * 0.5f;
+    temp 			= 	temp * (1 - speedLinear * 0.92f) * (1 - sizeParam * 0.5f);
     lfoDepth 		= 	lfoDepth * 0.9f + temp * 0.1f;
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVTHRESHOLD];
