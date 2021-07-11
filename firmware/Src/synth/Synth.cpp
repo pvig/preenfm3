@@ -676,6 +676,11 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
             }
             break;
         }
+        case MIXER_VALUE_GLOBAL_SETTINGS_3:
+        	if(timbre == 0) {
+            	this->fxBus.setNextPreset((uint8_t) newValue);
+        	}
+        	break;
         case MIXER_VALUE_MIDI_CHANNEL:
         case MIXER_VALUE_MIDI_FIRST_NOTE:
         case MIXER_VALUE_MIDI_LAST_NOTE:

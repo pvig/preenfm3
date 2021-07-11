@@ -10,6 +10,7 @@ public:
 	virtual ~FxBus() {}
     void init(SynthState *synthState);
 
+    void setNextPreset(int presetN);
 	void mixSumInit();
     void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
@@ -38,11 +39,11 @@ protected:
 	float lfo2tri;
 	float lfo2Inc = lfo1Inc * 1.07f;
 
-	float lfo3 = 0.5f;
+	float lfo3 = 1;
 	float lfo3tri;
 	float lfo3Inc = lfo1Inc;
 
-	float lfo4 = 0.5f;
+	float lfo4 = 1;
 	float lfo4tri;
 	float lfo4Inc = lfo2Inc;
 
@@ -50,18 +51,19 @@ protected:
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
 
+	int presetNum = -1, prevPresetNum = -1, nextPresetNum = -1;
     float fxTime = 0.98, prevTime = -1, fxTimeLinear;
     float prevdecayVal = 0;
     float decayVal = 0.5, prevDecayVal = -1, decayFdbck = 0;
     const float decayMaxVal = 0.9f;
-    float sizeParam, prevSizeParam;
+    float sizeParam, prevSizeParam, nextSizeParam;
     float inputDiffusion, prevInputDiffusion;
     float diffusion, prevDiffusion;
     float damping;
     float predelayMixLevel = 0.5f;
     float predelayMixAttn = predelayMixLevel * 0.75;
     float lfoDepth =  0;
-    float fxSpeed = 0, speedLinear = 0;
+    float lfoSpeed = 0, speedLinear = 0;
     float envMod, envModDepth, invtime = 1, invspeed = 1;
 	float loopLpf, loopLpf2, tiltInput;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;

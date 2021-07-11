@@ -34,6 +34,21 @@ const char* enableNames[] = { "Off", "On" };
 const char* levelMeterWhere[] = { "Off", "Mix", "All" };
 const char* scalaMapNames[] = { "Keybrd", "Continu" };
 const char* mpeOptions[] = { "No", "MPE48", "MPE36", "MPE24", "MPE12", "MPE0"};
+const char *reverbPresets[] = {
+    "SmlDrk",
+    "SmlWrm",
+    "SmlBrt",
+    "MedDrk",
+    "MedWrm",
+    "MedBrt",
+    "LrgDrk",
+    "LrgWrm",
+    "LrgBrt",
+    "XLgDrk",
+    "XLgWrm",
+    "XLgBrt",
+    "Freeze"
+};
 static const char* nullNames[] = { };
 
 const char* midiWithNone [] = { "None", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
@@ -172,7 +187,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames }
     },
     {
-        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 12, 13, DISPLAY_TYPE_STRINGS, reverbPresets },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
@@ -182,10 +197,10 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
     {
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     }
 };
 
@@ -314,44 +329,42 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             case MIXER_VALUE_GLOBAL_SETTINGS_3:
                 switch (encoder) {
                     case 0:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM];
                         break;
                     case 1:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME];
                         break;
                     case 2:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX];
                         break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTDAMPING];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH];
                         break;
                 }
                 break;
             case MIXER_VALUE_GLOBAL_SETTINGS_4:
                 switch (encoder) {
                     case 0:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
                         break;
                     case 1:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
                         break;
                     case 2:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVMOD];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING];
                          break;
                     case 3:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD];
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVDECAY];
                         break;
                 }
                 break;
@@ -645,44 +658,44 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
         case 2:
             switch (row) {
                 case 0:
-                    tft_->print("Pre delay");
+                    tft_->print("Preset");
                     break;
                 case 1:
-                    tft_->print("Pre delay Mix");
+                    tft_->print("Pre delay");
                     break;
                 case 2:
-                    tft_->print("Diffusion");
+                    tft_->print("Pre delay Mix");
                     break;
                 case 3:
-                    tft_->print("Decay");
+                    tft_->print("Input Tilt");
                     break;
                 case 4:
-                    tft_->print("Size");
+                    tft_->print("Mod Speed");
                     break;
                 case 5:
-                    tft_->print("Damping");
+                    tft_->print("Mod Depth");
                     break;
             }
             break;
         case 3:
             switch (row) {
                 case 0:
-                    tft_->print("Mod Speed");
+                    tft_->print("Size");
                     break;
                 case 1:
-                    tft_->print("Mod Depth");
+                    tft_->print("Diffusion");
                     break;
                 case 2:
-                    tft_->print("Env Mod");
+                    tft_->print("Damping");
                     break;
                 case 3:
-                    tft_->print("Threshold");
+                    tft_->print("Decay");
                     break;
                 case 4:
-                    tft_->print("Input Tilt");
+                    tft_->print("");
                     break;
                 case 5:
-                    tft_->print("Env Feedback");
+                    tft_->print("");
                     break;
             }
         break;
