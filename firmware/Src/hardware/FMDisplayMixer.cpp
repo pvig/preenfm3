@@ -47,7 +47,9 @@ const char *reverbPresets[] = {
     "XLgDrk",
     "XLgWrm",
     "XLgBrt",
-    "Freeze"
+    "Freeze",
+    "Down",
+    "Up"
 };
 static const char* nullNames[] = { };
 
@@ -187,7 +189,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames }
     },
     {
-        { 0, 12, 13, DISPLAY_TYPE_STRINGS, reverbPresets },
+        { 0, 14, 15, DISPLAY_TYPE_STRINGS, reverbPresets },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
@@ -199,8 +201,8 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     }
 };
 
@@ -363,8 +365,10 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
                         break;
                     case 4:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVDECAY];
                         break;
                     case 5:
+                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVMOD];
                         break;
                 }
                 break;
@@ -692,10 +696,10 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Decay");
                     break;
                 case 4:
-                    tft_->print("");
+                    tft_->print("Env Decay");
                     break;
                 case 5:
-                    tft_->print("");
+                    tft_->print("Env Mod");
                     break;
             }
         break;

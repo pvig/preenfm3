@@ -238,18 +238,21 @@ void FxBus::mixSumInit() {
 
     if(prevPresetNum != presetNum) {
 
+        synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] = 0;
+        synthState_->fullState.masterfxConfig[ GLOBALFX_ENVDECAY] = 0;
+
     	if (presetNum < 12) {
         	int brightness = presetNum % 3;
         	int size = presetNum / 3;
 
-        	synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.65f + size * 0.1f;
+        	//synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.4f + size * 0.18f;
 
         	switch(brightness) {
 				case 0:
 					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
 					break;
 				case 1:
-					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.75f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f;
 					break;
 				case 2:
 					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f;
@@ -261,29 +264,55 @@ void FxBus::mixSumInit() {
         	switch(size) {
 				case 0:
 					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.2f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.1f;
+					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.02f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.65f;
 					break;
 				case 1:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.7f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.3f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.46f;
+					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.32f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
 					break;
 				case 2:
 					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.87f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.9f;
+					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.8f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
 					break;
 				case 3:
 					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.95f;
+					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.93f;
 					break;
 				default:
 					break;
         	}
     	} else {
+            synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] = 0;
+            synthState_->fullState.masterfxConfig[ GLOBALFX_ENVDECAY] = 0;
+
          	switch(presetNum) {
     				case 12:
     					//freeze
-    					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.7f;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.95f;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
     					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 1;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.3f;
+    					break;
+    				case 13:
+    					//down
+    			        synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] = -1;
+
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.95f;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
+    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.8f;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 1;
+    					break;
+    				case 14:
+    					//up
+    			        synthState_->fullState.masterfxConfig[ GLOBALFX_ENVMOD] = 1;
+
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.95f;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
+    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.8f;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
     					break;
     				default:
     					break;
@@ -391,6 +420,9 @@ void FxBus::mixSumInit() {
 
     temp = 	synthState_->fullState.masterfxConfig[ GLOBALFX_ENVDECAY] * 0.8f;
 	envDecayMod	= 	envDecayMod * 0.9f + temp * 0.1f;
+
+	//
+	totalSent = 0;
 }
 
 /**
@@ -398,17 +430,20 @@ void FxBus::mixSumInit() {
  */
 void FxBus::mixAdd(float *inStereo, int timbreNum) {
 	const float level = sqrt3(synthState_->mixerState.instrumentState_[timbreNum].send) * headRoomDivider; // divide for more headroom
+	totalSent += synthState_->mixerState.instrumentState_[timbreNum].send;
 
-	sample = getSampleBlock();
-	for (int s = 0; s < 8; s++) {
-    	*(sample++) += *inStereo++ * level;
-    	*(sample++) += *inStereo++ * level;
-    	*(sample++) += *inStereo++ * level;
-    	*(sample++) += *inStereo++ * level;
-    	*(sample++) += *inStereo++ * level;
-    	*(sample++) += *inStereo++ * level;
-    	*(sample++) += *inStereo++ * level;
-    	*(sample++) += *inStereo++ * level;
+	if(level > 0) {
+		sample = getSampleBlock();
+		for (int s = 0; s < 8; s++) {
+			*(sample++) += *inStereo++ * level;
+			*(sample++) += *inStereo++ * level;
+			*(sample++) += *inStereo++ * level;
+			*(sample++) += *inStereo++ * level;
+			*(sample++) += *inStereo++ * level;
+			*(sample++) += *inStereo++ * level;
+			*(sample++) += *inStereo++ * level;
+			*(sample++) += *inStereo++ * level;
+		}
 	}
 }
 
@@ -421,6 +456,13 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 	float inLpMod;
 
+	isActive = totalSent > 0 || silentBlockCount < 64;
+
+	if(!isActive) {
+		return;
+	}
+
+	float outSum = 0;
 	for (int s = 0; s < BLOCK_SIZE; s++) {
 
         // --- audio in
@@ -618,6 +660,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	*(outBuff++) += (int32_t) ( outL * sampleMultipler);
     	*(outBuff++) += (int32_t) ( outR * sampleMultipler);
 
+    	outSum += fabsf(outL + outR);
     	// ================================================ index increment
 
     	sample += 2;
@@ -658,6 +701,8 @@ void FxBus::processBlock(int32_t *outBuff) {
     	timeCvControl3 = clamp(diffuserBufferLen3 - diffuserBuffer3ReadLen  	+  	clamp(lfo3	* lfoDepth + envMod, 0, 1) * diffuserBuffer3ReadLen_b, -diffuserBufferLen3M1, diffuserBufferLen3);
     	timeCvControl4 = clamp(diffuserBufferLen4 - diffuserBuffer4ReadLen  	+ 	clamp(lfo4	* lfoDepth + envMod, 0, 1) * diffuserBuffer4ReadLen_b, -diffuserBufferLen4M1, diffuserBufferLen4);
     }
+
+	silentBlockCount = (outSum < 0.00001f) ? silentBlockCount + 1 : 0;
 }
 float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
 	//v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]

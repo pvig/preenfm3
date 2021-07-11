@@ -30,6 +30,10 @@ protected:
 	float headRoomMultiplier = 1;
 	float headRoomDivider = 1;
 
+	float totalSent = 0;
+	bool isActive = true;
+	int silentBlockCount = 0;
+
 	//lfo
 	float lfo1 = 0;
 	float lfo1tri;
@@ -55,7 +59,7 @@ protected:
     float fxTime = 0.98, prevTime = -1, fxTimeLinear;
     float prevdecayVal = 0;
     float decayVal = 0.5, prevDecayVal = -1, decayFdbck = 0;
-    const float decayMaxVal = 0.9f;
+    const float decayMaxVal = 0.94f;
     float sizeParam, prevSizeParam, nextSizeParam;
     float inputDiffusion, prevInputDiffusion;
     float diffusion, prevDiffusion;
