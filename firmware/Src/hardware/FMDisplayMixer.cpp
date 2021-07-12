@@ -35,6 +35,9 @@ const char* levelMeterWhere[] = { "Off", "Mix", "All" };
 const char* scalaMapNames[] = { "Keybrd", "Continu" };
 const char* mpeOptions[] = { "No", "MPE48", "MPE36", "MPE24", "MPE12", "MPE0"};
 const char *reverbPresets[] = {
+    "XslDrk",
+    "XslWrm",
+    "XslBrt",
     "SmlDrk",
     "SmlWrm",
     "SmlBrt",
@@ -48,8 +51,8 @@ const char *reverbPresets[] = {
     "XLgWrm",
     "XLgBrt",
     "Freeze",
-    "Down",
-    "Up"
+    "Hall",
+    "Cave"
 };
 static const char* nullNames[] = { };
 
@@ -189,7 +192,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames }
     },
     {
-        { 0, 14, 15, DISPLAY_TYPE_STRINGS, reverbPresets },
+        { 0, 17, 18, DISPLAY_TYPE_STRINGS, reverbPresets },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
@@ -365,10 +368,8 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                         valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
                         break;
                     case 4:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVDECAY];
                         break;
                     case 5:
-                        valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_ENVMOD];
                         break;
                 }
                 break;
@@ -696,10 +697,10 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Decay");
                     break;
                 case 4:
-                    tft_->print("Env Decay");
+                    tft_->print("");
                     break;
                 case 5:
-                    tft_->print("Env Mod");
+                    tft_->print("");
                     break;
             }
         break;

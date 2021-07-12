@@ -75,13 +75,9 @@ SynthState::SynthState() {
     fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.84f;
     fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.63f;
     fullState.masterfxConfig[GLOBALFX_INPUTTILT] = 0.5f;
-
     fullState.masterfxConfig[GLOBALFX_DECAY] = 0.74f;
     fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.14f;
     fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.42f;
-    fullState.masterfxConfig[GLOBALFX_ENVMOD] = 0;
-    fullState.masterfxConfig[GLOBALFX_ENVTHRESHOLD] = 0.28f;
-    fullState.masterfxConfig[GLOBALFX_ENVRELEASE] = 0.57f;
 
     // Mixer
     fullState.mixerCurrentEdit = 0;

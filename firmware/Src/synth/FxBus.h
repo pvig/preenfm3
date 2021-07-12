@@ -29,6 +29,7 @@ protected:
 
 	float headRoomMultiplier = 1;
 	float headRoomDivider = 1;
+	float sampleMultipler;
 
 	float totalSent = 0;
 	bool isActive = true;
@@ -37,7 +38,7 @@ protected:
 	//lfo
 	float lfo1 = 0;
 	float lfo1tri;
-	float lfo1Inc = 0.000337521f;
+	float lfo1Inc = 0.00037f;
 
 	float lfo2 = 0;
 	float lfo2tri;
@@ -56,10 +57,10 @@ protected:
 	float *sample;
 
 	int presetNum = -1, prevPresetNum = -1, nextPresetNum = -1;
-    float fxTime = 0.98, prevTime = -1, fxTimeLinear;
+    float fxTime = 0.98, prevTime = -1, fxTimeLinear, prevFxTimeLinear = -1;
     float prevdecayVal = 0;
     float decayVal = 0.5, prevDecayVal = -1, decayFdbck = 0;
-    const float decayMaxVal = 0.94f;
+    const float decayMaxVal = 0.96f;
     float sizeParam, prevSizeParam, nextSizeParam;
     float inputDiffusion, prevInputDiffusion;
     float diffusion, prevDiffusion;
@@ -67,9 +68,9 @@ protected:
     float predelayMixLevel = 0.5f;
     float predelayMixAttn = predelayMixLevel * 0.75;
     float lfoDepth =  0;
-    float lfoSpeed = 0, speedLinear = 0;
-    float envMod, envModDepth, invtime = 1, invspeed = 1;
-	float loopLpf, loopLpf2, tiltInput;
+    float lfoSpeed = 0, lfoSpeedLinear = 0, prevLfoSpeedLinear = -1;
+	float loopLpf, loopLpf2, tiltInput, prevTilt = -1;
+	float lfoLpCoef1 = 4999, lfoLpCoef2 = 0.0002f;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float envDecayMod = 0;
 	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
@@ -122,6 +123,7 @@ protected:
 
 
     const float dcBlockerCoef = 0.999f;
+    const float dcBlockerCoef2 = 0.998f;
 
 	//pre delay
 
@@ -166,10 +168,8 @@ protected:
 	static const int diffuserBufferLen3 = 908 	* _dattorroSampleRateMod;
 	static const int diffuserBufferLen4 = 2656 	* _dattorroSampleRateMod;
 	static const int diffuserBufferLen1M1 = diffuserBufferLen1 - 1;
-	static const int diffuserBufferLen1M4 = diffuserBufferLen1 - 4;
 	static const int diffuserBufferLen2M1 = diffuserBufferLen2 - 1;
 	static const int diffuserBufferLen3M1 = diffuserBufferLen3 - 1;
-	static const int diffuserBufferLen3M4 = diffuserBufferLen3 - 4;
 	static const int diffuserBufferLen4M1 = diffuserBufferLen4 - 1;
 	float diffuserBuffer1ReadLen = diffuserBufferLen1M1;
 	float diffuserBuffer2ReadLen = diffuserBufferLen2M1;
