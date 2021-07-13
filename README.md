@@ -48,12 +48,12 @@ Set fx level for each instrument
 
 ##### Midi CC : on Global midi channel
 
-40.    PREDELAYTIME
-41.    DECAY
-42.    TILT
-43.    SIZE
-44.    LFOSPEED
-45.    ,,,   
+40.    PRESET
+41.    PREDELAYTIME
+42.    PREDELAY MIX
+43.    TILT
+44.    LFO SPEED
+45.    LFO DEPTH
 
 --------------
 

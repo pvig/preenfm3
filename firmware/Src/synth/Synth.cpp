@@ -544,6 +544,9 @@ void Synth::afterNewMixerLoad() {
     // Update MPE
     newMixerValue(MIXER_VALUE_GLOBAL_SETTINGS_1, 0, -1, this->synthState_->mixerState.MPE_inst1_);
 
+    // Update PRESET
+    //newMixerValue(MIXER_VALUE_GLOBAL_SETTINGS_3, 0, -1, this->synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM]);
+
 }
 
 int Synth::getFreeVoice() {
@@ -678,7 +681,8 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
         }
         case MIXER_VALUE_GLOBAL_SETTINGS_3:
         	if(timbre == 0) {
-            	this->fxBus.setNextPreset((uint8_t) newValue);
+                this->synthState_->mixerState.reverbPreset_ = newValue;
+                this->synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM] = newValue;
         	}
         	break;
         case MIXER_VALUE_MIDI_CHANNEL:

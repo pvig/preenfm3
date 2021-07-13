@@ -68,6 +68,7 @@ public:
     uint8_t midiThru_;
     float tuning_;
     uint8_t levelMeterWhere_;
+    uint8_t reverbPreset_;
     struct MixerInstrumentState instrumentState_[NUMBER_OF_TIMBRES];
     uint8_t userCC_[4];
     uint8_t MPE_inst1_;

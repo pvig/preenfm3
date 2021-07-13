@@ -53,13 +53,6 @@ float fastroot(float f,int n)
  *lp=l;
  return f;
 }
-inline float getQuantizedTime(float t, float maxSize)
-{
-	return t * maxSize;
-
-	/*int q = t * 127;
-	return clamp((PREENFM_FREQUENCY / diatonicScaleFrequency[127 - q]), 0, maxSize);*/
-}
 //***------------***------------***------------***------------***----- FxBus -------***------------***------------***------------
 
 float FxBus::delay1Buffer[delay1BufferSize] __attribute__((section(".ram_d1")));
@@ -164,12 +157,16 @@ void FxBus::init(SynthState *synthState) {
 	hp_y1 = 0;
 	hp_x1 = 0;
 
-	//nextPresetNum = synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM];
 }
 /**
  * init before timbres summing
  */
 void FxBus::mixSumInit() {
+
+	if(!isActive) {
+		return;
+	}
+
     float temp, sizeParamInpt, sizeSqrt;
 	sample = getSampleBlock();
 
@@ -188,9 +185,7 @@ void FxBus::mixSumInit() {
 
     // ------ page 1
 
- 	if(nextPresetNum != presetNum) {
- 		presetNum 	= 	nextPresetNum;
- 	}
+ 	presetNum = synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM];
 
     if(prevPresetNum != presetNum) {
 
@@ -216,9 +211,25 @@ void FxBus::mixSumInit() {
 
         	switch(size) {
 				case 0:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.24f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.47f;
+		        	switch(presetNum) {
+						case 0:
+							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0;
+							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 1;
+							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0;
+							break;
+						case 1:
+							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0;
+							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 1;
+							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.07f;
+							break;
+						case 2:
+							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.1f;
+							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
+							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.11f;
+							break;
+						default:
+							break;
+		        	}
 					break;
 				case 1:
 					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.30f;
@@ -425,7 +436,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	monoIn = (inR + inL);
 
-        v0L = monoIn - v1L + dcBlockerCoef * v0L;			// dc blocker
+        v0L = monoIn - v1L + dcBlockerCoef3 * v0L;			// dc blocker
         v1L = monoIn;
         monoIn = v0L;
 
@@ -513,7 +524,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         v4R += loopLpf * v5R;						// lowpass
         v5R += loopLpf * ( ap2In - v4R - v5R);
 
-		dcBlock3a = v4R - dcBlock3b + dcBlockerCoef * dcBlock3a;			// dc blocker
+		dcBlock3a = v4R - dcBlock3b + dcBlockerCoef1 * dcBlock3a;			// dc blocker
 		dcBlock3b = v4R;
 
 		ap2In = dcBlock3a * decayFdbck;
@@ -673,7 +684,4 @@ void FxBus::lfoProcess(float *lfo, float *lfotri, float *lfoInc) {
 	}
 
 	*lfo = (*lfo * lfoLpCoef1 + *lfotri ) * lfoLpCoef2;
-}
-void FxBus::setNextPreset(int presetN) {
-	nextPresetNum = presetN;
 }

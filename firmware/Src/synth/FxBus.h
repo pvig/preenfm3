@@ -10,7 +10,6 @@ public:
 	virtual ~FxBus() {}
     void init(SynthState *synthState);
 
-    void setNextPreset(int presetN);
 	void mixSumInit();
     void mixAdd(float *inStereo, int timbreNum);
 	void processBlock(int32_t *outBuff);
@@ -56,7 +55,7 @@ protected:
 	float sampleBlock_[BLOCK_SIZE * 2];
 	float *sample;
 
-	int presetNum = -1, prevPresetNum = -1, nextPresetNum = -1;
+	int presetNum = -1, prevPresetNum = -1;
     float fxTime = 0.98, prevTime = -1, fxTimeLinear, prevFxTimeLinear = -1;
     float prevdecayVal = 0;
     float decayVal = 0.5, prevDecayVal = -1, decayFdbck = 0;
@@ -121,9 +120,9 @@ protected:
     float delay4DelayLen 	= 0, delay4ReadLen;
     float delay4FxTarget 	= 0;
 
-
-    const float dcBlockerCoef = 0.999f;
-    const float dcBlockerCoef2 = 0.998f;
+    const float dcBlockerCoef1 = 0.999f;
+    const float dcBlockerCoef2 = 0.995f;
+    const float dcBlockerCoef3 = 0.992f;
 
 	//pre delay
 

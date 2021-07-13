@@ -444,20 +444,24 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         // treat global channel CC
         switch (midiEvent.value[0])
         {
+        case CC_MFX_PRESET:
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM] = midiEvent.value[1];
+            this->synthState_->mixerState.reverbPreset_ = midiEvent.value[1];
+            break;
         case CC_MFX_PREDELAYTIME:
             this->synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME] = INV127 * midiEvent.value[1];
             break;
-        case CC_MFX_DECAY:
-            this->synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = INV127 * midiEvent.value[1];
+        case CC_MFX_PREDELAYMIX:
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = INV127 * midiEvent.value[1];
             break;
         case CC_MFX_INPUTTILT:
             this->synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT] = INV127 * midiEvent.value[1];
             break;
-        case CC_MFX_SIZE:
-            this->synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = INV127 * midiEvent.value[1];
-            break;
         case CC_MFX_MOD_SPEED:
             this->synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = INV127 * midiEvent.value[1];
+            break;
+        case CC_MFX_MOD_DEPTH:
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = INV127 * midiEvent.value[1];
             break;
         }
     }

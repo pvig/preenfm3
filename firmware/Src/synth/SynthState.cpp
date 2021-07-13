@@ -69,6 +69,7 @@ SynthState::SynthState() {
 
     // Master FX
     fullState.masterfxConfig[GLOBALFX_PRESETNUM] = 7;
+    mixerState.reverbPreset_ = fullState.masterfxConfig[GLOBALFX_PRESETNUM] ;
     fullState.masterfxConfig[GLOBALFX_PREDELAYTIME] = 0.79f;
     fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.54f;
     fullState.masterfxConfig[GLOBALFX_SIZE] = 0.41f;
