@@ -70,8 +70,8 @@ SynthState::SynthState() {
     // Master FX
     fullState.masterfxConfig[GLOBALFX_PRESETNUM] = 7;
     mixerState.reverbPreset_ = fullState.masterfxConfig[GLOBALFX_PRESETNUM] ;
-    fullState.masterfxConfig[GLOBALFX_PREDELAYTIME] = 0.79f;
-    fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.54f;
+    fullState.masterfxConfig[GLOBALFX_PREDELAYTIME] = 0.54f;
+    fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.2f;
     fullState.masterfxConfig[GLOBALFX_SIZE] = 0.41f;
     fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.84f;
     fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.63f;

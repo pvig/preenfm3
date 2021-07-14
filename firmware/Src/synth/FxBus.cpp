@@ -191,9 +191,7 @@ void FxBus::mixSumInit() {
 
     	if (presetNum < 15) {
         	int brightness = presetNum % 3;
-        	int size = presetNum / 3;
-
-        	//synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.4f + size * 0.18f;
+        	int size = presetNum * 0.333333333f;
 
         	switch(brightness) {
 				case 0:
@@ -213,19 +211,19 @@ void FxBus::mixSumInit() {
 				case 0:
 		        	switch(presetNum) {
 						case 0:
-							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0;
-							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 1;
-							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0;
+							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.1f;
+							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.04f;
+							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
 							break;
 						case 1:
-							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0;
-							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 1;
-							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.07f;
+							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.13f;
+							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.02f;
+							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.9f;
 							break;
 						case 2:
-							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.1f;
+							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.23f;
+							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.08f;
 							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
-							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.11f;
 							break;
 						default:
 							break;
@@ -233,22 +231,22 @@ void FxBus::mixSumInit() {
 					break;
 				case 1:
 					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.30f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.05f;
+					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.2f;
 					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
 					break;
 				case 2:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.46f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.13f;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.5f;
+					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.3f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.7f;
 					break;
 				case 3:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.87f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.41f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.72f;
+					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.46f;
 					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
 					break;
 				case 4:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.65f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.8125f;
+					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.72f;
 					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.93f;
 					break;
 				default:
@@ -259,7 +257,7 @@ void FxBus::mixSumInit() {
          	switch(presetNum) {
     				case 15:
     					//freeze
-    					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 1;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.96f;
     					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
     					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 1;
     					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0;
@@ -268,15 +266,15 @@ void FxBus::mixSumInit() {
     					//hall
     					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.59f;
     					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.33f;
-    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.35f;
-    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 1;
+    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.5f;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.65f;
     					break;
     				case 17:
     					//cave
      					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.42f;
     					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.55f;
-    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.26f;
-    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.85f;
+    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.5f;
+    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
     					break;
     				default:
     					break;
@@ -326,7 +324,7 @@ void FxBus::mixSumInit() {
 
     nextSizeParam 	= clamp(synthState_->fullState.masterfxConfig[GLOBALFX_SIZE], 0.03f, 1);
 	sizeParam 		= sizeParam * 0.99f + nextSizeParam * 0.01f;
-	diffusion 		= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] * (0.85f + sizeParam * 0.15f);
+	diffusion 		= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
 	damping 		= synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] * 0.76f;
 	damping 		*= damping;
 	loopLpf 		= 0.05f + damping * 0.95f;
@@ -336,16 +334,13 @@ void FxBus::mixSumInit() {
     //------- some process
 
     if(diffusion != prevDiffusion) {
-		//float inputDiff = clamp(diffusion, 0.4f, (1 - sizeParam * 0.2f)) - 0.05f;
-		//inputCoef1 		= 	(0.01f + inputDiff * 0.8f);
-		//inputCoef2 		= 	(0.01f + inputDiff * 0.7f);
-		diffuserCoef1 	= 	-(0.01f + diffusion * 0.625f);
+		diffuserCoef1 	= 	-(0.01f + diffusion * 0.67f);
 		diffuserCoef2 	= 	-(0.01f + diffusion * 0.5f);
 		prevDiffusion = diffusion;
     }
 
     if(prevDecayVal != decayVal) {
-    	decayFdbck = fastroot(decayVal, 4) * decayMaxVal;
+    	decayFdbck =  fastroot(decayVal, 3) * decayMaxVal;
 
     	float decayValSquare = decayVal * decayVal;
         envRelease 			= 	0.005f + decayValSquare * 0.6f;
