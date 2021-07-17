@@ -19,9 +19,7 @@ int modulo(int d, int max) {
   return unlikely(d >= max) ? d - max : d;
 }
 inline
-float modulo2(float readPos, float bufferLen) {
-	if( unlikely(readPos >= bufferLen) )
-		readPos -= bufferLen;
+float modulo2(float readPos, int bufferLen) {
     if( unlikely(readPos < 0) )
     	readPos += bufferLen;
     return readPos;
@@ -185,105 +183,111 @@ void FxBus::mixSumInit() {
 
     // ------ page 1
 
- 	presetNum = synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM];
+	presetNum = synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM];
 
-    if(prevPresetNum != presetNum) {
+	if (prevPresetNum != presetNum)
+	{
 
-    	if (presetNum < 15) {
-        	int brightness = presetNum % 3;
-        	int size = presetNum * 0.333333333f;
+		if (presetNum < 15)
+		{
+			int brightness = presetNum % 3;
+			int size = presetNum * 0.333333333f;
 
-        	switch(brightness) {
+			switch (brightness)
+			{
+			case 0:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
+				break;
+			case 1:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f;
+				break;
+			case 2:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f;
+				break;
+			default:
+				break;
+			}
+
+			switch (size)
+			{
+			case 0:
+				switch (presetNum)
+				{
 				case 0:
-					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.1f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.04f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
 					break;
 				case 1:
-					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.13f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.02f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.9f;
 					break;
 				case 2:
-					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.23f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.08f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
 					break;
 				default:
 					break;
-        	}
+				}
+				break;
+			case 1:
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.30f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.2f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
+				break;
+			case 2:
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.5f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.3f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.7f;
+				break;
+			case 3:
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.72f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.46f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
+				break;
+			case 4:
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.8125f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.72f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.93f;
+				break;
+			default:
+				break;
+			}
+		}
+		else
+		{
 
-        	switch(size) {
-				case 0:
-		        	switch(presetNum) {
-						case 0:
-							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.1f;
-							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.04f;
-							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
-							break;
-						case 1:
-							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.13f;
-							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.02f;
-							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.9f;
-							break;
-						case 2:
-							synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.23f;
-							synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.08f;
-							synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
-							break;
-						default:
-							break;
-		        	}
-					break;
-				case 1:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.30f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.2f;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
-					break;
-				case 2:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.5f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.3f;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.7f;
-					break;
-				case 3:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.72f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.46f;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
-					break;
-				case 4:
-					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.8125f;
-					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.72f;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.93f;
-					break;
-				default:
-					break;
-        	}
-    	} else {
-
-         	switch(presetNum) {
-    				case 15:
-    					//freeze
-    					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.96f;
-    					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
-    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 1;
-    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0;
-    					break;
-    				case 16:
-    					//hall
-    					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.59f;
-    					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.33f;
-    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.5f;
-    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.65f;
-    					break;
-    				case 17:
-    					//cave
-     					synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.42f;
-    					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.55f;
-    					synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ] = 0.5f;
-    					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
-    					break;
-    				default:
-    					break;
-         	}
-
-    	}
-
-    }
-    prevPresetNum = presetNum;
+			switch (presetNum)
+			{
+			case 15:
+				//freeze
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.96f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 1;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0;
+				break;
+			case 16:
+				//hall
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.59f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.33f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.5f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.65f;
+				break;
+			case 17:
+				//cave
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.42f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.55f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.5f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	prevPresetNum = presetNum;
 
 	float tilt = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT];
 	if (prevTilt != tilt)
@@ -324,10 +328,12 @@ void FxBus::mixSumInit() {
 
     nextSizeParam 	= clamp(synthState_->fullState.masterfxConfig[GLOBALFX_SIZE], 0.03f, 1);
 	sizeParam 		= sizeParam * 0.99f + nextSizeParam * 0.01f;
+
 	diffusion 		= synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
 	damping 		= synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] * 0.76f;
 	damping 		*= damping;
 	loopLpf 		= 0.05f + damping * 0.95f;
+
     decayVal 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ];
 
 
@@ -413,8 +419,6 @@ void FxBus::mixAdd(float *inStereo, int timbreNum) {
 void FxBus::processBlock(int32_t *outBuff) {
 	sample = getSampleBlock();
 
-	float inLpMod;
-
 	isActive = totalSent > 0 || silentBlockCount < 64;
 
 	if(!isActive) {
@@ -437,12 +441,10 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // --- cut high
 
-    	inLpMod = inLpF + envelope * 0.05f;
-
-        v6R += inLpMod * v7R;						// lowpass
-        v7R += inLpMod * (monoIn - v6R - v7R);
-        v6L += inLpMod * v7L;						// lowpass
-        v7L += inLpMod * (v6R - v6L - v7L);
+        v6R += inLpF * v7R;						// lowpass
+        v7R += inLpF * (monoIn - v6R - v7R);
+        v6L += inLpF * v7L;						// lowpass
+        v7L += inLpF * (v6R - v6L - v7L);
 
         monoIn = v6L;
 
@@ -467,36 +469,34 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // ---- diffuser 1
 
-        inputReadPos1 = modulo2(inputWritePos1 - inputBuffer1ReadLen, inputBufferLen1);
+        inputReadPos1 	= modulo2(inputWritePos1 - inputBuffer1ReadLen, inputBufferLen1);
         float in_apSum1 = monoIn + inputBuffer1[inputReadPos1] * inputCoef1;
         diff1Out 		= monoIn - in_apSum1 * inputCoef1;
         inputBuffer1[inputWritePos1] 		= in_apSum1;
 
         // ---- diffuser 2
 
-    	inputReadPos2 = modulo2(inputWritePos2 - inputBuffer2ReadLen, inputBufferLen2);
+    	inputReadPos2 	= modulo2(inputWritePos2 - inputBuffer2ReadLen, inputBufferLen2);
         float in_apSum2 = diff1Out + inputBuffer2[inputReadPos2] * inputCoef1;
         diff2Out 		= diff1Out - in_apSum2 * inputCoef1;
         inputBuffer2[inputWritePos2] 		= in_apSum2;
 
         // ---- diffuser 3
 
-    	inputReadPos3 = modulo2(inputWritePos3 - inputBuffer3ReadLen, inputBufferLen3);
+    	inputReadPos3 	= modulo2(inputWritePos3 - inputBuffer3ReadLen, inputBufferLen3);
         float in_apSum3 = diff2Out + inputBuffer3[inputReadPos3] * inputCoef2;
         diff3Out 		= diff2Out - in_apSum3 * inputCoef2;
         inputBuffer3[inputWritePos3] 		= in_apSum3;
 
         // ---- diffuser 4
 
-    	inputReadPos4 = modulo2(inputWritePos4 - inputBuffer4ReadLen, inputBufferLen4);
+    	inputReadPos4 	= modulo2(inputWritePos4 - inputBuffer4ReadLen, inputBufferLen4);
         float in_apSum4 = diff3Out + inputBuffer4[inputReadPos4] * inputCoef2;
         diff4Out 		= diff3Out - in_apSum4 * inputCoef2;
         inputBuffer4[inputWritePos4] 		= in_apSum4;
 
-    	monoIn = diff4Out;
-
-		dcBlock1a = monoIn - dcBlock1b + dcBlockerCoef2 * dcBlock1a;			// dc blocker
-		dcBlock1b = monoIn;
+		dcBlock1a = diff4Out - dcBlock1b + dcBlockerCoef2 * dcBlock1a;			// dc blocker
+		dcBlock1b = diff4Out;
 		monoIn = dcBlock1a;
 
         // ---- ap 1
@@ -654,7 +654,7 @@ float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int buffer
 	//v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
 	int readPosInt = (int) readPos;
 	float y0 = buffer[readPosInt];
-	float y1 = buffer[((readPosInt >= bufferLenM1) ? readPosInt - bufferLenM1 + 1 : readPosInt + 1)];
+	float y1 = buffer[(unlikely(readPosInt >= bufferLenM1) ? readPosInt - bufferLenM1 + 1 : readPosInt + 1)];
 	//float y1 = buffer[((readPosInt == 0 ) ? bufferLenM1: readPosInt - 1)];
 	float x = readPos - floorf(readPos);
     return y1 + (1 - x) * (y0 - prevVal);
@@ -662,18 +662,18 @@ float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int buffer
 float FxBus::delayInterpolation(float readPos, float buffer[], int bufferLenM1) {
 	int readPosInt = (int) readPos;
 	float y0 = buffer[readPosInt];
-	float y1 = buffer[((readPosInt == 0) ? bufferLenM1 : readPosInt - 1)];
+	float y1 = buffer[(unlikely(readPosInt == 0) ? bufferLenM1 : readPosInt - 1)];
 	float x = readPos - floorf(readPos);
     return y0 + x * (y1 - y0);
 }
 
 void FxBus::lfoProcess(float *lfo, float *lfotri, float *lfoInc) {
 	*lfotri += *lfoInc * lfoSpeed;
-	if(*lfotri >= 1) {
+	if(unlikely(*lfotri >= 1)) {
 		*lfotri = 1;
 		*lfoInc = -*lfoInc;
 	}
-	if(*lfotri <= 0) {
+	if(unlikely(*lfotri <= 0)) {
 		*lfotri = 0;
 		*lfoInc = -*lfoInc;
 	}

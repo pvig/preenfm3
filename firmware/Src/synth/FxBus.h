@@ -80,10 +80,6 @@ protected:
 
 	float inR, inL;
 
-	float envelope = 0;
-	float blocksum = 0, envDest = 0, envM1 = 0, envM2 = 0;
-	int envBlocknn = 0, envDetectSize = 32 * 128;
-
     float outL, outR;
 
     float int1 = 0, int2 = 0, int3 = 0, int4 = 0;
