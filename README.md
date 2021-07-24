@@ -44,7 +44,7 @@ Set fx level for each instrument
 
 ##### Midi CC : on each timbre midi channel
 
-34.    Send level
+11.    Send level
 
 ##### Midi CC : on Global midi channel
 
