@@ -70,9 +70,6 @@ float FxBus::diffuserBuffer2[diffuserBufferLen2] __attribute__((section(".ram_d2
 float FxBus::diffuserBuffer3[diffuserBufferLen3] __attribute__((section(".ram_d2")));
 float FxBus::diffuserBuffer4[diffuserBufferLen4] __attribute__((section(".ram_d2")));
 
-
-extern float noise[32];
-
 FxBus::FxBus() {}
 
 void FxBus::init(SynthState *synthState) {
@@ -199,10 +196,10 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
 				break;
 			case 1:
-				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.06f);
 				break;
 			case 2:
-				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.1f);
 				break;
 			default:
 				break;
@@ -248,7 +245,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
 				break;
 			case 4:
-				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.8125f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.97f;//0.8125f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.72f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.93f;
 				break;
@@ -277,10 +274,17 @@ void FxBus::mixSumInit() {
 				break;
 			case 17:
 				//cave
-				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.42f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.55f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.5f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.95f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.39f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
+				break;
+			case 18:
+				//apartment
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.44f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.69f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.285f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.72f;
 				break;
 			default:
 				break;

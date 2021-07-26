@@ -52,7 +52,8 @@ const char *reverbPresets[] = {
     "XLgBrt",
     "Freeze",
     "Hall",
-    "Cave"
+    "Cave",
+    "Aptmnt"
 };
 static const char* nullNames[] = { };
 
@@ -192,7 +193,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { 0, 0, 0, DISPLAY_TYPE_FLOAT, nullNames }
     },
     {
-        { 0, 17, 18, DISPLAY_TYPE_STRINGS, reverbPresets },
+        { 0, 18, 19, DISPLAY_TYPE_STRINGS, reverbPresets },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
