@@ -69,7 +69,7 @@ SynthState::SynthState() {
 
     // Master FX
     fullState.masterfxConfig[GLOBALFX_PRESETNUM] = 7;
-    mixerState.reverbPreset_ = fullState.masterfxConfig[GLOBALFX_PRESETNUM] ;
+    mixerState.reverbPreset_ = fullState.masterfxConfig[GLOBALFX_PRESETNUM];
     fullState.masterfxConfig[GLOBALFX_PREDELAYTIME] = 0.54f;
     fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = 0.2f;
     fullState.masterfxConfig[GLOBALFX_SIZE] = 0.41f;
@@ -77,8 +77,8 @@ SynthState::SynthState() {
     fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.63f;
     fullState.masterfxConfig[GLOBALFX_INPUTTILT] = 0.5f;
     fullState.masterfxConfig[GLOBALFX_DECAY] = 0.74f;
-    fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.14f;
-    fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.42f;
+    fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.28f;
+    fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.69f;
 
     // Mixer
     fullState.mixerCurrentEdit = 0;
