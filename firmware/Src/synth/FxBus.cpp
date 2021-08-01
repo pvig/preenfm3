@@ -186,6 +186,9 @@ void FxBus::mixSumInit() {
 	{
 		if (presetNum < 15)
 		{
+			synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.36f;
+
+
 			int brightness = presetNum % 3;
 			int size = presetNum * 0.333333333f;
 
@@ -244,16 +247,18 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
 				break;
 			case 4:
-				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.97f;//0.8125f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.97f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.72f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.93f;
 				break;
 			default:
 				break;
 			}
+
 		}
 		else
 		{
+			synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.3f;
 
 			switch (presetNum)
 			{
@@ -292,14 +297,17 @@ void FxBus::mixSumInit() {
 	}
 	prevPresetNum = presetNum;
 
-	float tilt = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT];
-	if (prevTilt != tilt)
+    inputWidth 		= 	synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] * 0.33f;
+
+	float tilt = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
+	if (prevTilt != tilt || prevInputWidth != inputWidth)
 	{
-		tiltInput = tiltInput * 0.9f + (tilt * tilt * 0.75f) * 0.1f;
-		inHpf = clamp(-0.15f + tiltInput * (0.825f + fold(tiltInput * 32) * 0.2f), 0, 1);
-		inLpF = clamp(tilt * 0.525f + 0.02f, 0, 1);
+		tiltInput = (tilt * tilt * 0.6f);
+		inHpf = clamp(tiltInput, 0, 1);
+		inLpF = clamp(tiltInput + inputWidth , 0, 1);
 	}
 	prevTilt = tilt;
+	prevInputWidth = inputWidth;
 
 	fxTimeLinear = synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME];
 	if (prevFxTimeLinear == fxTimeLinear)
@@ -398,7 +406,7 @@ void FxBus::mixAdd(float *inStereo, int timbreNum) {
 
 	if(synthState_->mixerState.instrumentState_[timbreNum].send > 0) {
 
-		const float level = sqrt3(synthState_->mixerState.instrumentState_[timbreNum].send) * headRoomDivider; // divide for more headroom
+		const float level = fastroot(synthState_->mixerState.instrumentState_[timbreNum].send, 3) * headRoomDivider; // divide for more headroom
 		totalSent += synthState_->mixerState.instrumentState_[timbreNum].send;
 
 		sample = getSampleBlock();
@@ -438,9 +446,13 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	monoIn = (inR + inL);
 
-        v0L = monoIn - v1L + dcBlockerCoef3 * v0L;			// dc blocker
-        v1L = monoIn;
-        monoIn = v0L;
+    	dcBlock5a = monoIn - dcBlock5b + dcBlockerCoef3 * dcBlock5a;			// dc blocker
+    	dcBlock5b = monoIn;
+
+		dcBlock4a = dcBlock5a - dcBlock4b + dcBlockerCoef1 * dcBlock4a;			// dc blocker
+		dcBlock4b = dcBlock5a;
+
+        monoIn = dcBlock4a;
 
         // --- cut high
 
@@ -455,8 +467,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         v0R += inHpf * v1R;						// hipass
         v1R += inHpf * ( monoIn - v0R - v1R);
-        v0R += inHpf * v1R;						// hipass
-        v1R += inHpf * ( monoIn - v0R - v1R);
+        v0L += inHpf * v1L;						// hipass
+        v1L += inHpf * ( v0R - v0L - v1L);
 
         monoIn -= v0R;
 
@@ -502,6 +514,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 		dcBlock1a = diff4Out - dcBlock1b + dcBlockerCoef2 * dcBlock1a;
 		dcBlock1b = diff4Out;
+
 		monoIn = dcBlock1a;
 
         // ---- ap 1

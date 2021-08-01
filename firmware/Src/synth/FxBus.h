@@ -69,6 +69,7 @@ protected:
     float lfoDepth =  0;
     float lfoSpeed = 0, lfoSpeedLinear = 0, prevLfoSpeedLinear = -1;
 	float loopLpf, loopLpf2, tiltInput, prevTilt = -1;
+	float inputWidth = 0.5f, prevInputWidth = -1;
 	float lfoLpCoef1 = 4999, lfoLpCoef2 = 0.0002f;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float envDecayMod = 0;

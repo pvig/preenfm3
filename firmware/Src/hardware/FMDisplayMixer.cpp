@@ -174,7 +174,7 @@ const struct Pfm3MixerButton scalaButton = {
 // ==
 
 
-const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 4 };
+const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 5 };
 const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
     {
         { 0, 5, 6, DISPLAY_TYPE_STRINGS, mpeOptions },
@@ -205,7 +205,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     }
 };
@@ -344,7 +344,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX];
                     break;
                 case 3:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
                     break;
                 case 4:
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED];
@@ -369,6 +369,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
                     break;
                 case 4:
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH];
                     break;
                 case 5:
                     break;
@@ -698,6 +699,8 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Decay");
                     break;
                 case 4:
+                    tft_->print("Input width");
+                    break;
                 case 5:
                     break;
             }

@@ -455,7 +455,7 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             this->synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX] = INV127 * midiEvent.value[1];
             break;
         case CC_MFX_INPUTTILT:
-            this->synthState_->fullState.masterfxConfig[GLOBALFX_INPUTTILT] = INV127 * midiEvent.value[1];
+            this->synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE] = INV127 * midiEvent.value[1];
             break;
         case CC_MFX_MOD_SPEED:
             this->synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = INV127 * midiEvent.value[1];
