@@ -186,30 +186,14 @@ void FxBus::mixSumInit() {
 	{
 		if (presetNum < 15)
 		{
-			synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.36f;
-
-
 			int brightness = presetNum % 3;
 			int size = presetNum * 0.333333333f;
-
-			switch (brightness)
-			{
-			case 0:
-				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
-				break;
-			case 1:
-				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.06f);
-				break;
-			case 2:
-				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.1f);
-				break;
-			default:
-				break;
-			}
 
 			switch (size)
 			{
 			case 0:
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.4f;
+
 				switch (presetNum)
 				{
 				case 0:
@@ -232,24 +216,45 @@ void FxBus::mixSumInit() {
 				}
 				break;
 			case 1:
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.4f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.30f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.2f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
 				break;
 			case 2:
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.4f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.465f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.3f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.7f;
 				break;
 			case 3:
-				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.78f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.42f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.775f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.46f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
 				break;
 			case 4:
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.43f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.97f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.72f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.93f;
+				break;
+			default:
+				break;
+			}
+
+			switch (brightness)
+			{
+			case 0:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] *= 0.8f;
+				break;
+			case 1:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.06f);
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] *= 0.9f;
+				break;
+			case 2:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.1f);
 				break;
 			default:
 				break;
@@ -262,7 +267,7 @@ void FxBus::mixSumInit() {
 			{
 			case 15:
 				//freeze
-				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.33f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.4f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.96f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 1;
@@ -270,7 +275,7 @@ void FxBus::mixSumInit() {
 				break;
 			case 16:
 				//hall
-				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.7f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.68f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.33f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.49f;
@@ -278,7 +283,7 @@ void FxBus::mixSumInit() {
 				break;
 			case 17:
 				//cave
-				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.3f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.32f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.38f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.94f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.43f;
@@ -286,10 +291,10 @@ void FxBus::mixSumInit() {
 				break;
 			case 18:
 				//apartment
-				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.25f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.42f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.44f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.6f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.285f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.22f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.72f;
 				break;
 			default:
@@ -408,7 +413,7 @@ void FxBus::mixAdd(float *inStereo, int timbreNum) {
 
 	if(synthState_->mixerState.instrumentState_[timbreNum].send > 0) {
 
-		const float level = fastroot(synthState_->mixerState.instrumentState_[timbreNum].send, 3) * headRoomDivider; // divide for more headroom
+		const float level = fastroot(synthState_->mixerState.instrumentState_[timbreNum].send, 3) * headRoomDivider;
 		totalSent += synthState_->mixerState.instrumentState_[timbreNum].send;
 
 		sample = getSampleBlock();
