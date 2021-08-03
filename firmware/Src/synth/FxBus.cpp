@@ -247,11 +247,11 @@ void FxBus::mixSumInit() {
 			{
 			case 0:
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] *= 0.8f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] *= 0.9f;
 				break;
 			case 1:
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.06f);
-				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] *= 0.9f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] *= 0.95f;
 				break;
 			case 2:
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.1f);
@@ -453,11 +453,8 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	monoIn = (inR + inL);
 
-    	dcBlock5a = monoIn - dcBlock5b + dcBlockerCoef3 * dcBlock5a;			// dc blocker
-    	dcBlock5b = monoIn;
-
-		dcBlock4a = dcBlock5a - dcBlock4b + dcBlockerCoef1 * dcBlock4a;			// dc blocker
-		dcBlock4b = dcBlock5a;
+		dcBlock4a = monoIn - dcBlock4b + dcBlockerCoef1 * dcBlock4a;			// dc blocker
+		dcBlock4b = monoIn;
 
         monoIn = dcBlock4a;
 
@@ -487,13 +484,16 @@ void FxBus::processBlock(int32_t *outBuff) {
     	preDelayOut = delayInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1);
     	monoIn = predelayMixAttn * preDelayOut + (1 - predelayMixAttn) * monoIn;
 
+    	dcBlock5a = monoIn - dcBlock5b + dcBlockerCoef3 * dcBlock5a;			// dc blocker
+    	dcBlock5b = monoIn;
+
     	// --- input diffuser
 
         // ---- diffuser 1
 
         inputReadPos1 	= modulo2(inputWritePos1 - inputBuffer1ReadLen, inputBufferLen1);
-        float in_apSum1 = monoIn + inputBuffer1[inputReadPos1] * inputCoef1;
-        diff1Out 		= monoIn - in_apSum1 * inputCoef1;
+        float in_apSum1 = dcBlock5a + inputBuffer1[inputReadPos1] * inputCoef1;
+        diff1Out 		= dcBlock5a - in_apSum1 * inputCoef1;
         inputBuffer1[inputWritePos1] 		= in_apSum1;
 
         // ---- diffuser 2
@@ -541,6 +541,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 		ap2In = delay1Buffer[ delay1ReadPos ];
 
         // ---------------------------------------------------- filter
+
         v4R += loopLpf * v5R;						// lowpass
         v5R += loopLpf * ( ap2In - v4R - v5R);
 
