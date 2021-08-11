@@ -200,6 +200,26 @@ protected:
 	float feedbackInL = 0, feedbackInR = 0;
 
     // Filter
+    float notchBase, prevNotchBase = -1;
+    float notchSpread = 0.37f;
+
+    float lowL = 0, highL = 0, bandL = 0;
+    float lowL2 = 0, highL2 = 0, bandL2 = 0;
+    float lowL3 = 0, highL3 = 0, bandL3 = 0;
+    float lowL4 = 0, highL4 = 0, bandL4 = 0;
+
+    const float windowMin = 0.005f, windowMax = 0.99f;
+
+    float f1L;
+    float f2L;
+    float f3L;
+    float f4L;
+
+    float coef1L;
+    float coef2L;
+    float coef3L;
+    float coef4L;
+
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
     float dcBlock1a, dcBlock1b, dcBlock2a, dcBlock2b, dcBlock3a, dcBlock3b, dcBlock4a, dcBlock4b, dcBlock5a, dcBlock5b;

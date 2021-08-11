@@ -174,7 +174,7 @@ const struct Pfm3MixerButton scalaButton = {
 // ==
 
 
-const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 5 };
+const uint8_t numberOfGlobalSettings[4] = { 5, 4, 6, 6 };
 const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
     {
         { 0, 5, 6, DISPLAY_TYPE_STRINGS, mpeOptions },
@@ -206,7 +206,7 @@ const struct Pfm3MixerButtonStateParam globalSettings[4][6] = {
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
         { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
-        { -1, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
+        { 0, 1, 101, DISPLAY_TYPE_FLOAT, nullNames },
     }
 };
 
@@ -347,10 +347,10 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
                     break;
                 case 4:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH];
                     break;
                 case 5:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING];
                     break;
             }
             break;
@@ -363,15 +363,16 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
                     break;
                 case 2:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING];
-                        break;
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH];
+                    break;
                 case 3:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED];
                     break;
                 case 4:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
                     break;
                 case 5:
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE];
                     break;
             }
             break;
@@ -674,13 +675,13 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Pre delay Mix");
                     break;
                 case 3:
-                    tft_->print("Input Tilt");
+                    tft_->print("Filter base");
                     break;
                 case 4:
-                    tft_->print("Mod Speed");
+                    tft_->print("Filter width");
                     break;
                 case 5:
-                    tft_->print("Mod Depth");
+                    tft_->print("Damping");
                     break;
             }
             break;
@@ -693,15 +694,16 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Diffusion");
                     break;
                 case 2:
-                    tft_->print("Damping");
+                    tft_->print("Mod Depth");
                     break;
                 case 3:
-                    tft_->print("Decay");
+                    tft_->print("Mod Speed");
                     break;
                 case 4:
-                    tft_->print("Input width");
+                    tft_->print("Decay");
                     break;
                 case 5:
+                    tft_->print("Notch Base");
                     break;
             }
         break;
