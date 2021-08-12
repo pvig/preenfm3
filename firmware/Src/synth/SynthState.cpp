@@ -81,6 +81,7 @@ SynthState::SynthState() {
     fullState.masterfxConfig[GLOBALFX_INPUTBASE] = 0.3f;
     fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.75f;
     fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.5f;
+    fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.37f;
 
     // Mixer
     fullState.mixerCurrentEdit = 0;

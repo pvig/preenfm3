@@ -357,22 +357,23 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
         case MIXER_VALUE_GLOBAL_SETTINGS_4:
             switch (encoder) {
                 case 0:
+                    //valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
                     break;
                 case 1:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
-                    break;
-                case 2:
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH];
                     break;
-                case 3:
+                case 2:
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED];
                     break;
-                case 4:
+                case 3:
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
                     break;
-                case 5:
+                case 4:
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE];
+                    break;
+                case 5:
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD];
                     break;
             }
             break;
@@ -691,19 +692,19 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Size");
                     break;
                 case 1:
-                    tft_->print("Diffusion");
-                    break;
-                case 2:
                     tft_->print("Mod Depth");
                     break;
-                case 3:
+                case 2:
                     tft_->print("Mod Speed");
                     break;
-                case 4:
+                case 3:
                     tft_->print("Decay");
                     break;
-                case 5:
+                case 4:
                     tft_->print("Notch Base");
+                    break;
+                case 5:
+                    tft_->print("Notch Spread");
                     break;
             }
         break;

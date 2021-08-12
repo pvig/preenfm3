@@ -201,7 +201,7 @@ protected:
 
     // Filter
     float notchBase, prevNotchBase = -1;
-    float notchSpread = 0.37f;
+    float notchSpread = 0.37f , prevNotchSpread = -1;
 
     float lowL = 0, highL = 0, bandL = 0;
     float lowL2 = 0, highL2 = 0, bandL2 = 0;
