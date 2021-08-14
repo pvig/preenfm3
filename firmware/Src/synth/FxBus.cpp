@@ -192,6 +192,7 @@ void FxBus::mixSumInit() {
 		if (presetNum < 15)
 		{
 			int size = presetNum * 0.333333333f;
+			int brightness = presetNum % 3;
 
 			switch (size)
 			{
@@ -199,7 +200,7 @@ void FxBus::mixSumInit() {
 				//synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.4f;
 
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.57f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.1f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.9;
 
@@ -232,7 +233,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.55f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.12f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.52f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
 				break;
 			case 2:
 				//synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.4f;
@@ -242,7 +243,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.4f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
 				break;
 			case 3:
 				//synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.42f;
@@ -252,7 +253,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.48f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
 				break;
 			case 4:
 				//synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] = 0.43f;
@@ -262,7 +263,24 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.196f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.23f;
+				break;
+			default:
+				break;
+			}
+
+			switch (brightness)
+			{
+			case 0:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] *= 0.9f;
+				break;
+			case 1:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.06f);
+				//synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] *= 0.95f;
+				break;
+			case 2:
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.1f);
 				break;
 			default:
 				break;
@@ -275,43 +293,47 @@ void FxBus::mixSumInit() {
 			{
 			case 15:
 				//freeze
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.96f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.87f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.05f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.943f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.05f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.38f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.68f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.68f;
 				break;
 			case 16:
 				//hall
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.28f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.27f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.33f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.49f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.1055f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.22f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.22f;
 				break;
 			case 17:
 				//cave
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.38f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.37f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.33f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.94f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.43f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.22f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.46f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.46f;
 				break;
 			case 18:
 				//apartment
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.44f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.33f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.33f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.6f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.22f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.72f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.31f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.48f;
+				//synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] = 0.48f;
 				break;
 			default:
 				break;
@@ -384,7 +406,7 @@ void FxBus::mixSumInit() {
     	float decayValSquare = decayVal * decayVal;
         envRelease 			= 	0.005f + decayValSquare * 0.6f;
 
-    	headRoomMultiplier = (1 + (1 - decayValSquare) * 0.75f) * 8 * 0.65f;
+    	headRoomMultiplier = (1 + (1 - decayValSquare) * 0.75f) * 4 * 0.65f;
     	headRoomDivider = 0.125f;
         sampleMultipler = headRoomMultiplier * (float) 0x7fffff;
     }

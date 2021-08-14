@@ -350,7 +350,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH];
                     break;
                 case 5:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD];
                     break;
             }
             break;
@@ -373,7 +373,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE];
                     break;
                 case 5:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING];
                     break;
             }
             break;
@@ -682,7 +682,7 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Filter width");
                     break;
                 case 5:
-                    tft_->print("Damping");
+                    tft_->print("Notch Spread");
                     break;
             }
             break;
@@ -704,7 +704,7 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Notch Base");
                     break;
                 case 5:
-                    tft_->print("Notch Spread");
+                    tft_->print("Damping");
                     break;
             }
         break;
