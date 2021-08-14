@@ -6987,7 +6987,7 @@ void Voice::fxAfterBlock() {
             } else {
                 fxParamA2 *= gr;
                 fxParamB2 = 720; // = accent dur
-                fxParamA1 = (fxParamA1 * 49 + fxParamA2) * 0.02f; //smooth release
+                fxParamA1 = (fxParamA1 * 24 + fxParamA2) * 0.04f; //smooth release
             }
 
             fxParamA2 = clamp(fxParamA2, 0, 1.5f);
