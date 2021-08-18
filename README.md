@@ -7,7 +7,8 @@ Fork from https://github.com/Ixox/preenfm3
 ##### the Dattoro Reverb blocks  
   
 input  
-lp & hp (tilt)  
+quad allpass filter  
+lp & hp  
 pre delay  
 input diffuser   
 reverb tank ( (allpass>delay>lp>allpass>delay) > (allpass>delay>allpass>delay) )  
@@ -26,19 +27,21 @@ Set fx level for each instrument
 * Preset
     * Group of parameters :
         * Size
-        * Diffusion
-        * Damping
+        * Lfo speed
+        * Lfo Depth
         * Decay
-* Input Tilt 
-    * input filter from lowpass ~0 to high pass ~1
+        * Diffusion
+        * Notch Base
+        * Damping
 * Pre delay 
     * Time of pre delay
 * Pre delay Mix 
     * the input diffuser is fed with a mix of audio input and pre delayed input.
-* Mod Speed 
-    * lfo speed (4 of them)
-* Mod Depth 
-    * lfo mod depth, modulate the 4 delay allpass in the tank
+* Filter Base
+    * Input filter hp/lp
+* Filter Width 
+* Notch Spread 
+    * Input is filtered with a 4 pole allpass filter
 
 --------------
 

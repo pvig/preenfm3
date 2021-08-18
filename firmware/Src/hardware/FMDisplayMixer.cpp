@@ -50,7 +50,7 @@ const char *reverbPresets[] = {
     "XLgDrk",
     "XLgWrm",
     "XLgBrt",
-    "Freeze",
+    "Glue",
     "Hall",
     "Cave",
     "Aptmnt"

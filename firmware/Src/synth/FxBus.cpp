@@ -223,36 +223,40 @@ void FxBus::mixSumInit() {
 				}
 				break;
 			case 1:
-				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.30f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.2f;
+				//small
+				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.26f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.1f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.55f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.12f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.35f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.52f;
 				break;
 			case 2:
+				//medium
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.465f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.22f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.18f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.7f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.4f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.28f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.12f;
 				break;
 			case 3:
+				//large
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.775f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.46f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.38f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.48f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.12f;
 				break;
 			case 4:
+				//xtra large
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.97f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.72f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.93f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.196f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.125f;
 				break;
 			default:
 				break;
@@ -261,10 +265,10 @@ void FxBus::mixSumInit() {
 			switch (brightness)
 			{
 			case 0:
-				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.4f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.41f;
 				break;
 			case 1:
-				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.62f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.06f);
+				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.60f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.06f);
 				break;
 			case 2:
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.9f * (1 - synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] * 0.1f);
@@ -286,7 +290,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.943f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.05f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.38f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.245f;
 				break;
 			case 16:
 				//hall
@@ -306,7 +310,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.94f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.43f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.22f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.11f;
 				break;
 			case 18:
 				//apartment
@@ -316,7 +320,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.6f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.22f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.72f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.31f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.15f;
 				break;
 			default:
 				break;
@@ -330,7 +334,7 @@ void FxBus::mixSumInit() {
 	float tilt = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
 	if (prevTilt != tilt || prevInputWidth != inputWidth)
 	{
-		tiltInput = (tilt * tilt * 0.6f);
+		tiltInput = (tilt * tilt * 0.67f);
 		inHpf = clamp(tiltInput, 0, 1);
 		inLpF = clamp(tiltInput + (inputWidth * inputWidth) , 0, 1);
 	}
@@ -373,7 +377,9 @@ void FxBus::mixSumInit() {
 	damping 		*= 	damping;
 	loopLpf 		= 	0.05f + damping * 0.95f;
     decayVal 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ];
-    notchBase 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_NOTCHBASE ];
+    notchBase 		= 	(synthState_->fullState.masterfxConfig[ GLOBALFX_NOTCHBASE ] /*+ synthState_->fullState.masterfxConfig[ GLOBALFX_INPUTBASE ]*/ )* 0.25f;
+    //notchBase 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_INPUTBASE ] * 0.25f;
+    notchSpread 	= 	synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] * 0.125f;
 
     //------- some process
 
@@ -395,17 +401,18 @@ void FxBus::mixSumInit() {
     }
     prevDecayVal = decayVal;
 
-    notchSpread = synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD];
     if(notchBase != prevNotchBase || notchSpread != prevNotchSpread) {
-        float offset = notchSpread * notchSpread * 0.17f;
-        float range = 2;
-
+        //float offset = sqrt3(notchSpread) * 0.25f;
+        float offset = (notchSpread) * 0.25f;
+        float range = 0.67f;
         const float windowMin = 0.005f, windowMax = 0.99f;
 
-        f1L = clamp(fold((notchBase - offset) * range) * 0.5f, windowMin, windowMax);
-        f2L = clamp(fold((notchBase + offset) * range) * 0.5f, windowMin, windowMax);
-        f3L = clamp(fold((notchBase - (offset * 2)) * range) * 0.5f, windowMin, 1);
-        f4L = clamp(fold((notchBase + (offset * 2)) * range) * 0.5f, windowMin, 1);
+        //notchBase = clamp( notchBase + 0.22f * notchSpread, windowMin, windowMax);
+
+        f1L = clamp( fold(notchBase + offset) 			* range, windowMin, windowMax);
+        f2L = clamp( fold(notchBase - offset) 			* range, windowMin, windowMax);
+        f3L = clamp( fold(notchBase + offset * 1.5f) 	* range, windowMin, windowMax);
+        f4L = clamp( fold(notchBase + offset * 1.8f) 	* range, windowMin, windowMax);
 
         coef1L = (1.0f - f1L) / (1.0f + f1L);
         coef2L = (1.0f - f2L) / (1.0f + f2L);
@@ -501,7 +508,7 @@ void FxBus::processBlock(int32_t *outBuff) {
     	bandL2 = lowL;
     	lowL3 = coef3L * (lowL3 + lowL2) - bandL3;
     	bandL3 = lowL2;
-        lowL4 = coef4L * (lowL4 + lowL3) - bandL4;
+    	lowL4 = coef4L * (lowL4 + lowL3) - bandL4;
         bandL4 = lowL3;
 
         monoIn += lowL4;
