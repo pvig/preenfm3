@@ -70,6 +70,7 @@ protected:
     float lfoSpeed = 0, lfoSpeedLinear = 0, prevLfoSpeedLinear = -1;
 	float loopLpf, loopLpf2, prevFilterBase = -1;
 	float inputWidth = 0.5f, prevInputWidth = -1;
+	float prevLoopHp = -1;
 	float lfoLpCoef1 = 3999, lfoLpCoef2 = 0.00025;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
 	float envDecayMod = 0;
@@ -235,12 +236,14 @@ protected:
     float hp2_y1 = 0;
     float hp2_x1 = 0;
 
+    float _b1, _a0, _a1;
+
     float hp_in_x0 = 0;
     float hp_in_y0 = 0;
     float hp_in_y1 = 0;
     float hp_in_x1 = 0;
 
-    float _b1, _a0, _a1;
+    float _in_b1, _in_a0, _in_a1;
 
 	const int kl1 = 266 	* _dattorroSampleRateMod;
 	const int kl2 = 2974 	* _dattorroSampleRateMod;

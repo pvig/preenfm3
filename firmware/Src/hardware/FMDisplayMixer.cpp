@@ -350,15 +350,15 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH];
                     break;
                 case 5:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
                     break;
             }
             break;
         case MIXER_VALUE_GLOBAL_SETTINGS_4:
             switch (encoder) {
                 case 0:
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP];
                     //valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
                     break;
                 case 1:
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH];
@@ -682,14 +682,14 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Filter width");
                     break;
                 case 5:
-                    tft_->print("Notch Spread");
+                    tft_->print("Size");
                     break;
             }
             break;
         case 3:
             switch (row) {
                 case 0:
-                    tft_->print("Size");
+                    tft_->print("Tank hp");
                     break;
                 case 1:
                     tft_->print("Mod Depth");

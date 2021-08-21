@@ -196,6 +196,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.1f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.9;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.55f;
 
 				switch (presetNum)
 				{
@@ -226,6 +227,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.55f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.35f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.05f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.6f;
 				break;
 			case 2:
 				//medium
@@ -235,6 +237,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.28f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.07f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.6f;
 				break;
 			case 3:
 				//large
@@ -244,6 +247,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.12f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.58f;
 				break;
 			case 4:
 				//xtra large
@@ -253,6 +257,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.125f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.55f;
 				break;
 			default:
 				break;
@@ -281,12 +286,13 @@ void FxBus::mixSumInit() {
 			case 15:
 				//freeze
 				synthState_->fullState.masterfxConfig[GLOBALFX_DAMPING] = 0.96f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.87f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.91f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.05f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.943f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.05f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.245f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.5f;
 				break;
 			case 16:
 				//hall
@@ -297,6 +303,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.49f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.1055f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.30f;
 				break;
 			case 17:
 				//cave
@@ -307,6 +314,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.43f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.8f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.11f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.58f;
 				break;
 			case 18:
 				//apartment
@@ -317,6 +325,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.22f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.72f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.15f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.68f;
 				break;
 			default:
 				break;
@@ -330,26 +339,39 @@ void FxBus::mixSumInit() {
 	float filterBase = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
 	if (prevFilterBase != filterBase || prevInputWidth != inputWidth)
 	{
-		float filterB2 = filterBase * filterBase;
-		float filterB = (filterB2 * filterB2 * 0.5f);
+		float filterB2 	= filterBase * filterBase;
+		float filterB 	= (filterB2 * filterB2 * 0.5f);
 		//inHpf = clamp(filterB, 0, 1);
-		inLpF = clamp(filterB + (inputWidth) , 0, 1);
+		inLpF = clamp(filterB + inputWidth, 0, 1);
 
-		// tank hp coefs calc :
-        _b1 = (1 - filterB); // expf(-_2M_PI * _cutoffFreq * _1_sampleRate)
-        _a0 = (1 + _b1 * _b1 * _b1) * 0.5f;
-        _a1 = -_a0;
-
+		// input hp coefs calc :
+        _in_b1 = (1 - filterB);// expf(-_2M_PI * _cutoffFreq * _1_sampleRate)
+        _in_a0 = (1 + _in_b1 * _in_b1 * _in_b1) * 0.5f;
+        _in_a1 = -_in_a0;
 	}
 	prevFilterBase = filterBase;
 	prevInputWidth = inputWidth;
 
+	float loopHp = synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP];
+	if (prevLoopHp != loopHp)
+	{
+		float filterB2 	= loopHp * loopHp;
+		float filterB 	= (filterB2 * filterB2 * 0.5f);
+
+		// tank hp coefs calc :
+        _b1 = (1 - filterB);
+        _a0 = (1 + _b1 * _b1 * _b1) * 0.5f;
+        _a1 = -_a0;
+	}
+	prevLoopHp = loopHp;
+
+
 	fxTimeLinear = synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME];
 	if (prevFxTimeLinear == fxTimeLinear)
 	{
-		prevTime = clamp(fxTimeLinear, 0.0003f, 0.9996f);
-		prevTime *= prevTime * prevTime;
-		fxTime = fxTime * 0.9f + prevTime * 0.1f;
+		prevTime 	= clamp(fxTimeLinear, 0.0003f, 0.9996f);
+		prevTime 	*= prevTime * prevTime;
+		fxTime 		= fxTime * 0.9f + prevTime * 0.1f;
 		predelaySize = fxTimeLinear * predelayBufferSizeM1;
 	}
 	prevFxTimeLinear = fxTimeLinear;
@@ -505,7 +527,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 
 		// allpass / notch
-
+/*
     	lowL = coef1L * (lowL + monoIn) - bandL;
     	bandL = monoIn;
     	lowL2 = coef2L * (lowL2 + lowL) - bandL2;
@@ -516,12 +538,12 @@ void FxBus::processBlock(int32_t *outBuff) {
         bandL4 = lowL3;
 
         monoIn += lowL4;
-
+*/
 
         // --- hi pass
 
         hp_in_x0 	= monoIn;
-        hp_in_y0 	= _a0 * hp_in_x0 + _a1 * hp_in_x1 + _b1 * hp_in_y1;
+        hp_in_y0 	= _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
         hp_in_y1 	= hp_in_y0;
         hp_in_x1 	= hp_in_x0;
         monoIn 		= hp_in_y0;
@@ -532,7 +554,6 @@ void FxBus::processBlock(int32_t *outBuff) {
         v7R += inLpF * (monoIn - v6R - v7R);
         v6L += inLpF * v7L;
         v7L += inLpF * (v6R - v6L - v7L);
-
         monoIn = v6L;
 
     	//--- pre delay
@@ -593,14 +614,14 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // ---------------------------------------------------- filter
 
-        v4R += loopLpf * v5R;						// lowpass
-        v5R += loopLpf * ( ap2In - v4R - v5R);
-
-        hp1_x0 	= v4R;
+        hp1_x0 	= ap2In;								// hipass
         hp1_y0 	= _a0 * hp1_x0 + _a1 * hp1_x1 + _b1 * hp1_y1;
         hp1_y1 	= hp1_y0;
         hp1_x1 	= hp1_x0;
-        v4R 	= hp1_y0;
+        ap2In 	= hp1_y0;
+
+        v4R 	+= loopLpf * v5R;						// lowpass
+        v5R 	+= loopLpf * ( ap2In - v4R - v5R);
 
 		ap2In 	= v4R * decayFdbck;
 
@@ -637,14 +658,14 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // ---------------------------------------------------- filter
 
-        v4L += loopLpf * v5L;						// lowpass
-        v5L += loopLpf * ( ap4In - v4L - v5L);
-
-        hp2_x0 	= v4L;
+        hp2_x0 	= ap4In;								// hipass
         hp2_y0 	= _a0 * hp2_x0 + _a1 * hp2_x1 + _b1 * hp2_y1;
         hp2_y1 	= hp2_y0;
         hp2_x1 	= hp2_x0;
-        v4L 	= hp2_y0;
+        ap4In 	= hp2_y0;
+
+        v4L 	+= loopLpf * v5L;						// lowpass
+        v5L 	+= loopLpf * ( ap4In - v4L - v5L);
 
         ap4In = v4L * decayFdbck;				// decay
 
