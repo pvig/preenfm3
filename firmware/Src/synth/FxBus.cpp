@@ -7,7 +7,7 @@
 
 #include "FxBus.h"
 
-extern float diatonicScaleFrequency[];
+//extern float diatonicScaleFrequency[];
 
 inline float fold(float x4) {
     // https://www.desmos.com/calculator/ge2wvg2wgj
@@ -153,10 +153,6 @@ void FxBus::init(SynthState *synthState) {
 	dcBlock5a = 0;
 	dcBlock5b = 0;
 
-	hp_y0 = 0;
-	hp_y1 = 0;
-	hp_x1 = 0;
-
 }
 /**
  * init before timbres summing
@@ -229,7 +225,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.55f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.35f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.52f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.05f;
 				break;
 			case 2:
 				//medium
@@ -238,7 +234,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.7f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.28f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.12f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.07f;
 				break;
 			case 3:
 				//large
@@ -331,14 +327,21 @@ void FxBus::mixSumInit() {
 
     inputWidth 		= 	synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH] * 0.6f;
 
-	float tilt = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
-	if (prevTilt != tilt || prevInputWidth != inputWidth)
+	float filterBase = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
+	if (prevFilterBase != filterBase || prevInputWidth != inputWidth)
 	{
-		tiltInput = (tilt * tilt * 0.67f);
-		inHpf = clamp(tiltInput, 0, 1);
-		inLpF = clamp(tiltInput + (inputWidth * inputWidth) , 0, 1);
+		float filterB2 = filterBase * filterBase;
+		float filterB = (filterB2 * filterB2 * 0.5f);
+		//inHpf = clamp(filterB, 0, 1);
+		inLpF = clamp(filterB + (inputWidth) , 0, 1);
+
+		// tank hp coefs calc :
+        _b1 = (1 - filterB); // expf(-_2M_PI * _cutoffFreq * _1_sampleRate)
+        _a0 = (1 + _b1 * _b1 * _b1) * 0.5f;
+        _a1 = -_a0;
+
 	}
-	prevTilt = tilt;
+	prevFilterBase = filterBase;
 	prevInputWidth = inputWidth;
 
 	fxTimeLinear = synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME];
@@ -377,8 +380,7 @@ void FxBus::mixSumInit() {
 	damping 		*= 	damping;
 	loopLpf 		= 	0.05f + damping * 0.95f;
     decayVal 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_DECAY ];
-    notchBase 		= 	(synthState_->fullState.masterfxConfig[ GLOBALFX_NOTCHBASE ] /*+ synthState_->fullState.masterfxConfig[ GLOBALFX_INPUTBASE ]*/ )* 0.25f;
-    //notchBase 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_INPUTBASE ] * 0.25f;
+    notchBase 		= 	synthState_->fullState.masterfxConfig[ GLOBALFX_NOTCHBASE ] * 0.25f;
     notchSpread 	= 	synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD] * 0.125f;
 
     //------- some process
@@ -395,8 +397,8 @@ void FxBus::mixSumInit() {
     	float decayValSquare = decayVal * decayVal;
         envRelease 			= 	0.005f + decayValSquare * 0.6f;
 
-    	headRoomMultiplier = (1 + (1 - decayValSquare) * 0.75f) * 4 * 0.65f;
-    	headRoomDivider = 0.125f;
+    	headRoomMultiplier = (1 + (1 - decayValSquare) * 0.75f) * 2;
+    	headRoomDivider = 0.25f;
         sampleMultipler = headRoomMultiplier * (float) 0x7fffff;
     }
     prevDecayVal = decayVal;
@@ -460,7 +462,8 @@ void FxBus::mixAdd(float *inStereo, int timbreNum) {
 
 	if(synthState_->mixerState.instrumentState_[timbreNum].send > 0) {
 
-		const float level = fastroot(synthState_->mixerState.instrumentState_[timbreNum].send, 3) * headRoomDivider;
+		float send = synthState_->mixerState.instrumentState_[timbreNum].send;
+		const float level = - sqrt3(send) * headRoomDivider;
 		totalSent += synthState_->mixerState.instrumentState_[timbreNum].send;
 
 		sample = getSampleBlock();
@@ -500,6 +503,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
     	monoIn = (inR + inL);
 
+
 		// allpass / notch
 
     	lowL = coef1L * (lowL + monoIn) - bandL;
@@ -513,29 +517,23 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         monoIn += lowL4;
 
-		dcBlock4a = monoIn - dcBlock4b + dcBlockerCoef1 * dcBlock4a;			// dc blocker
-		dcBlock4b = monoIn;
-
-        monoIn = dcBlock4a;
-
-        // --- cut high
-
-        v6R += inLpF * v7R;						// lowpass
-        v7R += inLpF * (monoIn - v6R - v7R);
-        v6L += inLpF * v7L;						// lowpass
-        v7L += inLpF * (v6R - v6L - v7L);
-
-        monoIn = v6L;
 
         // --- hi pass
 
-        v0R += inHpf * v1R;						// hipass
-        v1R += inHpf * ( monoIn - v0R - v1R);
-        v0L += inHpf * v1L;						// hipass
-        v1L += inHpf * ( v0R - v0L - v1L);
+        hp_in_x0 	= monoIn;
+        hp_in_y0 	= _a0 * hp_in_x0 + _a1 * hp_in_x1 + _b1 * hp_in_y1;
+        hp_in_y1 	= hp_in_y0;
+        hp_in_x1 	= hp_in_x0;
+        monoIn 		= hp_in_y0;
 
-        monoIn -= v0L;
+    	// --- low pass
 
+        v6R += inLpF * v7R;
+        v7R += inLpF * (monoIn - v6R - v7R);
+        v6L += inLpF * v7L;
+        v7L += inLpF * (v6R - v6L - v7L);
+
+        monoIn = v6L;
 
     	//--- pre delay
 
@@ -575,12 +573,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         diff4Out 		= diff3Out - in_apSum4 * inputCoef2;
         inputBuffer4[inputWritePos4] 		= in_apSum4;
 
-		// ---- dc blocker
-
-		dcBlock1a = diff4Out - dcBlock1b + dcBlockerCoef2 * dcBlock1a;
-		dcBlock1b = diff4Out;
-
-		monoIn = dcBlock1a;
+		monoIn = diff4Out;
 
         // ---- ap 1
 
@@ -603,13 +596,13 @@ void FxBus::processBlock(int32_t *outBuff) {
         v4R += loopLpf * v5R;						// lowpass
         v5R += loopLpf * ( ap2In - v4R - v5R);
 
-		dcBlock3a = v4R - dcBlock3b + dcBlockerCoef1 * dcBlock3a;			// dc blocker
-		dcBlock3b = v4R;
+        hp1_x0 	= v4R;
+        hp1_y0 	= _a0 * hp1_x0 + _a1 * hp1_x1 + _b1 * hp1_y1;
+        hp1_y1 	= hp1_y0;
+        hp1_x1 	= hp1_x0;
+        v4R 	= hp1_y0;
 
-    	//dcBlock5a = dcBlock3a - dcBlock5b + dcBlockerCoef3 * dcBlock5a;			// dc blocker
-    	//dcBlock5b = dcBlock3a;
-
-		ap2In = dcBlock3a * decayFdbck;
+		ap2In 	= v4R * decayFdbck;
 
     	// ---- ap 2
 
@@ -647,13 +640,13 @@ void FxBus::processBlock(int32_t *outBuff) {
         v4L += loopLpf * v5L;						// lowpass
         v5L += loopLpf * ( ap4In - v4L - v5L);
 
-        //v4L += loopLpf * v5L;						// lowpass
-        //v5L += loopLpf * ( ap4In - v4L - v5L);
+        hp2_x0 	= v4L;
+        hp2_y0 	= _a0 * hp2_x0 + _a1 * hp2_x1 + _b1 * hp2_y1;
+        hp2_y1 	= hp2_y0;
+        hp2_x1 	= hp2_x0;
+        v4L 	= hp2_y0;
 
-		dcBlock2a = v4L - dcBlock2b + dcBlockerCoef2 * dcBlock2a;			// dc blocker
-		dcBlock2b = v4L;
-
-        ap4In = dcBlock2a * decayFdbck;				// decay
+        ap4In = v4L * decayFdbck;				// decay
 
         // ---- ap 4
 
@@ -739,6 +732,7 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 	silentBlockCount = (outSum < 0.00001f) ? silentBlockCount + 1 : 0;
 }
+
 float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
 	//v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
 	int readPosInt = readPos;
@@ -748,6 +742,7 @@ float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int buffer
 	float x = readPos - floorf(readPos);
     return y1 + (1 - x) * (y0 - prevVal);
 }
+
 float FxBus::delayInterpolation(float readPos, float buffer[], int bufferLenM1) {
 	int readPosInt = readPos;
 	float y0 = buffer[readPosInt];

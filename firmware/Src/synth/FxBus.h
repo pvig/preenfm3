@@ -68,7 +68,7 @@ protected:
     float predelayMixAttn = predelayMixLevel * 0.75;
     float lfoDepth =  0;
     float lfoSpeed = 0, lfoSpeedLinear = 0, prevLfoSpeedLinear = -1;
-	float loopLpf, loopLpf2, tiltInput, prevTilt = -1;
+	float loopLpf, loopLpf2, prevFilterBase = -1;
 	float inputWidth = 0.5f, prevInputWidth = -1;
 	float lfoLpCoef1 = 3999, lfoLpCoef2 = 0.00025;
 	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
@@ -76,7 +76,7 @@ protected:
 	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 
-	float loopHpf = 0.04f;
+	float loopHpf = 0.14f;
 	float inHpf = 0.1f;
 
 	float inR, inL;
@@ -223,9 +223,24 @@ protected:
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
     float dcBlock1a, dcBlock1b, dcBlock2a, dcBlock2b, dcBlock3a, dcBlock3b, dcBlock4a, dcBlock4b, dcBlock5a, dcBlock5b;
-    float hp_y0, hp_y1, hp_x1;
-    float hp_a0, hp_a1, hp_b1;
 	float inLpF;
+
+    float hp1_x0 = 0;
+	float hp1_y0 = 0;
+    float hp1_y1 = 0;
+    float hp1_x1 = 0;
+
+    float hp2_x0 = 0;
+    float hp2_y0 = 0;
+    float hp2_y1 = 0;
+    float hp2_x1 = 0;
+
+    float hp_in_x0 = 0;
+    float hp_in_y0 = 0;
+    float hp_in_y1 = 0;
+    float hp_in_x1 = 0;
+
+    float _b1, _a0, _a1;
 
 	const int kl1 = 266 	* _dattorroSampleRateMod;
 	const int kl2 = 2974 	* _dattorroSampleRateMod;
@@ -235,7 +250,6 @@ protected:
 	const int kl6 = 187 	* _dattorroSampleRateMod;
 	const int kl7 = 1066 	* _dattorroSampleRateMod;
     const long _kLeftTaps[7] = {kl1 , kl2, kl3, kl4, kl5, kl6, kl7};
-
 
 	const int kr1 = 353 	* _dattorroSampleRateMod;
 	const int kr2 = 3627 	* _dattorroSampleRateMod;
