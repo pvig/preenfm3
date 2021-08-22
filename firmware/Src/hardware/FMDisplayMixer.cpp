@@ -350,7 +350,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH];
                     break;
                 case 5:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_SIZE];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD];
                     break;
             }
             break;
@@ -682,7 +682,7 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Filter width");
                     break;
                 case 5:
-                    tft_->print("Size");
+                    tft_->print("Notch Spread");
                     break;
             }
             break;

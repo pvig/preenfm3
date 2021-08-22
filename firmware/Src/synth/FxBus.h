@@ -63,17 +63,16 @@ protected:
     float sizeParam, prevSizeParam, nextSizeParam;
     float inputDiffusion, prevInputDiffusion;
     float diffusion, prevDiffusion;
-    float damping;
+    float damping, prevDamping = -1;
     float predelayMixLevel = 0.5f;
     float predelayMixAttn = predelayMixLevel * 0.75;
     float lfoDepth =  0;
     float lfoSpeed = 0, lfoSpeedLinear = 0, prevLfoSpeedLinear = -1;
 	float loopLpf, loopLpf2, prevFilterBase = -1;
+	float damp_a, damp_b;
 	float inputWidth = 0.5f, prevInputWidth = -1;
 	float prevLoopHp = -1;
-	float lfoLpCoef1 = 3999, lfoLpCoef2 = 0.00025;
-	float envThreshold, envRelease, prevEnvThreshold = -1, prevEnvRelease = -1;
-	float envDecayMod = 0;
+	float lfoLpCoef1 = 3999, lfoLpCoef2 = 0.00025f;
 	float timeCvControl1 = 0, timeCvControl2 = 0, timeCvControl3 = 0, timeCvControl4 = 0;
 	float timeCv = 0, prevTimeCv = 0, timeCvSpeed = 0, prevtimeCvSpeed = 0, cvDelta;
 
@@ -221,9 +220,8 @@ protected:
     float coef3L;
     float coef4L;
 
-    float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
-    float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
-    float dcBlock1a, dcBlock1b, dcBlock2a, dcBlock2b, dcBlock3a, dcBlock3b, dcBlock4a, dcBlock4b, dcBlock5a, dcBlock5b;
+    float tankLp1;
+    float tankLp2;
 	float inLpF;
 
     float hp1_x0 = 0;
@@ -243,6 +241,7 @@ protected:
     float hp_in_y1 = 0;
     float hp_in_x1 = 0;
 
+    float _in_lp_a, _in_lp_b;
     float _in_b1, _in_a0, _in_a1;
 
 	const int kl1 = 266 	* _dattorroSampleRateMod;
@@ -252,7 +251,7 @@ protected:
 	const int kl5 = 1990 	* _dattorroSampleRateMod;
 	const int kl6 = 187 	* _dattorroSampleRateMod;
 	const int kl7 = 1066 	* _dattorroSampleRateMod;
-    const long _kLeftTaps[7] = {kl1 , kl2, kl3, kl4, kl5, kl6, kl7};
+    const int _kLeftTaps[7] = {kl1 , kl2, kl3, kl4, kl5, kl6, kl7};
 
 	const int kr1 = 353 	* _dattorroSampleRateMod;
 	const int kr2 = 3627 	* _dattorroSampleRateMod;
@@ -261,7 +260,7 @@ protected:
 	const int kr5 = 2111 	* _dattorroSampleRateMod;
 	const int kr6 = 335 	* _dattorroSampleRateMod;
 	const int kr7 = 121 	* _dattorroSampleRateMod;
-    const long _kRightTaps[7] = {kr1, kr2, kr3, kr4, kr5, kr6, kr7};
+    const int _kRightTaps[7] = {kr1, kr2, kr3, kr4, kr5, kr6, kr7};
 
 };
 
