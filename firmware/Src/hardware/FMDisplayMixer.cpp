@@ -367,7 +367,7 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED];
                     break;
                 case 3:
-                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DECAY];
+                    valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION];
                     break;
                 case 4:
                     valueP = (void*) &synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE];
@@ -698,7 +698,7 @@ void FMDisplayMixer::refreshMixerRowGlobalOptions(int page, int row) {
                     tft_->print("Mod Speed");
                     break;
                 case 3:
-                    tft_->print("Decay");
+                    tft_->print("Diffusion");
                     break;
                 case 4:
                     tft_->print("Notch Base");

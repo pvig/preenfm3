@@ -122,10 +122,6 @@ void FxBus::init(SynthState *synthState) {
     	diffuserBuffer4[ s ] = 0;
     }
 
-    // Init FX variables
-
-    tankLp1 = 0;
-    tankLp2 = 0;
 }
 /**
  * init before timbres summing
@@ -176,17 +172,17 @@ void FxBus::mixSumInit() {
 				case 0:
 					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.1f;
 					synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.04f;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.68f;
 					break;
 				case 1:
 					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.13f;
 					synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.02f;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.9f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.86f;
 					break;
 				case 2:
 					synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.23f;
 					synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.08f;
-					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.6f;
+					synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 1;
 					break;
 				default:
 					break;
@@ -196,7 +192,7 @@ void FxBus::mixSumInit() {
 				//small
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.26f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.1f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.66f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.68f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.55f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.35f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.05f;
@@ -206,7 +202,7 @@ void FxBus::mixSumInit() {
 				//medium
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.465f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.18f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.7f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.28f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.22f;
@@ -216,7 +212,7 @@ void FxBus::mixSumInit() {
 				//large
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.775f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.38f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.76f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.56f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.10f;
@@ -226,7 +222,7 @@ void FxBus::mixSumInit() {
 				//xtra large
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 0.87f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.72f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.93f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.68f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.02f;
@@ -263,7 +259,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.05f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_SIZE] = 1;
 				synthState_->fullState.masterfxConfig[GLOBALFX_DECAY] = 0.943f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.05f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.96f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.245f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.1f;
 				break;
@@ -386,10 +382,10 @@ void FxBus::mixSumInit() {
     //------- some process
 
     if(diffusion != prevDiffusion) {
-		diffuserCoef1 	= 	-(0.01f + diffusion * 0.67f);
-		diffuserCoef2 	= 	-(0.01f + diffusion * 0.5f);
-		prevDiffusion = diffusion;
+		//diffuserCoef1 	= 	-(0.01f + diffusion * 0.67f);
+		//diffuserCoef2 	= 	-(0.01f + diffusion * 0.5f);
     }
+	prevDiffusion = diffusion;
 
     if(damping != prevDamping) {
         damp_b = 1 - damping  * damping;
@@ -402,8 +398,8 @@ void FxBus::mixSumInit() {
 
     	float decayValSquare = decayVal * decayVal;
 
-    	headRoomMultiplier = (1 + (1 - decayValSquare) * 0.75f) * 2;
-    	headRoomDivider = 0.25f;
+    	headRoomMultiplier = (1 - decayValSquare * 0.5f) * 3.5f;
+    	headRoomDivider = 0.0625f;
         sampleMultipler = headRoomMultiplier * (float) 0x7fffff;
     }
     prevDecayVal = decayVal;
@@ -549,31 +545,32 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         inputReadPos1 	= modulo2(inputWritePos1 - inputBuffer1ReadLen, inputBufferLen1);
         float in_apSum1 = monoIn + inputBuffer1[inputReadPos1] * inputCoef1;
-        diff1Out 		= monoIn - in_apSum1 * inputCoef1;
-        inputBuffer1[inputWritePos1] 		= in_apSum1;
+        diff1Out 		= inputBuffer1[inputReadPos1] - in_apSum1 * inputCoef1;
+        inputBuffer1[inputWritePos1] = in_apSum1;
 
         // ---- diffuser 2
 
     	inputReadPos2 	= modulo2(inputWritePos2 - inputBuffer2ReadLen, inputBufferLen2);
         float in_apSum2 = diff1Out + inputBuffer2[inputReadPos2] * inputCoef1;
-        diff2Out 		= diff1Out - in_apSum2 * inputCoef1;
+        diff2Out 		= inputBuffer2[inputReadPos2] - in_apSum2 * inputCoef1;
         inputBuffer2[inputWritePos2] 		= in_apSum2;
 
         // ---- diffuser 3
 
     	inputReadPos3 	= modulo2(inputWritePos3 - inputBuffer3ReadLen, inputBufferLen3);
         float in_apSum3 = diff2Out + inputBuffer3[inputReadPos3] * inputCoef2;
-        diff3Out 		= diff2Out - in_apSum3 * inputCoef2;
+        diff3Out 		= inputBuffer3[inputReadPos3] - in_apSum3 * inputCoef2;
         inputBuffer3[inputWritePos3] 		= in_apSum3;
 
         // ---- diffuser 4
 
     	inputReadPos4 	= modulo2(inputWritePos4 - inputBuffer4ReadLen, inputBufferLen4);
         float in_apSum4 = diff3Out + inputBuffer4[inputReadPos4] * inputCoef2;
-        diff4Out 		= diff3Out - in_apSum4 * inputCoef2;
+        diff4Out 		= inputBuffer4[inputReadPos4] - in_apSum4 * inputCoef2;
         inputBuffer4[inputWritePos4] 		= in_apSum4;
 
-		monoIn = diff4Out;
+		//monoIn = diff4Out;
+		monoIn = monoIn * (1.0 - diffusion) + diff4Out * diffusion;
 
         // ---- ap 1
 
@@ -599,10 +596,10 @@ void FxBus::processBlock(int32_t *outBuff) {
         hp1_x1 	= hp1_x0;
         ap2In 	= hp1_y0;
 
-        tankLp1 =  damp_a * ap2In + tankLp1 * damp_b;			// lowpass
-        tankLp1 =  damp_a * ap2In + tankLp1 * damp_b;			// lowpass
+        tankLp1a =  damp_a * ap2In + tankLp1a * damp_b;			// lowpass
+        tankLp1b =  damp_a * tankLp1a + tankLp1b * damp_b;			// lowpass
 
-        ap2In 	= tankLp1 * decayFdbck;
+        ap2In 	= tankLp1b * decayFdbck;
 
     	// ---- ap 2
 
@@ -643,10 +640,10 @@ void FxBus::processBlock(int32_t *outBuff) {
         hp2_x1 	= hp2_x0;
         ap4In 	= hp2_y0;
 
-        tankLp2 =  damp_a * ap4In + tankLp2 * damp_b;			// lowpass
-        tankLp2 =  damp_a * ap4In + tankLp2 * damp_b;			// lowpass
+        tankLp2b =  damp_a * ap4In + tankLp2b * damp_b;			// lowpass
+        tankLp2b =  damp_a * tankLp2b + tankLp2b * damp_b;			// lowpass
 
-        ap4In = tankLp2 * decayFdbck;				// decay
+        ap4In = tankLp2b * decayFdbck;				// decay
 
         // ---- ap 4
 

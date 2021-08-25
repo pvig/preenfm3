@@ -135,7 +135,7 @@ protected:
 	static const int inputBufferLen1 = 141 * _dattorroSampleRateMod;
 	static const int inputBufferLen2 = 107 * _dattorroSampleRateMod;
 	static const int inputBufferLen3 = 379 * _dattorroSampleRateMod;
-	static const int inputBufferLen4 = 227 * _dattorroSampleRateMod;
+	static const int inputBufferLen4 = 277 * _dattorroSampleRateMod;
 	static float inputBuffer1[inputBufferLen1];
 	static float inputBuffer2[inputBufferLen2];
 	static float inputBuffer3[inputBufferLen3];
@@ -154,7 +154,7 @@ protected:
     int inputReadPos3;
     int inputReadPos4;
 
-    float inputCoef1 = 0.7f;
+    float inputCoef1 = 0.75f;
     float inputCoef2 = 0.625f;
 
 	// diffuser decay
@@ -191,8 +191,8 @@ protected:
     float diffuserReadPos3;
     float diffuserReadPos4;
 
-    float diffuserCoef1 = 0.75f;
-    float diffuserCoef2 = 0.65f;
+    float diffuserCoef1 = 0.7f;
+    float diffuserCoef2 = 0.5f;
 
 	float monoIn, preDelayOut = 0, diff1Out, diff2Out, diff3Out, diff4Out;
     float ap1In, ap2In, ap3In, ap4In;
@@ -220,8 +220,8 @@ protected:
     float coef3L;
     float coef4L;
 
-    float tankLp1;
-    float tankLp2;
+    float tankLp1a = 0, tankLp1b = 0;
+    float tankLp2a = 0, tankLp2b = 0;
 	float inLpF;
 
     float hp1_x0 = 0;
