@@ -117,9 +117,7 @@ protected:
     float delay4DelayLen 	= 0, delay4ReadLen;
     float delay4FxTarget 	= 0;
 
-    const float dcBlockerCoef1 = 0.999f;
-    const float dcBlockerCoef2 = 0.995f;
-    const float dcBlockerCoef3 = 0.992f;
+    const float dcBlockerCoef1 = 0.9973854301f;//~20 hz
 
 	//pre delay
 
@@ -202,6 +200,8 @@ protected:
     // Filter
     float notchBase, prevNotchBase = -1;
     float notchSpread = 0.37f , prevNotchSpread = -1;
+
+    float dcBlock1a, dcBlock1b, dcBlock2a, dcBlock2b;
 
     float lowL = 0, highL = 0, bandL = 0;
     float lowL2 = 0, highL2 = 0, bandL2 = 0;

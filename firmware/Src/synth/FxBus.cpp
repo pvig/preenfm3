@@ -502,18 +502,24 @@ void FxBus::processBlock(int32_t *outBuff) {
     	inR = *(sample);
     	inL = *(sample + 1);
 
+		/*dcBlock1a = inR - dcBlock1b + dcBlockerCoef1 * dcBlock1a;			// dc blocker
+		dcBlock1b = inR;
+
+		dcBlock2a = inL - dcBlock2b + dcBlockerCoef1 * dcBlock2a;			// dc blocker
+		dcBlock2b = inL;*/
+
     	monoIn = (inR + inL);
 
 
 		// allpass / notch
 
-    	lowL = coef1L * (lowL + monoIn) - bandL;
+    	lowL = coef1L 	* (lowL + monoIn) - bandL;
     	bandL = monoIn;
-    	lowL2 = coef2L * (lowL2 + lowL) - bandL2;
+    	lowL2 = coef2L 	* (lowL2 + lowL) - bandL2;
     	bandL2 = lowL;
-    	lowL3 = coef3L * (lowL3 + lowL2) - bandL3;
+    	lowL3 = coef3L 	* (lowL3 + lowL2) - bandL3;
     	bandL3 = lowL2;
-    	lowL4 = coef4L * (lowL4 + lowL3) - bandL4;
+    	lowL4 = coef4L 	* (lowL4 + lowL3) - bandL4;
         bandL4 = lowL3;
 
         monoIn += lowL4;
@@ -569,8 +575,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         diff4Out 		= inputBuffer4[inputReadPos4] - in_apSum4 * inputCoef2;
         inputBuffer4[inputWritePos4] 		= in_apSum4;
 
-		//monoIn = diff4Out;
-		monoIn = monoIn * (1.0 - diffusion) + diff4Out * diffusion;
+		monoIn = monoIn * (1 - diffusion) + diff4Out * diffusion;
 
         // ---- ap 1
 
@@ -597,9 +602,10 @@ void FxBus::processBlock(int32_t *outBuff) {
         ap2In 	= hp1_y0;
 
         tankLp1a =  damp_a * ap2In + tankLp1a * damp_b;			// lowpass
-        tankLp1b =  damp_a * tankLp1a + tankLp1b * damp_b;			// lowpass
+        tankLp1a =  damp_a * ap2In + tankLp1a * damp_b;			// lowpass
+        //tankLp1b =  damp_a * tankLp1a + tankLp1b * damp_b;		// lowpass
 
-        ap2In 	= tankLp1b * decayFdbck;
+        ap2In 	= tankLp1a * decayFdbck;
 
     	// ---- ap 2
 
@@ -640,10 +646,11 @@ void FxBus::processBlock(int32_t *outBuff) {
         hp2_x1 	= hp2_x0;
         ap4In 	= hp2_y0;
 
-        tankLp2b =  damp_a * ap4In + tankLp2b * damp_b;			// lowpass
-        tankLp2b =  damp_a * tankLp2b + tankLp2b * damp_b;			// lowpass
+        tankLp2a =  damp_a * ap4In + tankLp2a * damp_b;			// lowpass
+        tankLp2a =  damp_a * ap4In + tankLp2a * damp_b;			// lowpass
+        //tankLp2b =  damp_a * tankLp2b + tankLp2b * damp_b;		// lowpass
 
-        ap4In = tankLp2b * decayFdbck;				// decay
+        ap4In = tankLp2a * decayFdbck;				// decay
 
         // ---- ap 4
 
