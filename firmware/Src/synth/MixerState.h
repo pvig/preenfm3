@@ -18,7 +18,10 @@
 #ifndef SYNTH_MIXERSTATE_H_
 #define SYNTH_MIXERSTATE_H_
 
+
 #include "Common.h"
+#include <Menu.h>
+
 
 enum MIXER_BANK_VERSION {
     MIXER_BANK_VERSION1 = 1,
@@ -29,10 +32,12 @@ enum MIXER_BANK_VERSION {
     // User CC
     MIXER_BANK_VERSION4,
     // MPE
-    MIXER_BANK_VERSION5
+    MIXER_BANK_VERSION5,
+    // FX
+    MIXER_BANK_VERSION6
 };
 
-#define MIXER_BANK_CURRENT_VERSION MIXER_BANK_VERSION5
+#define MIXER_BANK_CURRENT_VERSION MIXER_BANK_VERSION6
 
 struct MixerInstrumentState {
     uint8_t out;
@@ -52,10 +57,12 @@ struct MixerInstrumentState {
     float send;
 };
 
+class SynthState;
 class MixerState {
 public:
     MixerState();
     virtual ~MixerState();
+    void setSynthState(SynthState *synthState);
 
     void getFullState(char *buffer, uint32_t *size);
     void getFullDefaultState(char *buffer, uint32_t *size, uint8_t mixNumber);
@@ -74,11 +81,13 @@ public:
     uint8_t MPE_inst1_;
 
 private:
+    struct SynthState *synthState_;
     void restoreFullStateVersion1(char *buffer);
     void restoreFullStateVersion2(char *buffer);
     void restoreFullStateVersion3(char *buffer);
     void restoreFullStateVersion4(char *buffer);
     void restoreFullStateVersion5(char *buffer);
+    void restoreFullStateVersion6(char *buffer);
     void setDefaultValues();
 };
 

@@ -16,14 +16,16 @@
  */
 
 #include <MixerState.h>
+#include <SynthState.h>
 
-MixerState::MixerState() {
-    // TODO Auto-generated constructor stub
-
-}
+MixerState::MixerState() {}
 
 MixerState::~MixerState() {
     // TODO Auto-generated destructor stub
+}
+
+void MixerState::setSynthState(SynthState* synthState) {
+    this->synthState_ = synthState;
 }
 
 void MixerState::getFullState(char *buffer, uint32_t *size) {
@@ -77,6 +79,13 @@ void MixerState::getFullState(char *buffer, uint32_t *size) {
         buffer[index++] =  userCC_[u];
     }
 
+    // FX
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD];
 
     *size = index;
 }
@@ -141,6 +150,15 @@ void MixerState::getFullDefaultState(char *buffer, uint32_t *size, uint8_t mixNu
     for (int u = 0; u < 4; u++) {
         buffer[index++] = 34 + u;
     }
+
+    // FX
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH];
+    buffer[index++] = synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD];
+
     *size = index;
 }
 
@@ -162,6 +180,9 @@ void MixerState::restoreFullState(char *buffer) {
             break;
         case MIXER_BANK_VERSION5:
             restoreFullStateVersion5(buffer);
+            break;
+        case MIXER_BANK_VERSION6:
+            restoreFullStateVersion6(buffer);
             break;
     }
 }
@@ -363,7 +384,7 @@ void MixerState::restoreFullStateVersion4(char *buffer) {
 }
 
 /*
- * Version 4 has MPE
+ * Version 5 has MPE
  */
 void MixerState::restoreFullStateVersion5(char *buffer) {
     int index = 0;
@@ -414,6 +435,68 @@ void MixerState::restoreFullStateVersion5(char *buffer) {
     }
 }
 
+
+/*
+ * Version 6 has FX
+ */
+void MixerState::restoreFullStateVersion6(char *buffer) {
+    int index = 0;
+    index++; // version
+
+    for (int i = 0; i < 12; i++) {
+        mixName_[i] = buffer[index++];
+    }
+    MPE_inst1_ = buffer[index++];
+    currentChannel_ = buffer[index++];
+    globalChannel_ = buffer[index++];
+    midiThru_ = buffer[index++];
+
+    uint8_t *tuningUint8 = (uint8_t*) &tuning_;
+    tuningUint8[0] = buffer[index++];
+    tuningUint8[1] = buffer[index++];
+    tuningUint8[2] = buffer[index++];
+    tuningUint8[3] = buffer[index++];
+
+    for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
+        instrumentState_[t].out = buffer[index++];
+        instrumentState_[t].midiChannel = buffer[index++];
+        instrumentState_[t].firstNote = buffer[index++];
+        instrumentState_[t].lastNote = buffer[index++];
+        instrumentState_[t].shiftNote = buffer[index++];
+        instrumentState_[t].numberOfVoices = buffer[index++];
+        instrumentState_[t].scalaEnable = buffer[index++];
+        instrumentState_[t].scalaMapping = buffer[index++];
+        instrumentState_[t].scaleScaleNumber = buffer[index++] << 8;
+        instrumentState_[t].scaleScaleNumber += buffer[index++];
+        for (int s = 0; s < 12; s++) {
+            instrumentState_[t].scalaScaleFileName[s] = buffer[index++];
+        }
+        uint8_t *volumeUint8 = (uint8_t*) &instrumentState_[t].volume;
+        volumeUint8[0] = buffer[index++];
+        volumeUint8[1] = buffer[index++];
+        volumeUint8[2] = buffer[index++];
+        volumeUint8[3] = buffer[index++];
+        instrumentState_[t].pan = buffer[index++];
+        instrumentState_[t].send = buffer[index++];
+        instrumentState_[t].compressorType = buffer[index++];
+    }
+
+    levelMeterWhere_ = buffer[index++];
+
+    // User CC
+    for (int u = 0; u < 4; u++) {
+        userCC_[u] = buffer[index++];
+    }
+
+    // FX
+    synthState_->fullState.masterfxConfig[GLOBALFX_PRESETNUM]       = buffer[index++];
+    synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYTIME]    = buffer[index++];
+    synthState_->fullState.masterfxConfig[GLOBALFX_PREDELAYMIX]     = buffer[index++];
+    synthState_->fullState.masterfxConfig[GLOBALFX_INPUTBASE]       = buffer[index++];
+    synthState_->fullState.masterfxConfig[GLOBALFX_INPUTWIDTH]      = buffer[index++];
+    synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHSPREAD]     = buffer[index++];
+
+}
 
 char* MixerState::getMixNameFromFile(char *buffer) {
     uint8_t version = buffer[0];

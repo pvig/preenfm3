@@ -76,6 +76,7 @@ void Synth::init(SynthState *synthState) {
 
     // Fx bus
     fxBus.init(synthState);
+    this->synthState_->mixerState.setSynthState(this->synthState_);
 
     // Cpu usage
     cptCpuUsage_ = 0;
