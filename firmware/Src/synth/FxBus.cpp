@@ -215,7 +215,7 @@ void FxBus::mixSumInit() {
 				synthState_->fullState.masterfxConfig[GLOBALFX_DIFFUSION] = 0.56f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFOSPEED] = 0.57f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LFODEPTH] = 0.21f;
-				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.10f;
+				synthState_->fullState.masterfxConfig[GLOBALFX_NOTCHBASE] = 0.05f;
 				synthState_->fullState.masterfxConfig[GLOBALFX_LOOPHP] = 0.3f;
 				break;
 			case 4:
@@ -398,7 +398,7 @@ void FxBus::mixSumInit() {
 
     	float decayValSquare = decayVal * decayVal;
 
-    	headRoomMultiplier = (1 - decayValSquare * 0.5f) * 3.5f;
+    	headRoomMultiplier = (1 - decayValSquare * 0.5f) * 5.5f;
     	headRoomDivider = 0.0625f;
         sampleMultipler = headRoomMultiplier * (float) 0x7fffff;
     }
