@@ -582,6 +582,8 @@ enum DestinationEnum {
     MTX_DEST_FEEDBACK,
     FILTER_PARAM2,
     FILTER_AMP,
+    SEQ1_START,
+    SEQ2_START,
     DESTINATION_MAX
 };
 

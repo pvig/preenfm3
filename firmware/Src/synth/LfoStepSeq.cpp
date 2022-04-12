@@ -30,6 +30,7 @@ void LfoStepSeq::init(struct StepSequencerParams* stepSeqParam, struct StepSeque
 	valueChanged(0);
 	ticks = 1536;
 	midiClock(0, true);
+	this->startSource = (source == MATRIX_SOURCE_LFOSEQ1) ? SEQ1_START : SEQ2_START;
 }
 
 void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
@@ -144,8 +145,13 @@ void LfoStepSeq::nextValueInMatrix() {
 
 void LfoStepSeq::noteOn() {
 	if (seqParams->bpm < LFO_SEQ_MIDICLOCK_DIV_4) {
-		phase = 0;
-		target = seqSteps->steps[0];
+		phase = fabsf(this->matrix->getDestination(startSource)) * 16;
+		int phaseInteger = phase;
+		target = seqSteps->steps[phaseInteger&0xf];
+		gated = false;
+		// reach value now :
+		currentValue = target;
+		matrix->setSource((enum SourceEnum)source, expValues[currentValue]);
 	}
 }
 

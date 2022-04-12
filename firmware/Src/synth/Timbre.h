@@ -136,6 +136,11 @@ public:
     bool isLfoUsed(int lfo) {
         return lfoUSed_[lfo] > 0;
     }
+    
+    // Do matrix use seq start
+    bool isSeqStartUsed(int seqNum) {
+        return seqStartUsed[seqNum] != 0xff;
+    }
 
     uint8_t getLowerNote() {
         return lowerNote_;
@@ -240,6 +245,8 @@ private:
 
     // lfoUsed
     uint8_t lfoUSed_[NUMBER_OF_LFO];
+        // seqStartUsed
+    uint8_t seqStartUsed[NUMBER_OF_LFO_STEP];
     uint8_t lowerNote_;
     float lowerNoteFrequency;
     bool lowerNoteReleased_;

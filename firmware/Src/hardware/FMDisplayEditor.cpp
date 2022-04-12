@@ -1379,10 +1379,12 @@ const char *matrixDestNames[DESTINATION_MAX] = { "None ", "Gate ", "IM 1 ", "IM 
     /*45*/"Atk M", "Dec M", "Rel M",
     /* pfm3 feedback */ "FdBck",
     /*filter param 2*/  "Filt2",
-    /*filter amp 2*/  "FltAm"
+    /*filter amp 2*/  "FltAm",
+    /*seq 1 start*/  "Seq1S",
+    /*seq 2 start*/  "Seq2S"
     };
 const unsigned char matrixTargetOrder[DESTINATION_MAX] = { 0, 1, 2, 3, 4, 5, 48, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 43, 24, 25, 26, 27, 28, 29,
-    30, 45, 44, 46, 31, 47, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 49, 50 };
+    30, 45, 44, 46, 31, 47, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 49, 50, 51, 52 };
 
 unsigned char matrixTargetPosition[DESTINATION_MAX];
 
@@ -1501,7 +1503,7 @@ struct ParameterRowDisplay lfoStepParameterRow = {
         "" },
     {
         {
-            10,
+            0,
             245,
             236,
             DISPLAY_TYPE_STEP_SEQ_BPM,

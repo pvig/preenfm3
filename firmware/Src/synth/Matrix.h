@@ -122,6 +122,20 @@ public:
         return this->destinations[destination];
     }
 
+    // this erase and update only one matrix row
+    void computeOneDestination(int r) {
+        if (r < 4) {
+            float mtxDest = destinations[MTX1_MUL + r];
+            float sourceTimesMul = sources[(int) rows[r].source] * (rows[r].mul + mtxDest);
+            destinations[(int) rows[r].dest1] = sourceTimesMul;
+            destinations[(int) rows[r].dest2] = sourceTimesMul;
+        } else if (r < MATRIX_SIZE) {
+            float sourceTimesMul = sources[(int) rows[r].source] * rows[r].mul;
+            destinations[(int) rows[r].dest1] = sourceTimesMul;
+            destinations[(int) rows[r].dest2] = sourceTimesMul;
+        }
+    }
+
     // Usefull for MPE to retrieve PITCHBEND
     float getSource(SourceEnum source) {
         return this->sources[source];
