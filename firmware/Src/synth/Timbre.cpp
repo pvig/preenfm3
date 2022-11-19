@@ -117,7 +117,7 @@ const uint8_t midi_clock_tick_per_step[17]  = {
 };
 
 extern float noise[32];
-
+float Timbre::delayBuffer[delayBufferSize] __attribute__((section(".ram_d2")));
 
 float panTable[]  = {
         0.0000, 0.0007, 0.0020, 0.0036, 0.0055, 0.0077, 0.0101, 0.0128, 0.0156, 0.0186,
@@ -149,9 +149,27 @@ float panTable[]  = {
 } ;
 
 
-
-
-
+inline
+float modulo2(float readPos, int bufferLen) {
+    if(unlikely(readPos < 0) )
+        readPos += bufferLen;
+    return readPos;
+}
+inline
+int modulo(int d, int max) {
+    return unlikely(d >= max) ? d - max : d;
+}
+inline
+float clamp(float d, float min, float max) {
+    const float t = unlikely(d < min) ? min : d;
+    return unlikely(t > max) ? max : t;
+}
+inline
+float fold(float x4) {
+    // https://www.desmos.com/calculator/ge2wvg2wgj
+    // x4 = x / 4
+    return (fabsf(x4 + 0.25f - roundf(x4 + 0.25f)) - 0.25f);
+}
 Timbre::Timbre() {
 
     recomputeNext_ = true;
@@ -640,7 +658,70 @@ uint8_t Timbre::voicesNextBlock() {
     return numberOfPlayingVoices_;
 }
 
+void Timbre::fxAfterBlock() {
 
+    int effectType = params_.effect.type;
+    float matrixFilterFrequency = voices_[lastPlayedNote_]->matrix.getDestination(FILTER_FREQUENCY);
+    float matrixFilterParam2 = voices_[lastPlayedNote_]->matrix.getDestination(FILTER_PARAM2);
+
+    switch (effectType) {
+        case FILTER_COMB: {
+            float fxParamTmp = this->params_.effect.param1 + matrixFilterFrequency;
+            fxParamTmp *= fxParamTmp;
+            readPos = clamp((fxParamTmp + 49.0f * readPos) * .02f, 0, 1);
+            delaySize = delayBufferSizeM1 * readPos;
+
+            //float readPos = clamp(this->params_.effect.param1 + matrixFilterFrequency, 0, 0.99f);
+            //float readPos = fold((this->params_.effect.param1 + matrixFilterFrequency) * (1/32) );
+            //readPos *= readPos;
+
+            float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, 0, 0.99f);
+
+            float *sp = sampleBlock_;
+            
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                delayBuffer[delayWritePos] = clamp(monoIn + delayOut * feed, -1, 1);
+                delayReadPos = modulo2(delayWritePos - delaySize, delayBufferSize);
+                delayOut = delayInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1);
+                //delayOut = delayBuffer[(int) delayReadPos];
+                //delayOut = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut);
+
+
+                *sp += delayOut;
+                sp++;
+                *sp += delayOut;
+                sp++;
+
+                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
+            }
+
+        }
+        break;
+        default:
+            // NO EFFECT
+            break;
+    }
+}
+
+float Timbre::delayInterpolation(float readPos, float buffer[], int bufferLenM1) {
+    int readPosInt = readPos;
+    float y0 = buffer[readPosInt];
+    float y1 = buffer[(unlikely(readPosInt == 0) ? bufferLenM1 : readPosInt - 1)];
+    float x = readPos - floorf(readPos);
+    return y0 + x * (y1 - y0);
+}
+
+float Timbre::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
+    //v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
+    int readPosInt = readPos;
+    float y0 = buffer[readPosInt];
+    float y1 = buffer[(unlikely(readPosInt >= bufferLenM1) ? readPosInt - bufferLenM1 + 1 : readPosInt + 1)];
+    //float y1 = buffer[((readPosInt == 0 ) ? bufferLenM1: readPosInt - 1)];
+    float x = readPos - floorf(readPos);
+    return y1 + (1 - x) * (y0 - prevVal);
+}
 
 void Timbre::voicesToTimbre(float volumeGain) {
 

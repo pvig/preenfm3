@@ -179,6 +179,18 @@ private:
     void OnMidiStop();
     void OnMidiClock();
     void SendNote(uint8_t note, uint8_t velocity);
+    void fxAfterBlock();
+    float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
+    float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
+
+    static const int delayBufferSize     = 4000;
+    static const int delayBufferSizeM1   = delayBufferSize - 1;
+    static float delayBuffer[delayBufferSize];
+    int delaySize             = delayBufferSizeM1;
+    int delayWritePos         = 0;
+    float delayReadPos        = 0;
+    float readPos             = 0;
+    float monoIn, delayOut    = 0;
 
     int8_t timbreNumber_;
     struct OneSynthParams params_;
