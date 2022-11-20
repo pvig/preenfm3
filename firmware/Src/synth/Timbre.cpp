@@ -682,8 +682,9 @@ void Timbre::fxAfterBlock() {
     switch (effectType) {
         case FILTER_COMB: {
             float fxParamTmp = ((this->params_.effect.param1 + matrixFilterFrequency));
-            fxParamTmp *= fxParamTmp;
-            readPos = clamp((fxParamTmp + 49.0f * readPos) * 0.02f, 0, 1);//smooth change
+            //fxParamTmp *= fxParamTmp * fxParamTmp;
+            fxParamTmp = fabsf(fxParamTmp);
+            readPos = clamp((fxParamTmp + 24.0f * readPos) * 0.02f, 0, 1);//smooth change
             delaySize1 = delayBufferSizeM1 * readPos;
 
             float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, 0, 0.99f);
@@ -709,7 +710,8 @@ void Timbre::fxAfterBlock() {
         break;
         case FILTER_CHORUS : {
             float fxParamTmp = (this->params_.effect.param1 + matrixFilterFrequency);
-            fxParamTmp *= fxParamTmp;
+            //fxParamTmp *= fxParamTmp * fxParamTmp;
+            fxParamTmp = fabsf(fxParamTmp);
             readPos = clamp((fxParamTmp + 24.0f * readPos) * 0.02f, 0, 1);//smooth change
             delaySize1 = delayBufferSizeM1 * readPos;
             delaySize2 = delayBufferSizeM1 * (1 - readPos) * 0.66f;

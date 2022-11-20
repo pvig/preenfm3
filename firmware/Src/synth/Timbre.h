@@ -185,9 +185,9 @@ private:
     static const int delayBufferSize     = 8000;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
     static float delayBuffer[delayBufferSize];
-    int delaySize1            = delayBufferSizeM1;
-    int delaySize2            = delayBufferSizeM1 * 0.6666f;
-    int delaySize3            = delayBufferSizeM1 * 0.3333f;
+    float delaySize1            = delayBufferSizeM1;
+    float delaySize2            = delayBufferSizeM1 * 0.6666f;
+    float delaySize3            = delayBufferSizeM1 * 0.3333f;
     int delayWritePos         = 0;
     float delayReadPos        = 0;
     float readPos             = 0;
