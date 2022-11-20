@@ -117,7 +117,7 @@ const uint8_t midi_clock_tick_per_step[17]  = {
 };
 
 extern float noise[32];
-float Timbre::delayBuffer[delayBufferSize] __attribute__((section(".ram_d2")));
+float Timbre::delayBuffer[delayBufferSize] __attribute__((section(".ram_d2b")));
 
 float panTable[]  = {
         0.0000, 0.0007, 0.0020, 0.0036, 0.0055, 0.0077, 0.0101, 0.0128, 0.0156, 0.0186,
@@ -665,14 +665,25 @@ uint8_t Timbre::voicesNextBlock() {
 void Timbre::fxAfterBlock() {
 
     int effectType = params_.effect.type;
+            
+    if(!voices_[lastPlayedNote_]->isPlaying()) {
+        // hack : this voice is not playing but still need to calculate lfo
+        voices_[lastPlayedNote_]->matrix.computeAllDestinations();
+    }
+
     float matrixFilterFrequency = voices_[lastPlayedNote_]->matrix.getDestination(FILTER_FREQUENCY);
     float matrixFilterParam2 = voices_[lastPlayedNote_]->matrix.getDestination(FILTER_PARAM2);
+    float matrixFilterAmp = voices_[lastPlayedNote_]->matrix.getDestination(FILTER_AMP);
+
+    // LP Algo
+    //float gainTmp = clamp(this->params_.effect.param3 + matrixFilterAmp, 0, 16);
+    //mixerGain = 0.02f * gainTmp + .98 * mixerGain;
 
     switch (effectType) {
         case FILTER_COMB: {
             float fxParamTmp = ((this->params_.effect.param1 + matrixFilterFrequency));
             fxParamTmp *= fxParamTmp;
-            readPos = clamp((fxParamTmp + 49.0f * readPos) * 0.02f, 0, 1);
+            readPos = clamp((fxParamTmp + 49.0f * readPos) * 0.02f, 0, 1);//smooth change
             delaySize1 = delayBufferSizeM1 * readPos;
 
             float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, 0, 0.99f);

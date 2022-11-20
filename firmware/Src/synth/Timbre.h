@@ -182,7 +182,7 @@ private:
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
 
-    static const int delayBufferSize     = 4000;
+    static const int delayBufferSize     = 8000;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
     static float delayBuffer[delayBufferSize];
     int delaySize1            = delayBufferSizeM1;
