@@ -225,6 +225,10 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
 
     lowerNote_ = 64;
     lowerNoteReleased_ = true;
+
+    for (int s = 0; s < delayBufferSize; s++) {
+        delayBuffer[s] = 0;
+    }
 }
 
 void Timbre::setVoiceNumber(int v, int n) {
@@ -666,14 +670,10 @@ void Timbre::fxAfterBlock() {
 
     switch (effectType) {
         case FILTER_COMB: {
-            float fxParamTmp = this->params_.effect.param1 + matrixFilterFrequency;
+            float fxParamTmp = ((this->params_.effect.param1 + matrixFilterFrequency));
             fxParamTmp *= fxParamTmp;
-            readPos = clamp((fxParamTmp + 49.0f * readPos) * .02f, 0, 1);
-            delaySize = delayBufferSizeM1 * readPos;
-
-            //float readPos = clamp(this->params_.effect.param1 + matrixFilterFrequency, 0, 0.99f);
-            //float readPos = fold((this->params_.effect.param1 + matrixFilterFrequency) * (1/32) );
-            //readPos *= readPos;
+            readPos = clamp((fxParamTmp + 49.0f * readPos) * 0.02f, 0, 1);
+            delaySize1 = delayBufferSizeM1 * readPos;
 
             float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, 0, 0.99f);
 
@@ -682,16 +682,49 @@ void Timbre::fxAfterBlock() {
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 monoIn = (*sp + *(sp + 1)) * 0.5f;
 
-                delayBuffer[delayWritePos] = clamp(monoIn + delayOut * feed, -1, 1);
-                delayReadPos = modulo2(delayWritePos - delaySize, delayBufferSize);
-                delayOut = delayInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1);
-                //delayOut = delayBuffer[(int) delayReadPos];
-                //delayOut = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut);
+                delayBuffer[delayWritePos] = clamp(monoIn + delayOut1 * feed, -1, 1);
+                delayReadPos = modulo2(delayWritePos - delaySize1, delayBufferSize);
+                delayOut1 = delayInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1);
 
-
-                *sp += delayOut;
+                *sp += delayOut1;
                 sp++;
-                *sp += delayOut;
+                *sp += delayOut1;
+                sp++;
+
+                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
+            }
+
+        }
+        break;
+        case FILTER_CHORUS : {
+            float fxParamTmp = (this->params_.effect.param1 + matrixFilterFrequency);
+            fxParamTmp *= fxParamTmp;
+            readPos = clamp((fxParamTmp + 24.0f * readPos) * 0.02f, 0, 1);//smooth change
+            delaySize1 = delayBufferSizeM1 * readPos;
+            delaySize2 = delayBufferSizeM1 * (1 - readPos) * 0.66f;
+            delaySize3 = delayBufferSizeM1 * readPos * 0.33f;
+
+            float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, 0, 0.99f) * 0.33f;
+
+            float *sp = sampleBlock_;
+            
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                delayBuffer[delayWritePos] = clamp(monoIn + (delayOut1 - delayOut2 + delayOut3) * feed, -1, 1);
+
+                delayReadPos = modulo2(delayWritePos - delaySize1, delayBufferSize);
+                delayOut1 = delayInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1);
+
+                delayReadPos = modulo2(delayWritePos - delaySize2, delayBufferSize);
+                delayOut2 = delayInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1);
+
+                delayReadPos = modulo2(delayWritePos - delaySize3, delayBufferSize);
+                delayOut3 = delayInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1);
+
+                *sp +=  delayOut1 + delayOut2 + delayOut3 * 0.6f;
+                sp++;
+                *sp +=  -delayOut1 + delayOut2 * 0.6f + delayOut3;
                 sp++;
 
                 delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
@@ -711,16 +744,6 @@ float Timbre::delayInterpolation(float readPos, float buffer[], int bufferLenM1)
     float y1 = buffer[(unlikely(readPosInt == 0) ? bufferLenM1 : readPosInt - 1)];
     float x = readPos - floorf(readPos);
     return y0 + x * (y1 - y0);
-}
-
-float Timbre::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
-    //v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
-    int readPosInt = readPos;
-    float y0 = buffer[readPosInt];
-    float y1 = buffer[(unlikely(readPosInt >= bufferLenM1) ? readPosInt - bufferLenM1 + 1 : readPosInt + 1)];
-    //float y1 = buffer[((readPosInt == 0 ) ? bufferLenM1: readPosInt - 1)];
-    float x = readPos - floorf(readPos);
-    return y1 + (1 - x) * (y0 - prevVal);
 }
 
 void Timbre::voicesToTimbre(float volumeGain) {
