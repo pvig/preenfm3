@@ -121,7 +121,7 @@ protected:
     float diffusion, prevDiffusion;
     float damping, prevDamping = -1;
     float predelayMixLevel = 0.5f;
-    float predelayMixAttn = predelayMixLevel * 0.75;
+    float predelayMixAttn = predelayMixLevel * 0.75f;
     float lfoDepth =  0;
     float lfoSpeed = 0, lfoSpeedLinear = 0, prevLfoSpeedLinear = -1;
     float loopLpf, loopLpf2, prevFilterBase = -1;
