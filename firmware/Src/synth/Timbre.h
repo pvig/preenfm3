@@ -181,8 +181,9 @@ private:
     void SendNote(uint8_t note, uint8_t velocity);
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
+    float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
 
-    static const int delayBufferSize     = 8000;
+    static const int delayBufferSize     = 4000;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
     static float delayBuffer[delayBufferSize];
     float delaySize1            = delayBufferSizeM1;
