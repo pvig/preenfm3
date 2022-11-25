@@ -74,7 +74,7 @@ float FxBus::delay2Buffer[delay2BufferSize] __attribute__((section(".ram_d1")));
 float FxBus::delay3Buffer[delay3BufferSize] __attribute__((section(".ram_d2")));
 float FxBus::delay4Buffer[delay4BufferSize] __attribute__((section(".ram_d2")));
 
-float FxBus::predelayBuffer[predelayBufferSize] __attribute__((section(".ram_d1")));
+float FxBus::predelayBuffer[predelayBufferSize] __attribute__((section(".ram_d2b")));
 
 float FxBus::inputBuffer1[inputBufferLen1] __attribute__((section(".ram_d2")));
 float FxBus::inputBuffer2[inputBufferLen2] __attribute__((section(".ram_d2")));
@@ -710,7 +710,10 @@ void FxBus::processBlock(int32_t *outBuff) {
         inputWritePos3        = modulo(inputWritePos3 + 1 , inputBufferLen3);
         inputWritePos4        = modulo(inputWritePos4 + 1 , inputBufferLen4);
 
-        predelayWritePos    = modulo(predelayWritePos + 1 , predelayBufferSize);
+        if(++inputIncCount >= inputRateDivider) {
+            inputIncCount = 0;
+            predelayWritePos    = modulo(predelayWritePos + 1 , predelayBufferSize);
+        }
 
         diffuserWritePos1    = modulo(diffuserWritePos1 + 1 , diffuserBufferLen1);
         diffuserWritePos2    = modulo(diffuserWritePos2 + 1 , diffuserBufferLen2);

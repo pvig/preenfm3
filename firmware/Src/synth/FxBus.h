@@ -177,12 +177,14 @@ protected:
 
     //pre delay
 
-    static const int predelayBufferSize     = 16000;
+    static const int predelayBufferSize     = 8000;
     static const int predelayBufferSizeM1     = predelayBufferSize - 1;
     static float predelayBuffer[predelayBufferSize];
     int predelaySize             = predelayBufferSize;
     int predelayWritePos         = 0;
     float predelayReadPos         = 0;
+    const int inputRateDivider = 2;
+    int inputIncCount = 0;
 
     // input diffuser
 
