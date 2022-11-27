@@ -202,6 +202,12 @@ private:
     float hp_in_y1 = 0;
     float hp_in_x1 = 0;
     float _in_b1, _in_a0, _in_a1;
+
+    float _ly1 = 0;
+    float _lx1 = 0;
+    float _ly2 = 0;
+    float _lx2 = 0;
+    float apcoef1, apcoef2;
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;

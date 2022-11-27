@@ -168,6 +168,10 @@ inline
 float foldAbs(float x4) {
     return fabsf(fabsf(x4 + 0.25f - roundf(x4 + 0.25f)) - 0.25f);
 }
+inline
+float fold(float x4) {
+    return fabsf(x4 + 0.25f - roundf(x4 + 0.25f)) - 0.25f;
+}
 Timbre::Timbre() {
 
     recomputeNext_ = true;
@@ -245,6 +249,11 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     _in_lp_b = 1 - filterA;
     _in_lp_a = 1 - _in_lp_b;
 
+    // all pass params
+    const float f1 = 0.0256f;
+    const float apcoef1 = (1.0f - f1) / (1.0f + f1);
+    const float f2 = clamp(0.17f + f1, 0.01f, 0.99f);
+    const float apcoef2 = (1.0f - f2) / (1.0f + f2);
     /*** -----------------------------------  */
 
 }
@@ -696,18 +705,22 @@ void Timbre::fxAfterBlock() {
 
     switch (effectType) {
         case FILTER_FLANGE: {
-            gainTmp *= gainTmp;
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
             float mixerGainAttn = mixerGain_ * 0.5f;
-            float fxParamTmp = foldAbs( (this->params_.effect.param1 + matrixFilterFrequency ) * 0.25f ) * 2;
+            float fxParamTmp = foldAbs( (this->params_.effect.param1 + matrixFilterFrequency ) * 0.25f );
             readPos = (fxParamTmp + 49 * readPos) * 0.02f; // smooth change
             delaySize1 = clamp(1 + delayBufferSizeM4 * readPos, 0, delayBufferSizeM1);
-            delaySize2 = clamp(1 + delayBufferSizeM4 * readPos * 0.99f , 0, delayBufferSizeM1);
+            //delaySize2 = clamp(1 + delayBufferSizeM4 * readPos * 0.995f , 0, delayBufferSizeM1);
 
             float feed = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.999f, 0.999f);
             float *sp  = sampleBlock_;
             float delayReadPos, monoIn;
-            
+
+            float filterA2     = 0.87f;
+            float filterA     = (filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
+
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 monoIn = (*sp + *(sp + 1)) * 0.5f;
 
@@ -728,12 +741,18 @@ void Timbre::fxAfterBlock() {
                 delayReadPos = modulo2(delayWritePos - delaySize1, delayBufferSize);
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
 
-                delayReadPos = modulo2(delayWritePos - delaySize2, delayBufferSize);
-                delayOut2 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut2);
+                //delayReadPos = modulo2(delayWritePos - delaySize2, delayBufferSize);
+                //delayOut2 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut2);
 
-                *sp = (*sp + delayOut1) * mixerGainAttn;
+                _ly1 = apcoef1 * (_ly1 + delayOut1) - _lx1; // allpass
+                _lx1 = delayOut1;
+
+                _ly2 = apcoef2 * (_ly2 + delayOut1) - _lx2; // allpass 2
+                _lx2 = delayOut1;
+
+                *sp = (*sp + _ly1) * mixerGainAttn;
                 sp++;
-                *sp = (*sp + delayOut2) * mixerGainAttn;
+                *sp = (*sp + _ly2) * mixerGainAttn;
                 sp++;
 
                 delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
@@ -750,16 +769,31 @@ void Timbre::fxAfterBlock() {
             delaySize2 = clamp(1 + delayBufferSizeM4 * (1-readPos) * 0.66f, 0, delayBufferSizeM1);
             delaySize3 = clamp(1 + delayBufferSizeM4 * (0.5f+readPos) * 0.5f, 0, delayBufferSizeM1);
 
+            //float readPos2 = fold( (readPos + 0.33f) * 0.25f);
+            //float readPos3 = fold( (readPos + 0.66f) * 0.25f);
+            //delaySize2 = clamp(1 + delayBufferSizeM4 * readPos2, 0, delayBufferSizeM1);
+            //delaySize3 = clamp(1 + delayBufferSizeM4 * readPos3, 0, delayBufferSizeM1);
+
             float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, -0.999f, 0.999f);
             feed = feed * 0.33f;
 
             float *sp = sampleBlock_;
             float delayReadPos, monoIn;
 
+            //float filterA2    = 0.95f;
+            float filterA     = 0.45125f;//(filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
+
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 monoIn = (*sp + *(sp + 1)) * 0.5f;
+
                 float delayIn = clamp(monoIn + (delayOut1 - delayOut2 + delayOut3) * feed, -1, 1);
-                delayBuffer[delayWritePos] = delayIn;
+
+                // feedback lp
+                inLpF   = _in_lp_a * delayIn + inLpF * _in_lp_b;
+
+                delayBuffer[delayWritePos] = inLpF;
 
                 delayReadPos = modulo2(delayWritePos - delaySize1, delayBufferSize);
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
