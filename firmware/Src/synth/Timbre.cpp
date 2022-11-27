@@ -1281,6 +1281,9 @@ linearBefore: for (int n = 0; n < intBreakNote; n++) {
         case MIDI_NOTE_CURVE_M_EXP:
             multiplier = -1.0f;
         case MIDI_NOTE_CURVE_EXP:
+            if (floatBreakNote == 0) {
+                floatBreakNote = 1;
+            }
             for (int n = 0; n < intBreakNote; n++) {
                 float fn = (floatBreakNote - n);
                 fn = fn * fn / floatBreakNote;
@@ -1316,6 +1319,9 @@ linearAfter: for (int n = intBreakNote + 1; n < 128; n++) {
         case MIDI_NOTE_CURVE_M_EXP:
             multiplier = -1.0f;
         case MIDI_NOTE_CURVE_EXP:
+            if (floatBreakNote == 0) {
+                floatBreakNote = 1;
+            }
             for (int n = intBreakNote + 1; n < 128; n++) {
                 float fn = n - floatBreakNote;
                 fn = fn * fn / floatBreakNote;
