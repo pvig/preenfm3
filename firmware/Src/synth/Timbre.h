@@ -179,21 +179,30 @@ private:
     void OnMidiStop();
     void OnMidiClock();
     void SendNote(uint8_t note, uint8_t velocity);
+
+    /** --------------FX conf--------------  */
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
 
-    static const int delayBufferSize     = 4000;
+    static const int delayBufferSize     = 4400;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
+    static const int delayBufferSizeM4   = delayBufferSize - 4;
     static float delayBuffer[delayBufferSize];
-    float delaySize1            = delayBufferSizeM1;
-    float delaySize2            = delayBufferSizeM1 * 0.6666f;
-    float delaySize3            = delayBufferSizeM1 * 0.3333f;
-    int delayWritePos         = 0;
-    float delayReadPos        = 0;
-    float readPos             = 0;
-    float monoIn;
+    float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0;
     float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0;
+    int delayWritePos         = 0;
+    float readPos             = 0;
+
+    float _in_lp_a, _in_lp_b;
+    float inLpF;
+
+    float hp_in_x0 = 0;
+    float hp_in_y0 = 0;
+    float hp_in_y1 = 0;
+    float hp_in_x1 = 0;
+    float _in_b1, _in_a0, _in_a1;
+    /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;
     struct OneSynthParams params_;
