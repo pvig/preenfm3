@@ -748,6 +748,8 @@ struct ParameterRowDisplay engineCurveParameterRow = {
  48  Alkx, -48-
  49  Flng, -49-
  50  Chor, -50-
+ 51  Chr2, -51-
+ 52  Chr3, -52-
  */
 
 const unsigned char filtersOrder[] = {
@@ -801,7 +803,9 @@ const unsigned char filtersOrder[] = {
     31,
     48,
     49,
-    50 };
+    50,
+    51,
+    52 };
 
 const unsigned char filtersPosition[] = {
     0,
@@ -854,7 +858,9 @@ const unsigned char filtersPosition[] = {
     11,
     48,
     49,
-    50 };
+    50,
+    51,
+    52 };
 
 const char *fxName[] = {
     "Off ", /*  0   */
@@ -907,7 +913,9 @@ const char *fxName[] = {
     "Svh3", /*  47  */
     "Alkx", /*  48  */
     "Flng", /*  49  */
-    "Chor"  /*  50  */
+    "Chor", /*  50  */
+    "Chr2", /*  51  */
+    "Chr3"  /*  52  */
 };
 
 struct ParameterRowDisplay effectParameterRow = {
@@ -1150,6 +1158,14 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
         "Gain" },
     {
         "Dpth",
+        "Feed",
+        "Gain" },
+    {
+        "Widt",
+        "Feed",
+        "Gain" },
+    {
+        "Widt",
         "Feed",
         "Gain" },
     {

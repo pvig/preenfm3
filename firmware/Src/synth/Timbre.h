@@ -184,6 +184,7 @@ private:
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
+    float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float valn1, float valn2);
 
     static const int delayBufferSize     = 4400;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
@@ -193,7 +194,6 @@ private:
     float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0;
     int delayWritePos         = 0;
     float readPos             = 0;
-
     float _in_lp_a, _in_lp_b;
     float inLpF;
 
@@ -207,7 +207,9 @@ private:
     float _lx1 = 0;
     float _ly2 = 0;
     float _lx2 = 0;
-    float apcoef1, apcoef2;
+    float _ly3 = 0;
+    float _lx3 = 0;
+    float apcoef1, apcoef2, apcoef3;
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;
