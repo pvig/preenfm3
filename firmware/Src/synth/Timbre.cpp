@@ -925,7 +925,7 @@ void Timbre::fxAfterBlock() {
             float mixerGainAttn = mixerGain_ * 0.5f;
             float param1 = this->params_.effect.param1;
 
-            shift = clamp(1 + (param1 - 0.5f) + matrixFilterFrequency, 0, 4);
+            shift = clamp(1 + (param1 - 0.5f) + matrixFilterFrequency, 0, 16);
 
             float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, -0.999f, 0.999f);
 
@@ -967,7 +967,7 @@ void Timbre::fxAfterBlock() {
                 // if yes -> do cross-fade to first read-pointer
                 float rel2 = delayWritePos - delayReadPos2;
                 if ( rel2 <= PShiftOverlap && rel2 >= 0 && shift != 1) {
-                    PShiftCrossfade = rel2 * PShiftOverlapInv;
+                    PShiftCrossfade = 1 - rel2 * PShiftOverlapInv;
                 } else if (rel2 == 0) {
                     PShiftCrossfade = 0.0f;
                 }
