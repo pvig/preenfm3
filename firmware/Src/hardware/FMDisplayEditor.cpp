@@ -915,7 +915,7 @@ const char *fxName[] = {
     "Flng", /*  49  */
     "Chor", /*  50  */
     "Chr2", /*  51  */
-    "Chr3"  /*  52  */
+    "Shft"  /*  52  */
 };
 
 struct ParameterRowDisplay effectParameterRow = {
