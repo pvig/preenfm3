@@ -193,9 +193,9 @@ private:
     static float delayBuffer[delayBufferSize];
     float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0;
     float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0;
-    float feedback = 0, shift = 0;
+    float feedback            = 0;
     int delayWritePos         = 0;
-    float delayReadPos          = 0;
+    float delayReadPos        = 0;
     float readPos             = 0;
     float _in_lp_a, _in_lp_b;
     float inLpF;
@@ -203,7 +203,8 @@ private:
     const float PShiftRingSize = 2000;
     const float PShiftOverlap   = 200;
     const float PShiftOverlapInv   = 1 / PShiftOverlap;
-    float PShiftRingDiv2 = PShiftRingSize * 0.5f;
+    const float PShiftRingDiv2 = PShiftRingSize * 0.5f;
+    float shift = 0;
     float PShiftCrossfade = 0;
     float PShiftOut = 0;
 

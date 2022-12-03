@@ -848,111 +848,45 @@ void Timbre::fxAfterBlock() {
 
         }
         break;
-        case FILTER_CHORUS2: {
+        case FILTER_DOUBLER: {
+            // https://github.com/YetAnotherElectronicsChannel/STM32_DSP_PitchShift/
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
             float mixerGainAttn = mixerGain_ * 0.5f;
             float param1 = this->params_.effect.param1;
-            param1 *= param1;
-            float fxParamTmp = foldAbs( (0.125f *  (0.5f + (param1 + matrixFilterFrequency) * 0.5f ) ) /* 0.125f*/ );
-            readPos = (fxParamTmp + 99 * readPos) * 0.01f; // smooth change
-            float currentDelaySize1 = delaySize1;
-            float currentDelaySize2 = delaySize2;
-            float currentDelaySize3 = delaySize3;
-            delaySize1 = clamp(1 + delayBufferSizeM4 * readPos, 0, delayBufferSizeM1);
-            delaySize2 = clamp(1 + delayBufferSizeM4 * (1-readPos) * 0.66f, 0, delayBufferSizeM1);
-            delaySize3 = clamp(1 + delayBufferSizeM4 * (0.5f+readPos) * 0.5f, 0, delayBufferSizeM1);
-            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
-            float delaySizeInc2 = (delaySize2 - currentDelaySize2) * INV_BLOCK_SIZE;
-            float delaySizeInc3 = (delaySize3 - currentDelaySize3) * INV_BLOCK_SIZE;
 
-            float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, -0.999f, 0.999f);
-            feed = feed * 0.33f;
+            shift = clamp(param1 * 2 + matrixFilterFrequency * 0.5f, 0, 16);
 
-            float *sp = sampleBlock_;
-            float delReadPos, monoIn;
+            float currentFeedback = feedback;
+            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f);
+            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float filterA2    = 0.85f;
             float filterA     = (filterA2 * filterA2 * 0.5f);
             _in_lp_b = 1 - filterA;
             _in_lp_a = 1 - _in_lp_b;
 
-            for (int k = 0; k < BLOCK_SIZE; k++) {
-                monoIn = (*sp + *(sp + 1)) * 0.5f;
-
-                // audio in hp
-                hp_in_x0     = monoIn;
-                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
-                hp_in_y1     = hp_in_y0;
-                hp_in_x1     = hp_in_x0;
-
-                float delayIn = clamp(hp_in_y0 + (_ly1 - _ly2 + delayOut3) * feed, -1, 1);
-
-                // feedback lp
-                inLpF   = _in_lp_a * delayIn + inLpF * _in_lp_b;
-
-                delayBuffer[delayWritePos] = inLpF;
-
-                delReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
-                delayOut1 = delayAllpassInterpolation(delReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
-
-                delReadPos = modulo2(delayWritePos - currentDelaySize2, delayBufferSize);
-                delayOut2 = delayAllpassInterpolation(delReadPos, delayBuffer, delayBufferSizeM1, delayOut2);
-
-                delReadPos = modulo2(delayWritePos - currentDelaySize3, delayBufferSize);
-                delayOut3 = delayAllpassInterpolation(delReadPos, delayBuffer, delayBufferSizeM1, delayOut3);
-
-                _ly1 = apcoef1 * (_ly1 + delayOut1) - _lx1; // allpass
-                _lx1 = delayOut1;
-
-                _ly2 = apcoef2 * (_ly2 + delayOut2) - _lx2; // allpass 2
-                _lx2 = delayOut2;
-
-                *sp = (*sp + _ly1 - _ly2 + delayOut3) * mixerGainAttn;
-                sp++;
-                *sp = (*sp - _ly1 + _ly2 - delayOut3) * mixerGainAttn;
-                sp++;
-
-                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
-                currentDelaySize1 += delaySizeInc1;
-                currentDelaySize2 += delaySizeInc2;
-                currentDelaySize3 += delaySizeInc3;
-            }
-        }
-        break;
-        case FILTER_PITCHSHIFTER: {
-            // https://github.com/YetAnotherElectronicsChannel/STM32_DSP_PitchShift/
-            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.5f;
-            float param1 = this->params_.effect.param1;
-
-            shift = clamp(1 + (param1 - 0.5f) + matrixFilterFrequency, 0, 16);
-
-            float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, -0.999f, 0.999f);
-
             float *sp = sampleBlock_;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
 
-                // audio in hp
-                hp_in_x0     = monoIn;
+                // feedback lp
+                inLpF   = _in_lp_a * PShiftOut + inLpF * _in_lp_b;
+
+                // delay in hp
+                hp_in_x0     = clamp(monoIn + inLpF * currentFeedback, -1, 1);
                 hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
-                // feedback lp
-                inLpF   = _in_lp_a * PShiftOut + inLpF * _in_lp_b;
-
                 delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
-                delayBuffer[delayWritePos] = clamp(hp_in_y0 + inLpF * feed, -1, 1);
-
+                delayBuffer[delayWritePos] = hp_in_y0;
 
                 delayReadPos = modulo(delayReadPos + shift, PShiftRingSize);
                 float delayReadPos2 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
 
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
                 delayOut2 = delayAllpassInterpolation(delayReadPos2, delayBuffer, PShiftRingSize-1, delayOut2);
-
 
                 //Check if first readpointer starts overlap with write pointer?
                 // if yes -> do cross-fade to second read-pointer
@@ -972,18 +906,93 @@ void Timbre::fxAfterBlock() {
                     PShiftCrossfade = 0.0f;
                 }
 
+                // expo values for conservation of energy
+                float level1 = panTable[(int)(PShiftCrossfade * 255)];
+                float level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
 
                 //do cross-fading and sum up
-                //PShiftOut = (delayOut1 * PShiftCrossfade + delayOut2 * (1 - PShiftCrossfade));
-                PShiftOut = (delayOut1 - delayOut2) * PShiftCrossfade + delayOut2;
+                PShiftOut = delayOut1 * level1 + delayOut2 * level2;
 
-
-                *sp = (*sp + PShiftOut ) * mixerGainAttn;
+                *sp = ( *sp + PShiftOut ) * mixerGainAttn;
                 sp++;
-                *sp = (*sp + PShiftOut ) * mixerGainAttn;
+                *sp = ( *sp + PShiftOut ) * mixerGainAttn;
                 sp++;
 
+                currentFeedback += feedbackInc;
+            }
+        }
+        break;
+        case FILTER_PITCHSHIFTER: {
+            // https://github.com/YetAnotherElectronicsChannel/STM32_DSP_PitchShift/
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGainAttn = mixerGain_ * 1;//0.5f;
+            float param1 = this->params_.effect.param1;
 
+            shift = clamp(param1 * 2 + matrixFilterFrequency * 0.5f, 0, 16);
+
+            float currentFeedback = feedback;
+            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f);
+            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
+
+            float filterA2    = 0.85f;
+            float filterA     = (filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
+
+            float *sp = sampleBlock_;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                float monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                // feedback lp
+                inLpF   = _in_lp_a * PShiftOut + inLpF * _in_lp_b;
+
+                // delay in hp
+                hp_in_x0     = clamp(monoIn + inLpF * currentFeedback, -1, 1);
+                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y1     = hp_in_y0;
+                hp_in_x1     = hp_in_x0;
+
+                delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
+                delayBuffer[delayWritePos] = hp_in_y0;
+
+                delayReadPos = modulo(delayReadPos + shift, PShiftRingSize);
+                float delayReadPos2 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
+
+                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
+                delayOut2 = delayAllpassInterpolation(delayReadPos2, delayBuffer, PShiftRingSize-1, delayOut2);
+
+                //Check if first readpointer starts overlap with write pointer?
+                // if yes -> do cross-fade to second read-pointer
+                float rel = delayWritePos - delayReadPos;
+                if ( rel <= PShiftOverlap && rel >= 0 && shift != 1) {
+                    PShiftCrossfade = rel * PShiftOverlapInv;
+                } else if (rel == 0) {
+                    PShiftCrossfade = 0.0f;
+                }
+
+                //Check if second readpointer starts overlap with write pointer?
+                // if yes -> do cross-fade to first read-pointer
+                float rel2 = delayWritePos - delayReadPos2;
+                if ( rel2 <= PShiftOverlap && rel2 >= 0 && shift != 1) {
+                    PShiftCrossfade = 1 - rel2 * PShiftOverlapInv;
+                } else if (rel2 == 0) {
+                    PShiftCrossfade = 0.0f;
+                }
+
+                // expo values for conservation of energy
+                float level1 = panTable[(int)(PShiftCrossfade * 255)];
+                float level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
+
+                //do cross-fading and sum up
+                PShiftOut = delayOut1 * level1 + delayOut2 * level2;
+
+                *sp = ( PShiftOut ) * mixerGainAttn;
+                sp++;
+                *sp = ( PShiftOut ) * mixerGainAttn;
+                sp++;
+
+                currentFeedback += feedbackInc;
             }
         }
         break;
