@@ -257,12 +257,12 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     _in_lp_a = 1 - _in_lp_b;
 
     // all pass params
-    const float f1 = 0.0156f;
-    const float apcoef1 = (1.0f - f1) / (1.0f + f1);
-    const float f2 = clamp(0.17f + f1, 0.01f, 0.99f);
-    const float apcoef2 = (1.0f - f2) / (1.0f + f2);
-    const float f3 = clamp(0.17f + f2, 0.01f, 0.99f);
-    const float apcoef3 = (1.0f - f3) / (1.0f + f3);
+    float f1 = 0.0156f;
+    apcoef1 = (1.0f - f1) / (1.0f + f1);
+    float f2 = clamp(0.17f + f1, 0.01f, 0.99f);
+    apcoef2 = (1.0f - f2) / (1.0f + f2);
+    float f3 = clamp(0.17f + f2, 0.01f, 0.99f);
+    apcoef3 = (1.0f - f3) / (1.0f + f3);
     /*** -----------------------------------  */
 
 }
@@ -761,12 +761,9 @@ void Timbre::fxAfterBlock() {
                 _ly2 = apcoef2 * (_ly2 + delayOut1) - _lx2; // allpass 2
                 _lx2 = delayOut1;
 
-                _ly3 = apcoef3 * (_ly3 + *sp) - _lx3; // allpass 2
-                _lx3 = *sp;
-
                 *sp = (*sp + _ly1) * mixerGainAttn;
                 sp++;
-                *sp = (_ly3 + _ly2) * mixerGainAttn;
+                *sp = (*sp + _ly2) * mixerGainAttn;
                 sp++;
 
                 delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
@@ -778,7 +775,7 @@ void Timbre::fxAfterBlock() {
         break;
         case FILTER_CHORUS: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.5f;
+            float mixerGainAttn = mixerGain_ * 0.34f;
             float param1 = this->params_.effect.param1;
             param1 *= param1;
             float fxParamTmp = foldAbs( (0.125f *  (0.5f + (param1 + matrixFilterFrequency) * 0.5f ) ) /* 0.125f*/ );
@@ -793,8 +790,9 @@ void Timbre::fxAfterBlock() {
             float delaySizeInc2 = (delaySize2 - currentDelaySize2) * INV_BLOCK_SIZE;
             float delaySizeInc3 = (delaySize3 - currentDelaySize3) * INV_BLOCK_SIZE;
 
-            float feed = clamp(this->params_.effect.param2 + matrixFilterParam2, -0.999f, 0.999f);
-            feed = feed * 0.33f;
+            float currentFeedback = feedback;
+            feedback = clamp( (this->params_.effect.param2 + matrixFilterParam2) * 0.33f, -0.9999f, 0.9999f);
+            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float *sp = sampleBlock_;
             float delReadPos, monoIn;
@@ -813,7 +811,7 @@ void Timbre::fxAfterBlock() {
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
-                float delayIn = clamp(hp_in_y0 + (_ly1 - _ly2 + delayOut3) * feed, -1, 1);
+                float delayIn = clamp(hp_in_y0 + (_ly1 - _ly2 + delayOut3) * currentFeedback, -1, 1);
 
                 // feedback lp
                 inLpF   = _in_lp_a * delayIn + inLpF * _in_lp_b;
@@ -844,6 +842,7 @@ void Timbre::fxAfterBlock() {
                 currentDelaySize1 += delaySizeInc1;
                 currentDelaySize2 += delaySizeInc2;
                 currentDelaySize3 += delaySizeInc3;
+                currentFeedback += feedbackInc;
             }
 
         }
@@ -854,7 +853,9 @@ void Timbre::fxAfterBlock() {
             float mixerGainAttn = mixerGain_ * 0.5f;
             float param1 = this->params_.effect.param1;
 
+            float currentShift = shift;
             shift = clamp(param1 * 2 + matrixFilterFrequency * 0.5f, 0, 16);
+            float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
             feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f);
@@ -866,6 +867,7 @@ void Timbre::fxAfterBlock() {
             _in_lp_a = 1 - _in_lp_b;
 
             float *sp = sampleBlock_;
+            float rel, delayReadPos180, level1, level2;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
@@ -882,33 +884,33 @@ void Timbre::fxAfterBlock() {
                 delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
                 delayBuffer[delayWritePos] = hp_in_y0;
 
-                delayReadPos = modulo(delayReadPos + shift, PShiftRingSize);
-                float delayReadPos2 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
+                delayReadPos = modulo(delayReadPos + currentShift, PShiftRingSize);
+                delayReadPos180 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
 
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
-                delayOut2 = delayAllpassInterpolation(delayReadPos2, delayBuffer, PShiftRingSize-1, delayOut2);
+                delayOut2 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut2);
 
                 //Check if first readpointer starts overlap with write pointer?
                 // if yes -> do cross-fade to second read-pointer
-                float rel = delayWritePos - delayReadPos;
-                if ( rel <= PShiftOverlap && rel >= 0 && shift != 1) {
+                rel = delayWritePos - delayReadPos;
+                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
                     PShiftCrossfade = rel * PShiftOverlapInv;
                 } else if (rel == 0) {
-                    PShiftCrossfade = 0.0f;
+                    PShiftCrossfade = 0;
                 }
 
                 //Check if second readpointer starts overlap with write pointer?
                 // if yes -> do cross-fade to first read-pointer
-                float rel2 = delayWritePos - delayReadPos2;
-                if ( rel2 <= PShiftOverlap && rel2 >= 0 && shift != 1) {
-                    PShiftCrossfade = 1 - rel2 * PShiftOverlapInv;
-                } else if (rel2 == 0) {
-                    PShiftCrossfade = 0.0f;
+                rel = delayWritePos - delayReadPos180;
+                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
+                    PShiftCrossfade = 1 - rel * PShiftOverlapInv;
+                } else if (rel == 0) {
+                    PShiftCrossfade = 1;
                 }
 
                 // expo values for conservation of energy
-                float level1 = panTable[(int)(PShiftCrossfade * 255)];
-                float level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
+                level1 = panTable[(int)(PShiftCrossfade * 255)];
+                level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
 
                 //do cross-fading and sum up
                 PShiftOut = delayOut1 * level1 + delayOut2 * level2;
@@ -919,16 +921,18 @@ void Timbre::fxAfterBlock() {
                 sp++;
 
                 currentFeedback += feedbackInc;
+                currentShift += shiftInc;
             }
         }
         break;
         case FILTER_PITCHSHIFTER: {
             // https://github.com/YetAnotherElectronicsChannel/STM32_DSP_PitchShift/
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 1;//0.5f;
             float param1 = this->params_.effect.param1;
 
+            float currentShift = shift;
             shift = clamp(param1 * 2 + matrixFilterFrequency * 0.5f, 0, 16);
+            float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
             feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f);
@@ -940,6 +944,7 @@ void Timbre::fxAfterBlock() {
             _in_lp_a = 1 - _in_lp_b;
 
             float *sp = sampleBlock_;
+            float rel, delayReadPos180, level1, level2;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
@@ -956,43 +961,162 @@ void Timbre::fxAfterBlock() {
                 delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
                 delayBuffer[delayWritePos] = hp_in_y0;
 
-                delayReadPos = modulo(delayReadPos + shift, PShiftRingSize);
-                float delayReadPos2 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
+                delayReadPos = modulo(delayReadPos + currentShift, PShiftRingSize);
+                delayReadPos180 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
 
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
-                delayOut2 = delayAllpassInterpolation(delayReadPos2, delayBuffer, PShiftRingSize-1, delayOut2);
+                delayOut2 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut2);
 
                 //Check if first readpointer starts overlap with write pointer?
                 // if yes -> do cross-fade to second read-pointer
-                float rel = delayWritePos - delayReadPos;
-                if ( rel <= PShiftOverlap && rel >= 0 && shift != 1) {
+                rel = delayWritePos - delayReadPos;
+                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
                     PShiftCrossfade = rel * PShiftOverlapInv;
                 } else if (rel == 0) {
-                    PShiftCrossfade = 0.0f;
+                    PShiftCrossfade = 0;
                 }
 
                 //Check if second readpointer starts overlap with write pointer?
                 // if yes -> do cross-fade to first read-pointer
-                float rel2 = delayWritePos - delayReadPos2;
-                if ( rel2 <= PShiftOverlap && rel2 >= 0 && shift != 1) {
-                    PShiftCrossfade = 1 - rel2 * PShiftOverlapInv;
-                } else if (rel2 == 0) {
-                    PShiftCrossfade = 0.0f;
+                rel = delayWritePos - delayReadPos180;
+                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
+                    PShiftCrossfade = 1 - (rel * PShiftOverlapInv);
+                } else if (rel == 0) {
+                    PShiftCrossfade = 1;
                 }
 
                 // expo values for conservation of energy
-                float level1 = panTable[(int)(PShiftCrossfade * 255)];
-                float level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
+                level1 = panTable[(int)(PShiftCrossfade * 255)];
+                level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
 
                 //do cross-fading and sum up
                 PShiftOut = delayOut1 * level1 + delayOut2 * level2;
 
-                *sp = ( PShiftOut ) * mixerGainAttn;
+                _ly1 = apcoef1 * (_ly1 + PShiftOut) - _lx1; // allpass
+                _lx1 = PShiftOut;
+
+                _ly2 = apcoef2 * (_ly2 + PShiftOut) - _lx2; // allpass 2
+                _lx2 = PShiftOut;
+
+                *sp = _ly1 * mixerGain_;
                 sp++;
-                *sp = ( PShiftOut ) * mixerGainAttn;
+                *sp = _ly2 * mixerGain_;
                 sp++;
 
                 currentFeedback += feedbackInc;
+                currentShift += shiftInc;
+            }
+        }
+        break;
+        case FILTER_HARMONIZER: {
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGainAttn = mixerGain_ * 0.34f;
+
+            float currentShift = shift;
+            shift = clamp(this->params_.effect.param1 * 2 + matrixFilterFrequency * 0.5f, 0, 16);
+            float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
+
+            float currentShift2 = shift2;
+            shift2 = clamp(this->params_.effect.param2 * 2 + matrixFilterParam2 * 0.5f, 0, 16);
+            float shiftInc2 = (shift2 - currentShift2) * INV_BLOCK_SIZE;
+
+            float filterA2    = 0.85f;
+            float filterA     = (filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
+
+            float *sp = sampleBlock_;
+            float rel, delayReadPos180, level1, level2, level3, level4;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                float monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                // feedback lp
+                inLpF   = _in_lp_a * PShiftOut + inLpF * _in_lp_b;
+
+                // delay in hp
+                hp_in_x0     = monoIn;
+                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y1     = hp_in_y0;
+                hp_in_x1     = hp_in_x0;
+
+                delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
+                delayBuffer[delayWritePos] = hp_in_y0;
+
+                //--------------- shifter 1
+                
+                delayReadPos = modulo(delayReadPos + currentShift, PShiftRingSize);
+                delayReadPos180 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
+
+                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
+                delayOut2 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut2);
+
+                //Check if first readpointer starts overlap with write pointer?
+                // if yes -> do cross-fade to second read-pointer
+                rel = delayWritePos - delayReadPos;
+                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
+                    PShiftCrossfade = rel * PShiftOverlapInv;
+                } else if (rel == 0) {
+                    PShiftCrossfade = 0;
+                }
+
+                //Check if second readpointer starts overlap with write pointer?
+                // if yes -> do cross-fade to first read-pointer
+                rel = delayWritePos - delayReadPos180;
+                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
+                    PShiftCrossfade = 1 - rel * PShiftOverlapInv;
+                } else if (rel == 0) {
+                    PShiftCrossfade = 1;
+                }
+
+                // expo values for conservation of energy
+                level1 = panTable[(int)(PShiftCrossfade * 255)];
+                level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
+
+                //do cross-fading and sum up
+                PShiftOut = delayOut1 * level1 + delayOut2 * level2;
+
+                //--------------- shifter 2
+
+                delayReadPos2 = modulo(delayReadPos2 + currentShift2, PShiftRingSize);
+                delayReadPos180 = modulo(delayReadPos2 + PShiftRingDiv2, PShiftRingSize);
+
+                delayOut3 = delayAllpassInterpolation(delayReadPos2, delayBuffer, PShiftRingSize-1, delayOut3);
+                delayOut4 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut4);
+
+                //Check if first readpointer starts overlap with write pointer?
+                // if yes -> do cross-fade to second read-pointer
+                rel = delayWritePos - delayReadPos2;
+                if ( rel <= PShiftOverlap && rel >= 0 && currentShift2 != 1) {
+                    PShiftCrossfade = rel * PShiftOverlapInv;
+                } else if (rel == 0) {
+                    PShiftCrossfade = 0;
+                }
+
+                //Check if second readpointer starts overlap with write pointer?
+                // if yes -> do cross-fade to first read-pointer
+                rel = delayWritePos - delayReadPos180;
+                if ( rel <= PShiftOverlap && rel >= 0 && currentShift2 != 1) {
+                    PShiftCrossfade = 1 - rel * PShiftOverlapInv;
+                } else if (rel == 0) {
+                    PShiftCrossfade = 1;
+                }
+
+                // expo values for conservation of energy
+                level3 = panTable[(int)(PShiftCrossfade * 255)];
+                level4 = panTable[(int)((1 - PShiftCrossfade) * 255)];
+
+                //do cross-fading and sum up
+                PShiftOut2 = delayOut3 * level3 + delayOut4 * level4;
+
+                *sp = ( *sp + PShiftOut + PShiftOut2 ) * mixerGainAttn;
+                sp++;
+                *sp = ( *sp + PShiftOut + PShiftOut2 ) * mixerGainAttn;
+                sp++;
+
+                currentShift += shiftInc;
+                currentShift2 += shiftInc2;
+
             }
         }
         break;
