@@ -184,7 +184,7 @@ private:
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
-    float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float valn1, float valn2);
+    float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
 
     static const int delayBufferSize     = 4400;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
@@ -200,12 +200,16 @@ private:
     float delayReadPos2       = 0;
     float readPos             = 0;
     float _in_lp_a, _in_lp_b;
-    float inLpF;
+    float inLpF, inLpF2;
 
-    const float PShiftRingSize = 2000;
-    const float PShiftOverlap   = 200;
+    const int PShiftRingSize = 2200;
+    const float PShiftRingSizeInv = 1.0f / PShiftRingSize;
+    const float PShiftRingSizeInvMultPi = 3.14159265359f / PShiftRingSize;
+    const int PShiftOverlap   = 25;
+    const int PShiftOverlapComplement   = PShiftOverlap - PShiftRingSize;
     const float PShiftOverlapInv   = 1 / PShiftOverlap;
     const float PShiftRingDiv2 = PShiftRingSize * 0.5f;
+    const float PShiftRingDiv4 = PShiftRingSize * 0.25f;
     float PShiftCrossfade = 0;
     float PShiftOut = 0, PShiftOut2 = 0;
 
@@ -213,6 +217,10 @@ private:
     float hp_in_y0 = 0;
     float hp_in_y1 = 0;
     float hp_in_x1 = 0;
+    float hp_in2_x0 = 0;
+    float hp_in2_y0 = 0;
+    float hp_in2_y1 = 0;
+    float hp_in2_x1 = 0;
     float _in_b1, _in_a0, _in_a1;
 
     float _ly1 = 0;
@@ -221,7 +229,9 @@ private:
     float _lx2 = 0;
     float _ly3 = 0;
     float _lx3 = 0;
-    float apcoef1, apcoef2, apcoef3;
+    float _ly4 = 0;
+    float _lx4 = 0;
+    float apcoef1, apcoef2, apcoef3, apcoef4;
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;

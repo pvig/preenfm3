@@ -22,7 +22,7 @@
 
 #define INV127 .00787401574803149606f
 #define INV16 .0625
-#define INV_BLOCK_SIZE (1 / BLOCK_SIZE)
+#define INV_BLOCK_SIZE (1.0f / BLOCK_SIZE)
 
 // Regular memory
 float midiNoteScale[2][NUMBER_OF_TIMBRES][128] __attribute__((section(".ram_d1")));
@@ -179,6 +179,37 @@ float sigmoid(float x)
 {
     return x * (1.5f - 0.5f * x * x);
 }
+inline 
+float fastSin(float x) {
+    return 3.9961f * x * ( 1 - fabsf(x) );
+}
+inline
+float sqrt3(const float x)
+{
+  union
+  {
+    int i;
+    float x;
+  } u;
+
+  u.x = x;
+  u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
+  return u.x;
+}
+inline
+float window(float x) {
+    if (x < 0 || x > 1) {
+        return 0;
+    } else if (x < 0.2f) {
+        return x * x * 25;
+        //return sqrt3( x * 5 );
+    } else if (x > 0.8f) {
+        return 1 - sqrt3((x-0.8f) * 5);
+        //return sqrt3(1 - (x-0.8f) * 5);
+    } else {
+        return 1;
+    }
+}
 Timbre::Timbre() {
 
     recomputeNext_ = true;
@@ -263,6 +294,8 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     apcoef2 = (1.0f - f2) / (1.0f + f2);
     float f3 = clamp(0.17f + f2, 0.01f, 0.99f);
     apcoef3 = (1.0f - f3) / (1.0f + f3);
+    float f4 = clamp(0.17f + f3, 0.01f, 0.99f);
+    apcoef4 = (1.0f - f4) / (1.0f + f4);
     /*** -----------------------------------  */
 
 }
@@ -755,15 +788,23 @@ void Timbre::fxAfterBlock() {
                 delReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
                 delayOut1 = delayAllpassInterpolation(delReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
 
+                // L
                 _ly1 = apcoef1 * (_ly1 + delayOut1) - _lx1; // allpass
                 _lx1 = delayOut1;
 
+                _ly3 = apcoef3 * (_ly3 + _ly1) - _lx3; // allpass
+                _lx3 = _ly1;
+
+                // R
                 _ly2 = apcoef2 * (_ly2 + delayOut1) - _lx2; // allpass 2
                 _lx2 = delayOut1;
 
-                *sp = (*sp + _ly1) * mixerGainAttn;
+                _ly4 = apcoef4 * (_ly4 + _ly2) - _lx4; // allpass
+                _lx4 = _ly2;
+
+                *sp = (*sp + _ly3) * mixerGainAttn;
                 sp++;
-                *sp = (*sp + _ly2) * mixerGainAttn;
+                *sp = (*sp + _ly4) * mixerGainAttn;
                 sp++;
 
                 delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
@@ -805,8 +846,14 @@ void Timbre::fxAfterBlock() {
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 monoIn = (*sp + *(sp + 1)) * 0.5f;
 
+                _ly3 = apcoef3 * (_ly3 + monoIn) - _lx3; // allpass
+                _lx3 = monoIn;
+
+                _ly4 = apcoef4 * (_ly4 + _ly3) - _lx4; // allpass
+                _lx4 = _ly3;
+
                 // audio in hp
-                hp_in_x0     = monoIn;
+                hp_in_x0     = _ly4;
                 hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
@@ -867,7 +914,7 @@ void Timbre::fxAfterBlock() {
             _in_lp_a = 1 - _in_lp_b;
 
             float *sp = sampleBlock_;
-            float rel, delayReadPos180, level1, level2;
+            float delayReadPos180, level1, level2, level3, level4;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
@@ -876,44 +923,29 @@ void Timbre::fxAfterBlock() {
                 inLpF   = _in_lp_a * PShiftOut + inLpF * _in_lp_b;
 
                 // delay in hp
-                hp_in_x0     = clamp(monoIn + inLpF * currentFeedback, -1, 1);
+                hp_in_x0     = clamp(monoIn - inLpF * currentFeedback, -1, 1);
                 hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
                 delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
+                int delayWritePos180 = modulo(delayWritePos + PShiftRingDiv2, PShiftRingSize);
+
                 delayBuffer[delayWritePos] = hp_in_y0;
+                delayBuffer[delayWritePos180 + PShiftRingSize] = hp_in_y0;
 
                 delayReadPos = modulo(delayReadPos + currentShift, PShiftRingSize);
                 delayReadPos180 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
 
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
-                delayOut2 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut2);
+                delayOut2 = delayAllpassInterpolation2(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut2, PShiftRingSize);
 
-                //Check if first readpointer starts overlap with write pointer?
-                // if yes -> do cross-fade to second read-pointer
-                rel = delayWritePos - delayReadPos;
-                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
-                    PShiftCrossfade = rel * PShiftOverlapInv;
-                } else if (rel == 0) {
-                    PShiftCrossfade = 0;
-                }
+                level1 = window(delayReadPos * PShiftRingSizeInv);
+                level2 = window(delayReadPos180 * PShiftRingSizeInv);
+                level3 = window(((float)delayWritePos) * PShiftRingSizeInv);
+                level4 = window(((float) delayWritePos180) * PShiftRingSizeInv);
 
-                //Check if second readpointer starts overlap with write pointer?
-                // if yes -> do cross-fade to first read-pointer
-                rel = delayWritePos - delayReadPos180;
-                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
-                    PShiftCrossfade = 1 - rel * PShiftOverlapInv;
-                } else if (rel == 0) {
-                    PShiftCrossfade = 1;
-                }
-
-                // expo values for conservation of energy
-                level1 = panTable[(int)(PShiftCrossfade * 255)];
-                level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
-
-                //do cross-fading and sum up
-                PShiftOut = delayOut1 * level1 + delayOut2 * level2;
+                PShiftOut = delayOut1 * level1 * level3 + delayOut2 * level2 * level4;
 
                 *sp = ( *sp + PShiftOut ) * mixerGainAttn;
                 sp++;
@@ -944,22 +976,30 @@ void Timbre::fxAfterBlock() {
             _in_lp_a = 1 - _in_lp_b;
 
             float *sp = sampleBlock_;
-            float rel, delayReadPos180, level1, level2;
+            float rel, delayReadPos180, level1, level2, level3, level4;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
-                float monoIn = (*sp + *(sp + 1)) * 0.5f;
 
                 // feedback lp
                 inLpF   = _in_lp_a * PShiftOut + inLpF * _in_lp_b;
+                inLpF2  = _in_lp_a * PShiftOut2 + inLpF2 * _in_lp_b;
 
                 // delay in hp
-                hp_in_x0     = clamp(monoIn + inLpF * currentFeedback, -1, 1);
+                hp_in_x0     = clamp(*(sp) + inLpF * currentFeedback, -1, 1);
                 hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
+                hp_in2_x0    = clamp(*(sp + 1) + inLpF2 * currentFeedback, -1, 1);
+                hp_in2_y0    = _in_a0 * hp_in2_x0 + _in_a1 * hp_in2_x1 + _in_b1 * hp_in2_y1;
+                hp_in2_y1    = hp_in2_y0;
+                hp_in2_x1    = hp_in2_x0;
+
                 delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
+                int delayWritePos180 = modulo(delayWritePos + PShiftRingDiv2, PShiftRingSize);
+
                 delayBuffer[delayWritePos] = hp_in_y0;
+                delayBuffer[delayWritePos180 + PShiftRingSize] = hp_in2_y0;
 
                 delayReadPos = modulo(delayReadPos + currentShift, PShiftRingSize);
                 delayReadPos180 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
@@ -967,40 +1007,20 @@ void Timbre::fxAfterBlock() {
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
                 delayOut2 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut2);
 
-                //Check if first readpointer starts overlap with write pointer?
-                // if yes -> do cross-fade to second read-pointer
-                rel = delayWritePos - delayReadPos;
-                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
-                    PShiftCrossfade = rel * PShiftOverlapInv;
-                } else if (rel == 0) {
-                    PShiftCrossfade = 0;
-                }
+                delayOut3 = delayAllpassInterpolation2(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut3, PShiftRingSize);
+                delayOut4 = delayAllpassInterpolation2(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut4, PShiftRingSize);
 
-                //Check if second readpointer starts overlap with write pointer?
-                // if yes -> do cross-fade to first read-pointer
-                rel = delayWritePos - delayReadPos180;
-                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
-                    PShiftCrossfade = 1 - (rel * PShiftOverlapInv);
-                } else if (rel == 0) {
-                    PShiftCrossfade = 1;
-                }
+                level1 = window(delayReadPos * PShiftRingSizeInv);
+                level2 = window(delayReadPos180 * PShiftRingSizeInv);
+                level3 = window(((float) delayWritePos) * PShiftRingSizeInv);
+                level4 = window(((float) delayWritePos180) * PShiftRingSizeInv);
 
-                // expo values for conservation of energy
-                level1 = panTable[(int)(PShiftCrossfade * 255)];
-                level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
+                PShiftOut  = level3 * delayOut1 * level1 + level3 * delayOut2 * level2;
+                PShiftOut2 = level4 * delayOut3 * level1 + level4 * delayOut4 * level2;
 
-                //do cross-fading and sum up
-                PShiftOut = delayOut1 * level1 + delayOut2 * level2;
-
-                _ly1 = apcoef1 * (_ly1 + PShiftOut) - _lx1; // allpass
-                _lx1 = PShiftOut;
-
-                _ly2 = apcoef2 * (_ly2 + PShiftOut) - _lx2; // allpass 2
-                _lx2 = PShiftOut;
-
-                *sp = _ly1 * mixerGain_;
+                *sp = PShiftOut * mixerGain_;
                 sp++;
-                *sp = _ly2 * mixerGain_;
+                *sp = PShiftOut2 * mixerGain_;
                 sp++;
 
                 currentFeedback += feedbackInc;
@@ -1026,13 +1046,10 @@ void Timbre::fxAfterBlock() {
             _in_lp_a = 1 - _in_lp_b;
 
             float *sp = sampleBlock_;
-            float rel, delayReadPos180, level1, level2, level3, level4;
+            float rel, delayReadPos180, level1, level2, level3, level4, level5, level6;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
-
-                // feedback lp
-                inLpF   = _in_lp_a * PShiftOut + inLpF * _in_lp_b;
 
                 // delay in hp
                 hp_in_x0     = monoIn;
@@ -1041,7 +1058,13 @@ void Timbre::fxAfterBlock() {
                 hp_in_x1     = hp_in_x0;
 
                 delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
+                int delayWritePos180 = modulo(delayWritePos + PShiftRingDiv2, PShiftRingSize);
+
                 delayBuffer[delayWritePos] = hp_in_y0;
+                delayBuffer[delayWritePos180 + PShiftRingSize] = hp_in_y0;
+
+                level5 = window(((float) delayWritePos) * PShiftRingSizeInv);
+                level6 = window(((float) delayWritePos180) * PShiftRingSizeInv);
 
                 //--------------- shifter 1
                 
@@ -1051,63 +1074,23 @@ void Timbre::fxAfterBlock() {
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
                 delayOut2 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut2);
 
-                //Check if first readpointer starts overlap with write pointer?
-                // if yes -> do cross-fade to second read-pointer
-                rel = delayWritePos - delayReadPos;
-                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
-                    PShiftCrossfade = rel * PShiftOverlapInv;
-                } else if (rel == 0) {
-                    PShiftCrossfade = 0;
-                }
+                level1 = window(delayReadPos * PShiftRingSizeInv);
+                level2 = window(delayReadPos180 * PShiftRingSizeInv);
 
-                //Check if second readpointer starts overlap with write pointer?
-                // if yes -> do cross-fade to first read-pointer
-                rel = delayWritePos - delayReadPos180;
-                if ( rel <= PShiftOverlap && rel >= 0 && currentShift != 1) {
-                    PShiftCrossfade = 1 - rel * PShiftOverlapInv;
-                } else if (rel == 0) {
-                    PShiftCrossfade = 1;
-                }
-
-                // expo values for conservation of energy
-                level1 = panTable[(int)(PShiftCrossfade * 255)];
-                level2 = panTable[(int)((1 - PShiftCrossfade) * 255)];
-
-                //do cross-fading and sum up
-                PShiftOut = delayOut1 * level1 + delayOut2 * level2;
+                PShiftOut = level5 * (delayOut1 * level1 + delayOut2 * level2);
 
                 //--------------- shifter 2
 
                 delayReadPos2 = modulo(delayReadPos2 + currentShift2, PShiftRingSize);
                 delayReadPos180 = modulo(delayReadPos2 + PShiftRingDiv2, PShiftRingSize);
 
-                delayOut3 = delayAllpassInterpolation(delayReadPos2, delayBuffer, PShiftRingSize-1, delayOut3);
-                delayOut4 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut4);
+                delayOut3 = delayAllpassInterpolation2(delayReadPos2, delayBuffer, PShiftRingSize-1, delayOut3, PShiftRingSize);
+                delayOut4 = delayAllpassInterpolation2(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut4, PShiftRingSize);
 
-                //Check if first readpointer starts overlap with write pointer?
-                // if yes -> do cross-fade to second read-pointer
-                rel = delayWritePos - delayReadPos2;
-                if ( rel <= PShiftOverlap && rel >= 0 && currentShift2 != 1) {
-                    PShiftCrossfade = rel * PShiftOverlapInv;
-                } else if (rel == 0) {
-                    PShiftCrossfade = 0;
-                }
+                level3 = window(delayReadPos2 * PShiftRingSizeInv);
+                level4 = window(delayReadPos180 * PShiftRingSizeInv);
 
-                //Check if second readpointer starts overlap with write pointer?
-                // if yes -> do cross-fade to first read-pointer
-                rel = delayWritePos - delayReadPos180;
-                if ( rel <= PShiftOverlap && rel >= 0 && currentShift2 != 1) {
-                    PShiftCrossfade = 1 - rel * PShiftOverlapInv;
-                } else if (rel == 0) {
-                    PShiftCrossfade = 1;
-                }
-
-                // expo values for conservation of energy
-                level3 = panTable[(int)(PShiftCrossfade * 255)];
-                level4 = panTable[(int)((1 - PShiftCrossfade) * 255)];
-
-                //do cross-fading and sum up
-                PShiftOut2 = delayOut3 * level3 + delayOut4 * level4;
+                PShiftOut2 = delayOut3 * level3 * level5 + delayOut4 * level4 * level6;
 
                 *sp = ( *sp + PShiftOut + PShiftOut2 ) * mixerGainAttn;
                 sp++;
@@ -1145,14 +1128,13 @@ float Timbre::delayAllpassInterpolation(float readPos, float buffer[], int buffe
     return y1 + (1 - x) * (y0 - prevVal);
 }
 
-float Timbre::delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float valn1, float valn2) {
-    //v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
-    /*int readPosInt = readPos;
+float Timbre::delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset) {
+    int readPosInt = readPos + offset;
+    bufferLenM1 += offset;
     float y0 = buffer[readPosInt];
     float y1 = buffer[(unlikely(readPosInt >= bufferLenM1) ? readPosInt - bufferLenM1 + 1 : readPosInt + 1)];
     float x = readPos - floorf(readPos);
-    return y1 + (1 - x) * (y0 - prevVal);*/
-    return 0;
+    return y1 + (1 - x) * (y0 - prevVal);
 }
 
 void Timbre::voicesToTimbre(float volumeGain) {
