@@ -222,6 +222,7 @@ private:
     float hp_in2_y1 = 0;
     float hp_in2_x1 = 0;
     float _in_b1, _in_a0, _in_a1;
+    float _in2_b1, _in2_a0, _in2_a1;
 
     float _ly1 = 0;
     float _lx1 = 0;
