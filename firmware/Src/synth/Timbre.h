@@ -189,6 +189,7 @@ private:
     static const int delayBufferSize     = 4400;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
     static const int delayBufferSizeM4   = delayBufferSize - 4;
+    float delayBufferSizeInv = 1.0f / delayBufferSize;
 
     static float delayBuffer[delayBufferSize];
     float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0;
@@ -200,16 +201,19 @@ private:
     float delayReadPos2       = 0;
     float readPos             = 0;
     float _in_lp_a, _in_lp_b;
-    float inLpF, inLpF2;
+    float lpF, lpF2;
+    float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
+    float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
+     
+    float lowL = 0, highL = 0, bandL = 0;
+    float lowR = 0, highR = 0, bandR = 0;
 
-    const int PShiftRingSize = 2200;
-    const float PShiftRingSizeInv = 1.0f / PShiftRingSize;
-    const float PShiftRingSizeInvMultPi = 3.14159265359f / PShiftRingSize;
-    const int PShiftOverlap   = 25;
-    const int PShiftOverlapComplement   = PShiftOverlap - PShiftRingSize;
-    const float PShiftOverlapInv   = 1 / PShiftOverlap;
-    const float PShiftRingDiv2 = PShiftRingSize * 0.5f;
-    const float PShiftRingDiv4 = PShiftRingSize * 0.25f;
+    float ls_a1, ls_a2, ls_a3, ls_m1, ls_m2;
+
+    int PShiftRingSize = 2200;
+    float PShiftRingSizeInv = 1.0f / PShiftRingSize;
+    float PShiftRingDiv2 = PShiftRingSize * 0.5f;
+    float PShiftRingDiv4 = PShiftRingSize * 0.25f;
     float PShiftCrossfade = 0;
     float PShiftOut = 0, PShiftOut2 = 0;
 
