@@ -1048,8 +1048,8 @@ void Timbre::fxAfterBlock() {
                 delayBuffer[delayWritePos] = lowL;
 
                 delayReadPos = modulo(delayReadPos + currentShift, delayBufferSize);
-                delayReadPos120 = modulo(delayReadPos + (delayBufferSize * 0.33f), delayBufferSize);
-                delayReadPos240 = modulo(delayReadPos + (delayBufferSize * 0.66f), delayBufferSize);
+                delayReadPos120 = modulo(delayReadPos + delayBufferSize120, delayBufferSize);
+                delayReadPos240 = modulo(delayReadPos + delayBufferSize240, delayBufferSize);
 
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
                 delayOut2 = delayAllpassInterpolation(delayReadPos120, delayBuffer, delayBufferSizeM1, delayOut2);
@@ -1068,8 +1068,6 @@ void Timbre::fxAfterBlock() {
                 delayOut2 * level2 +
                 delayOut3 * level3;
 
-                //lpF2  = _in_lp_a * PShiftOut + lpF2 * _in_lp_b;
-
                 *sp = (*sp + PShiftOut) * mixerGainAttn;
                 sp++;
                 *sp = (*sp + PShiftOut) * mixerGainAttn;
@@ -1082,7 +1080,7 @@ void Timbre::fxAfterBlock() {
         break;
         case FILTER_PITCHSHIFTER: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.66f;
+            float mixerGainAttn = mixerGain_ * 0.55f;
 
             float param1 = this->params_.effect.param1;
 
@@ -1126,8 +1124,8 @@ void Timbre::fxAfterBlock() {
                 delayBuffer[delayWritePos] = lowL;
 
                 delayReadPos = modulo(delayReadPos + currentShift, delayBufferSize);
-                delayReadPos120 = modulo(delayReadPos + (delayBufferSize * 0.33f), delayBufferSize);
-                delayReadPos240 = modulo(delayReadPos + (delayBufferSize * 0.66f), delayBufferSize);
+                delayReadPos120 = modulo(delayReadPos + delayBufferSize120, delayBufferSize);
+                delayReadPos240 = modulo(delayReadPos + delayBufferSize240, delayBufferSize);
 
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
                 delayOut2 = delayAllpassInterpolation(delayReadPos120, delayBuffer, delayBufferSizeM1, delayOut2);
@@ -1141,16 +1139,16 @@ void Timbre::fxAfterBlock() {
                 level2 = fastSin(rwp2 * delayBufferSizeInv);
                 level3 = fastSin(rwp3 * delayBufferSizeInv);
 
-                PShiftOut  = 
-                delayOut1 * level1 + 
-                delayOut2 * level2 +
-                delayOut3 * level3;
+                float out1 = delayOut1 * level1;
+                float out2 = delayOut2 * level2;
+                float out3 = delayOut3 * level3;
 
-                //lpF2  = _in_lp_a * PShiftOut + lpF2 * _in_lp_b;
+                PShiftOut  = out1 - out2 + out3;
+                float PShiftOut2  = out1 + out2 - out3;
 
                 *sp = PShiftOut * mixerGainAttn;
                 sp++;
-                *sp = PShiftOut * mixerGainAttn;
+                *sp = PShiftOut2 * mixerGainAttn;
                 sp++;
 
                 currentFeedback += feedbackInc;
@@ -1170,13 +1168,13 @@ void Timbre::fxAfterBlock() {
             shift2 = clamp(this->params_.effect.param2 * 2 + matrixFilterParam2 * 0.5f, 0, 16);
             float shiftInc2 = (shift2 - currentShift2) * INV_BLOCK_SIZE;
 
-            float filterA2    = 0.85f;
-            float filterA     = (filterA2 * filterA2 * 0.5f);
-            _in_lp_b = 1 - filterA;
-            _in_lp_a = 1 - _in_lp_b;
+            const float f = 0.75f;
+            const float fb = 1;
+            const float scale = 1;
 
             float *sp = sampleBlock_;
-            float delayReadPos180, level1, level2, level3, level4, level5, level6;
+            float level1, level2, level3, level4, level5, level6;
+            float delayReadPos120, delayReadPos240;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
@@ -1187,44 +1185,64 @@ void Timbre::fxAfterBlock() {
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
-                delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
-                int delayWritePos180 = modulo(delayWritePos + PShiftRingDiv2, PShiftRingSize);
+                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
 
-                delayBuffer[delayWritePos] = hp_in_y0;
-                delayBuffer[delayWritePos180 + PShiftRingSize] = hp_in_y0;
+                lowL  += f * bandL;
+                bandL += f * (scale * hp_in_y0 - lowL - fb * bandL);
 
-                level5 = window(((float) delayWritePos) * PShiftRingSizeInv);
-                level6 = window(((float) delayWritePos180) * PShiftRingSizeInv);
+                delayBuffer[delayWritePos] = lowL;
 
                 //--------------- shifter 1
+
+                delayReadPos = modulo(delayReadPos + currentShift, delayBufferSize);
+                delayReadPos120 = modulo(delayReadPos + delayBufferSize120, delayBufferSize);
+                delayReadPos240 = modulo(delayReadPos + delayBufferSize240, delayBufferSize);
+
+                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
+                delayOut2 = delayAllpassInterpolation(delayReadPos120, delayBuffer, delayBufferSizeM1, delayOut2);
+                delayOut3 = delayAllpassInterpolation(delayReadPos240, delayBuffer, delayBufferSizeM1, delayOut3);
                 
-                delayReadPos = modulo(delayReadPos + currentShift, PShiftRingSize);
-                delayReadPos180 = modulo(delayReadPos + PShiftRingDiv2, PShiftRingSize);
+                float rwp1 = modulo2(((float) delayWritePos - delayReadPos), delayBufferSize);
+                float rwp2 = modulo2(((float) delayWritePos - delayReadPos120), delayBufferSize);
+                float rwp3 = modulo2(((float) delayWritePos - delayReadPos240), delayBufferSize);
 
-                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
-                delayOut2 = delayAllpassInterpolation(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut2);
+                level1 = fastSin(rwp1 * delayBufferSizeInv);
+                level2 = fastSin(rwp2 * delayBufferSizeInv);
+                level3 = fastSin(rwp3 * delayBufferSizeInv);
 
-                level1 = window(delayReadPos * PShiftRingSizeInv);
-                level2 = window(delayReadPos180 * PShiftRingSizeInv);
+                float out1 = delayOut1 * level1;
+                float out2 = delayOut2 * level2;
+                float out3 = delayOut3 * level3;
 
-                PShiftOut = level5 * (delayOut1 * level1 + delayOut2 * level2);
+                PShiftOut  = out1 + out2 + out3;
 
                 //--------------- shifter 2
 
-                delayReadPos2 = modulo(delayReadPos2 + currentShift2, PShiftRingSize);
-                delayReadPos180 = modulo(delayReadPos2 + PShiftRingDiv2, PShiftRingSize);
+                delayReadPos2 = modulo(delayReadPos2 + currentShift2, delayBufferSize);
+                delayReadPos120 = modulo(delayReadPos2 + delayBufferSize120, delayBufferSize);
+                delayReadPos240 = modulo(delayReadPos2 + delayBufferSize240, delayBufferSize);
 
-                delayOut3 = delayAllpassInterpolation2(delayReadPos2, delayBuffer, PShiftRingSize-1, delayOut3, PShiftRingSize);
-                delayOut4 = delayAllpassInterpolation2(delayReadPos180, delayBuffer, PShiftRingSize-1, delayOut4, PShiftRingSize);
+                delayOut4 = delayAllpassInterpolation(delayReadPos2, delayBuffer, delayBufferSizeM1, delayOut4);
+                delayOut5 = delayAllpassInterpolation(delayReadPos120, delayBuffer, delayBufferSizeM1, delayOut5);
+                delayOut6 = delayAllpassInterpolation(delayReadPos240, delayBuffer, delayBufferSizeM1, delayOut6);
 
-                level3 = window(delayReadPos2 * PShiftRingSizeInv);
-                level4 = window(delayReadPos180 * PShiftRingSizeInv);
+                float rwp4 = modulo2(((float) delayWritePos - delayReadPos2), delayBufferSize);
+                float rwp5 = modulo2(((float) delayWritePos - delayReadPos120), delayBufferSize);
+                float rwp6 = modulo2(((float) delayWritePos - delayReadPos240), delayBufferSize);
 
-                PShiftOut2 = delayOut3 * level3 * level5 + delayOut4 * level4 * level6;
+                level4 = fastSin(rwp4 * delayBufferSizeInv);
+                level5 = fastSin(rwp5 * delayBufferSizeInv);
+                level6 = fastSin(rwp6 * delayBufferSizeInv);
 
-                *sp = ( *sp + PShiftOut + PShiftOut2 ) * mixerGainAttn;
+                float out4 = delayOut4 * level4;
+                float out5 = delayOut5 * level5;
+                float out6 = delayOut6 * level6;
+
+                PShiftOut -= out4 + out5 + out6;
+
+                *sp = ( *sp + PShiftOut ) * mixerGainAttn;
                 sp++;
-                *sp = ( *sp + PShiftOut + PShiftOut2 ) * mixerGainAttn;
+                *sp = ( *sp + PShiftOut ) * mixerGainAttn;
                 sp++;
 
                 currentShift += shiftInc;

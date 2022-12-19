@@ -187,13 +187,15 @@ private:
     float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
 
     static const int delayBufferSize     = 4400;
+    static const int delayBufferSize120     = delayBufferSize * 0.3333f;
+    static const int delayBufferSize240     = delayBufferSize * 0.6666f;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
     static const int delayBufferSizeM4   = delayBufferSize - 4;
     float delayBufferSizeInv = 1.0f / delayBufferSize;
 
     static float delayBuffer[delayBufferSize];
     float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0;
-    float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0, delayOut4 = 0;
+    float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0, delayOut4 = 0, delayOut5 = 0, delayOut6 = 0;
     float feedback            = 0;
     float shift = 0, shift2 = 0;
     int delayWritePos         = 0;
