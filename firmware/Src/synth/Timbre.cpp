@@ -776,7 +776,7 @@ void Timbre::fxAfterBlock() {
             readPos = (fxParamTmp + 99 * readPos) * 0.01f; // smooth change
             
             float currentDelaySize1 = delaySize1;
-            delaySize1 = clamp(1 + PShiftRingSize * readPos, 0, PShiftRingSize-1);
+            delaySize1 = clamp(1 + delayBufStereoSize * readPos, 0, delayBufStereoSize-1);
             float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
@@ -810,17 +810,17 @@ void Timbre::fxAfterBlock() {
                 float delayIn = clamp(hp_in_y0 - lpF * currentFeedback, -1, 1);
                 float delayIn2 = clamp(hp_in2_y0 - lpF2 * currentFeedback, -1, 1);
 
-                delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
-                int delayWritePos180 = modulo(delayWritePos + PShiftRingDiv2, PShiftRingSize);
+                delayWritePos = modulo(delayWritePos + 1, delayBufStereoSize);
+                int delayWritePos180 = modulo(delayWritePos + delayBufStereoDiv2, delayBufStereoSize);
 
                 delayBuffer[delayWritePos] = delayIn;
-                delayBuffer[delayWritePos + PShiftRingSize] = delayIn2;
+                delayBuffer[delayWritePos + delayBufStereoSize] = delayIn2;
 
-                delayReadPos = modulo2(delayWritePos - currentDelaySize1, PShiftRingSize);
-                delayReadPos90 = modulo2(delayReadPos - PShiftRingDiv4, PShiftRingSize);
+                delayReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufStereoSize);
+                delayReadPos90 = modulo2(delayReadPos - delayBufStereoDiv4, delayBufStereoSize);
 
-                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
-                delayOut2 = delayAllpassInterpolation2(delayReadPos90, delayBuffer, PShiftRingSize-1, delayOut2, PShiftRingSize);
+                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufStereoSize-1, delayOut1);
+                delayOut2 = delayAllpassInterpolation2(delayReadPos90, delayBuffer, delayBufStereoSize-1, delayOut2, delayBufStereoSize);
 
                 // L
                 _ly1 = apcoef1 * (_ly1 + delayOut1) - _lx1; // allpass
@@ -869,7 +869,7 @@ void Timbre::fxAfterBlock() {
             float delaySizeInc3 = (delaySize3 - currentDelaySize3) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
-            feedback = clamp( (this->params_.effect.param2 + matrixFilterParam2) * 0.33f, -0.9999f, 0.9999f);
+            feedback = clamp( (this->params_.effect.param2 + matrixFilterParam2), -0.9999f, 0.9999f);
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float *sp = sampleBlock_;
@@ -955,22 +955,31 @@ void Timbre::fxAfterBlock() {
 
             float currentDelaySize1 = delaySize1;
             float currentDelaySize2 = delaySize2;
-            delaySize1 = clamp(1 + PShiftRingSize * delayReadPos,  0, PShiftRingSize-1);
-            delaySize2 = clamp(1 + PShiftRingSize * delayReadPos2, 0, PShiftRingSize-1);
+            delaySize1 = clamp(1 + delayBufStereoSize * delayReadPos,  0, delayBufStereoSize-1);
+            delaySize2 = clamp(1 + delayBufStereoSize * delayReadPos2, 0, delayBufStereoSize-1);
             float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
             float delaySizeInc2 = (delaySize2 - currentDelaySize2) * INV_BLOCK_SIZE;
+
+            float currentFeedback = feedback;
+            feedback = clamp( (this->params_.effect.param2 + matrixFilterParam2) , -0.9999f, 0.9999f);
+            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float *sp = sampleBlock_;
             float delReadPos, delReadPos2;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
+
+                // feedback lp
+                float feedL   = lpF * currentFeedback;
+                float feedR   = lpF2 * currentFeedback;
+
                 // audio in hp
-                hp_in_x0     = *sp;
+                hp_in_x0     = *sp + feedL;
                 hp_in_y0     = _in2_a0 * hp_in_x0 + _in2_a1 * hp_in_x1 + _in2_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
-                hp_in2_x0    = *(sp + 1);
+                hp_in2_x0    = *(sp + 1) + feedR;
                 hp_in2_y0    = _in2_a0 * hp_in2_x0 + _in2_a1 * hp_in2_x1 + _in2_b1 * hp_in2_y1;
                 hp_in2_y1    = hp_in2_y0;
                 hp_in2_x1    = hp_in2_x0;
@@ -979,13 +988,13 @@ void Timbre::fxAfterBlock() {
                 float lpc2  = *(sp + 1) - hp_in2_y0;
 
                 delayBuffer[delayWritePos] = hp_in_y0;
-                delayBuffer[delayWritePos + PShiftRingSize] = hp_in2_y0;
+                delayBuffer[delayWritePos + delayBufStereoSize] = hp_in2_y0;
 
-                delReadPos = modulo2(delayWritePos - currentDelaySize1, PShiftRingSize);
-                delayOut1 = delayAllpassInterpolation(delReadPos, delayBuffer, PShiftRingSize-1, delayOut1);
+                delReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufStereoSize);
+                delayOut1 = delayAllpassInterpolation(delReadPos, delayBuffer, delayBufStereoSize-1, delayOut1);
 
-                delReadPos2 = modulo2(delayWritePos - currentDelaySize2, PShiftRingSize);
-                delayOut2 = delayAllpassInterpolation2(delReadPos2, delayBuffer, PShiftRingSize-1, delayOut2, PShiftRingSize);
+                delReadPos2 = modulo2(delayWritePos - currentDelaySize2, delayBufStereoSize);
+                delayOut2 = delayAllpassInterpolation2(delReadPos2, delayBuffer, delayBufStereoSize-1, delayOut2, delayBufStereoSize);
 
                 lpF   = _in_lp_a * delayOut1 + lpF * _in_lp_b;
                 lpF2  = _in_lp_a * delayOut2 + lpF2 * _in_lp_b;
@@ -995,9 +1004,10 @@ void Timbre::fxAfterBlock() {
                 *sp = (*sp + lpc2 - (lpF - lpF2 * 0.3f) * 0.4f) * mixerGainAttn;
                 sp++;
 
-                delayWritePos = modulo(delayWritePos + 1, PShiftRingSize);
+                delayWritePos = modulo(delayWritePos + 1, delayBufStereoSize);
                 currentDelaySize1 += delaySizeInc1;
                 currentDelaySize2 += delaySizeInc2;
+                currentFeedback += feedbackInc;
             }
 
         }
@@ -1032,7 +1042,7 @@ void Timbre::fxAfterBlock() {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
 
                 // feedback lp
-                lpF   = _in_lp_a * PShiftOut + lpF * _in_lp_b;
+                lpF   = _in_lp_a * delaySumOut + lpF * _in_lp_b;
 
                 // delay in hp
                 hp_in_x0     = clamp(monoIn + lpF * currentFeedback, -1, 1);
@@ -1063,14 +1073,14 @@ void Timbre::fxAfterBlock() {
                 level2 = fastSin(rwp2 * delayBufferSizeInv);
                 level3 = fastSin(rwp3 * delayBufferSizeInv);
 
-                PShiftOut  = 
+                delaySumOut  = 
                 delayOut1 * level1 + 
                 delayOut2 * level2 +
                 delayOut3 * level3;
 
-                *sp = (*sp + PShiftOut) * mixerGainAttn;
+                *sp = (*sp + delaySumOut) * mixerGainAttn;
                 sp++;
-                *sp = (*sp + PShiftOut) * mixerGainAttn;
+                *sp = (*sp + delaySumOut) * mixerGainAttn;
                 sp++;
 
                 currentFeedback += feedbackInc;
@@ -1092,23 +1102,23 @@ void Timbre::fxAfterBlock() {
             feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * 0.5f;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
-            float filterA2    = 0.85f;
+            float filterA2    = 0.875f;
             float filterA     = (filterA2 * filterA2 * 0.5f);
             _in_lp_b = 1 - filterA;
             _in_lp_a = 1 - _in_lp_b;
 
-            const float f = 0.75f;
+            const float f = 0.8f;
             const float fb = 1;
             const float scale = 1;
 
             float *sp = sampleBlock_;
-            float delayReadPos120, delayReadPos240, level1, level2, level3;
+            float delayReadPos90, delayReadPos180, delayReadPos270, level1, level2, level3, level4;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
 
                 // feedback lp
-                lpF   = _in_lp_a * PShiftOut + lpF * _in_lp_b;
+                lpF   = _in_lp_a * delaySumOut + lpF * _in_lp_b;
 
                 // delay in hp
                 hp_in_x0     = clamp(monoIn + lpF * currentFeedback, -1, 1);
@@ -1124,31 +1134,36 @@ void Timbre::fxAfterBlock() {
                 delayBuffer[delayWritePos] = lowL;
 
                 delayReadPos = modulo(delayReadPos + currentShift, delayBufferSize);
-                delayReadPos120 = modulo(delayReadPos + delayBufferSize120, delayBufferSize);
-                delayReadPos240 = modulo(delayReadPos + delayBufferSize240, delayBufferSize);
+                delayReadPos90 = modulo(delayReadPos + delayBufferSize90, delayBufferSize);
+                delayReadPos180 = modulo(delayReadPos + delayBufferSize180, delayBufferSize);
+                delayReadPos270 = modulo(delayReadPos + delayBufferSize270, delayBufferSize);
 
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
-                delayOut2 = delayAllpassInterpolation(delayReadPos120, delayBuffer, delayBufferSizeM1, delayOut2);
-                delayOut3 = delayAllpassInterpolation(delayReadPos240, delayBuffer, delayBufferSizeM1, delayOut3);
+                delayOut2 = delayAllpassInterpolation(delayReadPos90, delayBuffer, delayBufferSizeM1, delayOut2);
+                delayOut3 = delayAllpassInterpolation(delayReadPos180, delayBuffer, delayBufferSizeM1, delayOut3);
+                delayOut4 = delayAllpassInterpolation(delayReadPos270, delayBuffer, delayBufferSizeM1, delayOut4);
 
                 float rwp1 = modulo2(((float) delayWritePos - delayReadPos), delayBufferSize);
-                float rwp2 = modulo2(((float) delayWritePos - delayReadPos120), delayBufferSize);
-                float rwp3 = modulo2(((float) delayWritePos - delayReadPos240), delayBufferSize);
+                float rwp2 = modulo2(((float) delayWritePos - delayReadPos90), delayBufferSize);
+                float rwp3 = modulo2(((float) delayWritePos - delayReadPos180), delayBufferSize);
+                float rwp4 = modulo2(((float) delayWritePos - delayReadPos270), delayBufferSize);
 
                 level1 = fastSin(rwp1 * delayBufferSizeInv);
                 level2 = fastSin(rwp2 * delayBufferSizeInv);
                 level3 = fastSin(rwp3 * delayBufferSizeInv);
+                level4 = fastSin(rwp4 * delayBufferSizeInv);
 
                 float out1 = delayOut1 * level1;
                 float out2 = delayOut2 * level2;
                 float out3 = delayOut3 * level3;
+                float out4 = delayOut4 * level4;
 
-                PShiftOut  = out1 - out2 + out3;
-                float PShiftOut2  = out1 + out2 - out3;
+                delaySumOut  = out1 + out2 + out3 - out4;
+                float delaySumOut2  = out1 + out2 - out3 + out4;
 
-                *sp = PShiftOut * mixerGainAttn;
+                *sp = delaySumOut * mixerGainAttn;
                 sp++;
-                *sp = PShiftOut2 * mixerGainAttn;
+                *sp = delaySumOut2 * mixerGainAttn;
                 sp++;
 
                 currentFeedback += feedbackInc;
@@ -1214,7 +1229,7 @@ void Timbre::fxAfterBlock() {
                 float out2 = delayOut2 * level2;
                 float out3 = delayOut3 * level3;
 
-                PShiftOut  = out1 + out2 + out3;
+                delaySumOut  = out1 + out2 + out3;
 
                 //--------------- shifter 2
 
@@ -1238,16 +1253,77 @@ void Timbre::fxAfterBlock() {
                 float out5 = delayOut5 * level5;
                 float out6 = delayOut6 * level6;
 
-                PShiftOut -= out4 + out5 + out6;
+                delaySumOut -= out4 + out5 + out6;
 
-                *sp = ( *sp + PShiftOut ) * mixerGainAttn;
+                *sp = ( *sp + delaySumOut ) * mixerGainAttn;
                 sp++;
-                *sp = ( *sp + PShiftOut ) * mixerGainAttn;
+                *sp = ( *sp + delaySumOut ) * mixerGainAttn;
                 sp++;
 
                 currentShift += shiftInc;
                 currentShift2 += shiftInc2;
 
+            }
+        }
+        break;
+        case FILTER_TAPE:{
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGainAttn = mixerGain_ * 0.95f;
+            float fxParamTmp = foldAbs( (this->params_.effect.param1 + matrixFilterFrequency ) * 0.0625f );
+            readPos = (fxParamTmp + 99 * readPos) * 0.01f; // smooth change
+
+            float currentDelaySize1 = delaySize1;
+            delaySize1 = clamp(1 + delayBufferSizeM1 * readPos, 0, delayBufferSize-1);
+            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
+
+            float currentFeedback = feedback;
+            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * 0.6f;
+            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
+
+            float filterA2    = 0.875f;
+            float filterA     = (filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
+
+            const float f = 0.8f;
+            const float fb = 1;
+            const float scale = 1;
+
+            float *sp = sampleBlock_;
+            float delayReadPos10, delayReadPos20, delayReadPos30, level1, level2, level3, level4;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                float monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                // feedback lp
+                lpF   = _in_lp_a * delaySumOut + lpF * _in_lp_b;
+
+                // delay in hp
+                hp_in_x0     = clamp(monoIn + lpF * currentFeedback, -1, 1);
+                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y1     = hp_in_y0;
+                hp_in_x1     = hp_in_x0;
+
+                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
+
+                lowL  += f * bandL;
+                bandL += f * (scale * hp_in_y0 - lowL - fb * bandL);
+
+                delayBuffer[delayWritePos] = lowL;
+
+                delayReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
+
+                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
+
+                delaySumOut  = delayOut1;
+
+                *sp = (*sp + delaySumOut) * mixerGainAttn;
+                sp++;
+                *sp = (*sp + delaySumOut) * mixerGainAttn;
+                sp++;
+
+                currentFeedback += feedbackInc;
+                currentDelaySize1 += delaySizeInc1;
             }
         }
         break;

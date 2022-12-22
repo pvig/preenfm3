@@ -189,6 +189,12 @@ private:
     static const int delayBufferSize     = 4400;
     static const int delayBufferSize120     = delayBufferSize * 0.3333f;
     static const int delayBufferSize240     = delayBufferSize * 0.6666f;
+    static const int delayBufferSize10     = delayBufferSize * 0.00027f;
+    static const int delayBufferSize20     = delayBufferSize * 0.00054f;
+    static const int delayBufferSize30     = delayBufferSize * 0.00081f;
+    static const int delayBufferSize90     = delayBufferSize * 0.25f;
+    static const int delayBufferSize180     = delayBufferSize * 0.5f;
+    static const int delayBufferSize270     = delayBufferSize * 0.75f;
     static const int delayBufferSizeM1   = delayBufferSize - 1;
     static const int delayBufferSizeM4   = delayBufferSize - 4;
     float delayBufferSizeInv = 1.0f / delayBufferSize;
@@ -212,12 +218,11 @@ private:
 
     float ls_a1, ls_a2, ls_a3, ls_m1, ls_m2;
 
-    int PShiftRingSize = 2200;
-    float PShiftRingSizeInv = 1.0f / PShiftRingSize;
-    float PShiftRingDiv2 = PShiftRingSize * 0.5f;
-    float PShiftRingDiv4 = PShiftRingSize * 0.25f;
-    float PShiftCrossfade = 0;
-    float PShiftOut = 0, PShiftOut2 = 0;
+    int delayBufStereoSize = 2200;
+    float delayBufStereoSizeInv = 1.0f / delayBufStereoSize;
+    float delayBufStereoDiv2 = delayBufStereoSize * 0.5f;
+    float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
+    float delaySumOut = 0, delaySumOut2 = 0;
 
     float hp_in_x0 = 0;
     float hp_in_y0 = 0;
