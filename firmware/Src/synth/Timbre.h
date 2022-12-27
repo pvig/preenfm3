@@ -182,11 +182,10 @@ private:
 
     /** --------------FX conf--------------  */
     void fxAfterBlock();
-    float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
     float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
 
-    static const int delayBufferSize     = 4400;
+    static const int delayBufferSize        = 4400;
     static const int delayBufferSize120     = delayBufferSize * 0.3333f;
     static const int delayBufferSize240     = delayBufferSize * 0.6666f;
     static const int delayBufferSize10     = delayBufferSize * 0.00027f;
@@ -207,18 +206,18 @@ private:
     int delayWritePos         = 0;
     float delayReadPos        = 0;
     float delayReadPos2       = 0;
+    float delayReadFrac       = 0;
+    float delayReadFrac2      = 0;
     float readPos             = 0;
     float _in_lp_a, _in_lp_b;
     float lpF, lpF2;
-    float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
-    float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
      
     float lowL = 0, highL = 0, bandL = 0;
     float lowR = 0, highR = 0, bandR = 0;
 
-    float ls_a1, ls_a2, ls_a3, ls_m1, ls_m2;
+    //float ls_a1, ls_a2, ls_a3, ls_m1, ls_m2;
 
-    int delayBufStereoSize = 2200;
+    int delayBufStereoSize = delayBufferSize * 0.5f;
     float delayBufStereoSizeInv = 1.0f / delayBufStereoSize;
     float delayBufStereoDiv2 = delayBufStereoSize * 0.5f;
     float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
@@ -244,6 +243,7 @@ private:
     float _ly4 = 0;
     float _lx4 = 0;
     float apcoef1, apcoef2, apcoef3, apcoef4;
+    int prevEffectType;
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;

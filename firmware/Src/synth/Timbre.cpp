@@ -304,13 +304,9 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     float f4 = clamp(0.17f + f3, 0.01f, 0.99f);
     apcoef4 = (1.0f - f4) / (1.0f + f4);
     
-    /*** -----------------------------------  */
-
-    v0L = v1L = v2L = v3L = v4L = v5L = v6L = v7L = v8L = v0R = v1R = v2R = v3R = v4R = v5R = v6R = v7R = v8R = v8R = 0.0f;
-
     /*** ---------------low shell --------------------- */
 
-    float A = 0.5f;
+   /* float A = 0.5f;
     float res = 0.5f;
     float k = 1 / (0.0001f + res);
     float g = 0.6f;
@@ -318,7 +314,7 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     ls_a2 = g * ls_a1;
     ls_a3 = g * ls_a2;
     ls_m1 = k * (A - 1);
-    ls_m2 = (A * A - 1);
+    ls_m2 = (A * A - 1);*/
 }
 
 void Timbre::setVoiceNumber(int v, int n) {
@@ -754,8 +750,11 @@ uint8_t Timbre::voicesNextBlock() {
 
 void Timbre::fxAfterBlock() {
 
-    int effectType = params_.effect.type;
-            
+	int effectType = params_.effect.type;
+    
+    if(prevEffectType != effectType) {
+        prevEffectType = effectType;
+    }
     if(!voices_[lastPlayedNote_]->isPlaying()) {
         // hack : this voice is not playing but still need to calculate lfo
         //voices_[lastPlayedNote_]->newNotePending = true;
@@ -771,12 +770,12 @@ void Timbre::fxAfterBlock() {
     switch (effectType) {
         case FILTER_FLANGE: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.5f;
+            float mixerGainAttn = mixerGain_ * 0.66f;
             float fxParamTmp = foldAbs( (this->params_.effect.param1 + matrixFilterFrequency ) * 0.0625f );
-            readPos = (fxParamTmp + 99 * readPos) * 0.01f; // smooth change
+            delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
             
             float currentDelaySize1 = delaySize1;
-            delaySize1 = clamp(1 + delayBufStereoSize * readPos, 0, delayBufStereoSize-1);
+            delaySize1 = clamp(1 + delayBufStereoSize * delayReadFrac, 0, delayBufStereoSize-1);
             float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
@@ -848,15 +847,75 @@ void Timbre::fxAfterBlock() {
 
         }
         break;
+        case FILTER_FLNG2: {
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGainAttn = mixerGain_ * 0.85f;
+            float fxParamTmp = foldAbs( (this->params_.effect.param1 + matrixFilterFrequency ) * 0.0625f );
+            delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
+
+            float currentDelaySize1 = delaySize1;
+            delaySize1 = clamp(1 + delayBufferSizeM1 * delayReadFrac, 0, delayBufferSize-1);
+            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
+
+            float currentFeedback = feedback;
+            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * 0.6f;
+            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
+
+            float filterA2    = 0.875f;
+            float filterA     = (filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
+
+            const float f = 0.8f;
+            const float fb = 1;
+            const float scale = 1;
+
+            float *sp = sampleBlock_;
+            float delayReadPos10, delayReadPos20, delayReadPos30, level1, level2, level3, level4;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                float monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                // feedback lp
+                lpF   = _in_lp_a * delaySumOut + lpF * _in_lp_b;
+
+                // delay in hp
+                hp_in_x0     = clamp(monoIn + lpF * currentFeedback, -1, 1);
+                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y1     = hp_in_y0;
+                hp_in_x1     = hp_in_x0;
+
+                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
+
+                lowL  += f * bandL;
+                bandL += f * (scale * hp_in_y0 - lowL - fb * bandL);
+
+                delayBuffer[delayWritePos] = lowL;
+
+                delayReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
+
+                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
+
+                delaySumOut  = delayOut1;
+
+                *sp = (*sp + delaySumOut) * mixerGainAttn;
+                sp++;
+                *sp = (*sp + delaySumOut) * mixerGainAttn;
+                sp++;
+
+                currentFeedback += feedbackInc;
+                currentDelaySize1 += delaySizeInc1;
+            }
+        }
+        break;
         case FILTER_CHORUS: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.55f;
+            float mixerGainAttn = mixerGain_ * 0.36f;
             float param1 = this->params_.effect.param1;
             param1 *= param1;
             float fxParamTmp = foldAbs( (0.125f *  (0.5f + (param1 + matrixFilterFrequency) * 0.5f ) ) );
-            readPos = (fxParamTmp + 99 * readPos) * 0.01f; // smooth change
-            readPos = clamp(readPos, 0, 1);
-            float readPos2 = foldAbs(readPos + (1/12));
+            delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
+            float readPos2 = foldAbs(delayReadFrac + (1/12));
             float readPos3 = foldAbs(readPos2 + (2/12));
             float currentDelaySize1 = delaySize1;
             float currentDelaySize2 = delaySize2;
@@ -949,14 +1008,14 @@ void Timbre::fxAfterBlock() {
             float param1 = this->params_.effect.param1;
 
             float fxParamTmp  = foldAbs( (0.125f *  (0.5f + (param1 + matrixFilterFrequency) * 0.5f ) ) );
-            delayReadPos = (fxParamTmp + 99 * delayReadPos) * 0.01f; // smooth change
+            delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
             float fxParamTmp2 = foldAbs( (0.125f *  (0.5f + (param1 - matrixFilterFrequency) * 0.5f ) ) );
-            delayReadPos2 = (fxParamTmp2 + 99 * delayReadPos2) * 0.01f; // smooth change
+            delayReadFrac2 = (fxParamTmp2 + 99 * delayReadFrac2) * 0.01f; // smooth change
 
             float currentDelaySize1 = delaySize1;
             float currentDelaySize2 = delaySize2;
-            delaySize1 = clamp(1 + delayBufStereoSize * delayReadPos,  0, delayBufStereoSize-1);
-            delaySize2 = clamp(1 + delayBufStereoSize * delayReadPos2, 0, delayBufStereoSize-1);
+            delaySize1 = clamp(1 + delayBufStereoSize * delayReadFrac,  0, delayBufStereoSize-1);
+            delaySize2 = clamp(1 + delayBufStereoSize * delayReadFrac2, 0, delayBufStereoSize-1);
             float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
             float delaySizeInc2 = (delaySize2 - currentDelaySize2) * INV_BLOCK_SIZE;
 
@@ -1266,79 +1325,10 @@ void Timbre::fxAfterBlock() {
             }
         }
         break;
-        case FILTER_TAPE:{
-            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.95f;
-            float fxParamTmp = foldAbs( (this->params_.effect.param1 + matrixFilterFrequency ) * 0.0625f );
-            readPos = (fxParamTmp + 99 * readPos) * 0.01f; // smooth change
-
-            float currentDelaySize1 = delaySize1;
-            delaySize1 = clamp(1 + delayBufferSizeM1 * readPos, 0, delayBufferSize-1);
-            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
-
-            float currentFeedback = feedback;
-            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * 0.6f;
-            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
-
-            float filterA2    = 0.875f;
-            float filterA     = (filterA2 * filterA2 * 0.5f);
-            _in_lp_b = 1 - filterA;
-            _in_lp_a = 1 - _in_lp_b;
-
-            const float f = 0.8f;
-            const float fb = 1;
-            const float scale = 1;
-
-            float *sp = sampleBlock_;
-            float delayReadPos10, delayReadPos20, delayReadPos30, level1, level2, level3, level4;
-
-            for (int k = 0; k < BLOCK_SIZE; k++) {
-                float monoIn = (*sp + *(sp + 1)) * 0.5f;
-
-                // feedback lp
-                lpF   = _in_lp_a * delaySumOut + lpF * _in_lp_b;
-
-                // delay in hp
-                hp_in_x0     = clamp(monoIn + lpF * currentFeedback, -1, 1);
-                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
-                hp_in_y1     = hp_in_y0;
-                hp_in_x1     = hp_in_x0;
-
-                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
-
-                lowL  += f * bandL;
-                bandL += f * (scale * hp_in_y0 - lowL - fb * bandL);
-
-                delayBuffer[delayWritePos] = lowL;
-
-                delayReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
-
-                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
-
-                delaySumOut  = delayOut1;
-
-                *sp = (*sp + delaySumOut) * mixerGainAttn;
-                sp++;
-                *sp = (*sp + delaySumOut) * mixerGainAttn;
-                sp++;
-
-                currentFeedback += feedbackInc;
-                currentDelaySize1 += delaySizeInc1;
-            }
-        }
-        break;
         default:
             // NO EFFECT
             break;
     }
-}
-
-float Timbre::delayInterpolation(float readPos, float buffer[], int bufferLenM1) {
-    int readPosInt = readPos;
-    float y0 = buffer[readPosInt];
-    float y1 = buffer[(unlikely(readPosInt == 0) ? bufferLenM1 : readPosInt - 1)];
-    float x = readPos - floorf(readPos);
-    return y0 + x * (y1 - y0);
 }
 
 float Timbre::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {

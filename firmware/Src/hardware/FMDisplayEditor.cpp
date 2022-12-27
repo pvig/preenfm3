@@ -747,12 +747,13 @@ struct ParameterRowDisplay engineCurveParameterRow = {
  47  LPx2, -31-
  48  Alkx, -48-
  49  Flng, -49-
- 50  Chor, -50-
- 51  Dim , -51-
- 52  Dblr, -52-
- 53  Shft, -53-
- 54  Harm, -54-
- 55  Tape, -55-
+ 50  Flg2, -50-
+ 51  Chor, -51-
+ 52  Dim , -52-
+ 53  Dblr, -53-
+ 54  Shft, -54-
+ 55  Harm, -55-
+ 56  Tape, -56-
  */
 
 const unsigned char filtersOrder[] = {
@@ -811,7 +812,8 @@ const unsigned char filtersOrder[] = {
     52,
     53,
     54,
-    55 };
+    55,
+    56 };
 
 const unsigned char filtersPosition[] = {
     0,
@@ -869,7 +871,8 @@ const unsigned char filtersPosition[] = {
     52,
     53,
     54,
-    55 };
+    55,
+    56 };
 
 const char *fxName[] = {
     "Off ", /*  0   */
@@ -922,12 +925,13 @@ const char *fxName[] = {
     "Svh3", /*  47  */
     "Alkx", /*  48  */
     "Flng", /*  49  */
-    "Chor", /*  50  */
-    "Dim ", /*  51  */
-    "Dblr", /*  52  */
-    "Shft", /*  53  */
-    "Harm", /*  54  */
-    "Tape"  /*  55  */
+    "Flg2", /*  50  */
+    "Chor", /*  51  */
+    "Dim ", /*  52  */
+    "Dblr", /*  53  */
+    "Shft", /*  54  */
+    "Harm", /*  55  */
+    "Tape"  /*  56  */
 };
 
 struct ParameterRowDisplay effectParameterRow = {
@@ -1173,6 +1177,10 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
         "Feed",
         "Gain" },
     {
+        "Dpth",
+        "Feed",
+        "Gain" },
+    {
         "Widt",
         "Feed",
         "Gain" },
@@ -1193,10 +1201,10 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
         "Ptc2",
         "Gain" },
     {
-        "Time",
-        "Fdbk",
+        "Ptc1",
+        "Ptc2",
         "Gain" }
-    };
+};
 
 const char *oscShapeNames[] = {
     "sin ",
