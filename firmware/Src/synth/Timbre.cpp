@@ -1012,8 +1012,8 @@ void Timbre::fxAfterBlock() {
             float fxParamTmp2 = foldAbs( (0.125f *  (0.5f + (param1 - matrixFilterFrequency) * 0.5f ) ) );
             delayReadFrac2 = (fxParamTmp2 + 99 * delayReadFrac2) * 0.01f; // smooth change
 
-            float currentDelaySize1 = delaySize1;
-            float currentDelaySize2 = delaySize2;
+            float currentDelaySize1 = clamp(delaySize1, 0, delayBufStereoSize-1);
+            float currentDelaySize2 = clamp(delaySize2, 0, delayBufStereoSize-1);
             delaySize1 = clamp(1 + delayBufStereoSize * delayReadFrac,  0, delayBufStereoSize-1);
             delaySize2 = clamp(1 + delayBufStereoSize * delayReadFrac2, 0, delayBufStereoSize-1);
             float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
@@ -1046,6 +1046,8 @@ void Timbre::fxAfterBlock() {
                 float lpc1  = *sp - hp_in_y0;
                 float lpc2  = *(sp + 1) - hp_in2_y0;
 
+                delayWritePos = modulo(delayWritePos + 1, delayBufStereoSize);
+
                 delayBuffer[delayWritePos] = hp_in_y0;
                 delayBuffer[delayWritePos + delayBufStereoSize] = hp_in2_y0;
 
@@ -1063,7 +1065,6 @@ void Timbre::fxAfterBlock() {
                 *sp = (*sp + lpc2 - (lpF - lpF2 * 0.3f) * 0.4f) * mixerGainAttn;
                 sp++;
 
-                delayWritePos = modulo(delayWritePos + 1, delayBufStereoSize);
                 currentDelaySize1 += delaySizeInc1;
                 currentDelaySize2 += delaySizeInc2;
                 currentFeedback += feedbackInc;

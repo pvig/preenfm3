@@ -186,16 +186,16 @@ private:
     float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
 
     static const int delayBufferSize        = 4400;
-    static const int delayBufferSize120     = delayBufferSize * 0.3333f;
-    static const int delayBufferSize240     = delayBufferSize * 0.6666f;
-    static const int delayBufferSize10     = delayBufferSize * 0.00027f;
-    static const int delayBufferSize20     = delayBufferSize * 0.00054f;
-    static const int delayBufferSize30     = delayBufferSize * 0.00081f;
-    static const int delayBufferSize90     = delayBufferSize * 0.25f;
-    static const int delayBufferSize180     = delayBufferSize * 0.5f;
-    static const int delayBufferSize270     = delayBufferSize * 0.75f;
-    static const int delayBufferSizeM1   = delayBufferSize - 1;
-    static const int delayBufferSizeM4   = delayBufferSize - 4;
+    const int delayBufferSize120     = delayBufferSize * 0.3333f;
+    const int delayBufferSize240     = delayBufferSize * 0.6666f;
+    const int delayBufferSize10     = delayBufferSize * 0.00027f;
+    const int delayBufferSize20     = delayBufferSize * 0.00054f;
+    const int delayBufferSize30     = delayBufferSize * 0.00081f;
+    const int delayBufferSize90     = delayBufferSize * 0.25f;
+    const int delayBufferSize180     = delayBufferSize * 0.5f;
+    const int delayBufferSize270     = delayBufferSize * 0.75f;
+    const int delayBufferSizeM1   = delayBufferSize - 1;
+    const int delayBufferSizeM4   = delayBufferSize - 4;
     float delayBufferSizeInv = 1.0f / delayBufferSize;
 
     static float delayBuffer[delayBufferSize];
