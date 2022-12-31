@@ -40,12 +40,17 @@ enum {
     CLOCK_EXTERNAL
 };
 
-class Timbre {
+class Timbre: public SynthStateAware {
     friend class Synth;
     friend class Voice;
 public:
     Timbre();
     virtual ~Timbre();
+
+    void setSynthState(SynthState *synthState) {
+        SynthStateAware::setSynthState(synthState);
+    }
+
     void init(SynthState *synthState, int timbreNumber);
     void setVoiceNumber(int v, int n);
     void initVoicePointer(int n, Voice *voice);

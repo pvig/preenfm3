@@ -86,9 +86,17 @@ float FxBus::diffuserBuffer2[diffuserBufferLen2] __attribute__((section(".ram_d2
 float FxBus::diffuserBuffer3[diffuserBufferLen3] __attribute__((section(".ram_d2")));
 float FxBus::diffuserBuffer4[diffuserBufferLen4] __attribute__((section(".ram_d2")));
 
+float FxBus::fxBusDelayBuffer[fxBusDelayBufferSize] __attribute__((section(".ram_d1")));
+
 FxBus::FxBus() {}
 
 void FxBus::init() {
+    
+    fxBusDelayWritePos = 0;
+
+    for (int s = 0; s < fxBusDelayBufferSize; s++) {
+        fxBusDelayBuffer[s] = 0;
+    }
 
     for (int s = 0; s < predelayBufferSize; s++) {
         predelayBuffer[s] = 0;
@@ -153,9 +161,22 @@ void FxBus::setDefaultValue() {
 }
 
 /**
+ * init new block
+ */
+void FxBus::prepareBlock() {
+    mixSumInit();
+    fxBusDelayWritePos    = modulo(fxBusDelayWritePos + BLOCK_SIZE , fxBusDelayBufferSize);
+}
+
+/**
  * init before timbres summing
  */
 void FxBus::mixSumInit() {
+    
+    sample = getDelayBuffer();
+    for (int s = 0; s < BLOCK_SIZE; s++) {
+        *(sample++) = 0;
+    }
 
     if(totalSent == 0.0f) {
         return;

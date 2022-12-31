@@ -306,7 +306,7 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
 
     // fxBus - prepare empty mixing block
     FxBus* fxBus = &this->synthState_->mixerState.fxBus_;
-    fxBus->mixSumInit();
+    fxBus->prepareBlock();
 
     for (int timbre = 0; timbre < NUMBER_OF_TIMBRES; timbre++) {
         // numberOfVoices = 0; => timbre is disabled

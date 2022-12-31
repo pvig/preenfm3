@@ -65,6 +65,7 @@ public:
     virtual ~FxBus() {}
     void init();
     void setDefaultValue();
+    void prepareBlock();
     void mixSumInit();
     void presetChanged(int presetNum);
     void paramChanged();
@@ -78,6 +79,14 @@ public:
     }
     const float* getSampleBlock() const {
         return sampleBlock_;
+    }
+
+    // Delay
+    static const int fxBusDelayBufferSize        = 8000;
+    inline static int fxBusDelayWritePos    = 0;
+
+    float* getDelayBuffer() {
+        return fxBusDelayBuffer;
     }
 
 protected:
@@ -320,6 +329,7 @@ protected:
     const int kr7 = 121     * _dattorroSampleRateMod;
     const int _kRightTaps[7] = {kr1, kr2, kr3, kr4, kr5, kr6, kr7};
 
+    static float fxBusDelayBuffer[fxBusDelayBufferSize];
 };
 
 #endif    // end FX_BUS_

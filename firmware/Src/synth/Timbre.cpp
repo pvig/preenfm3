@@ -1333,6 +1333,49 @@ void Timbre::fxAfterBlock() {
             }
         }
         break;
+        case FILTER_TAPE: {
+            FxBus* fxBus = &this->synthState_->mixerState.fxBus_;
+            int fxBusDelayWritePos = FxBus::fxBusDelayWritePos;
+            int fxBusDelayBufferSize = FxBus::fxBusDelayBufferSize;
+            float *fxBusDelayBuffer = fxBus->getDelayBuffer();
+
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGainAttn = mixerGain_ * 0.5f;
+
+            float fxParamTmp = clamp( (this->params_.effect.param1 + matrixFilterFrequency ), 0, 1);
+            delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
+            
+            float currentDelaySize1 = delaySize1;
+            delaySize1 = clamp(1 + fxBusDelayBufferSize * delayReadFrac, 0, fxBusDelayBufferSize-1);
+            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
+            
+            float currentFeedback = feedback;
+            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.999f, 0.999f);
+            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
+
+            float *sp = sampleBlock_;
+            float delayReadPos;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                float monoIn = (*sp + *(sp + 1)) * 0.5f;
+                float delayIn = clamp(monoIn - delayOut1 * currentFeedback, -1, 1);
+
+                fxBusDelayWritePos = modulo(fxBusDelayWritePos + 1, fxBusDelayBufferSize);
+                fxBusDelayBuffer[fxBusDelayWritePos] += delayIn;
+
+                delayReadPos = modulo2(fxBusDelayWritePos - currentDelaySize1, fxBusDelayBufferSize);
+                delayOut1  = delayAllpassInterpolation(delayReadPos, fxBusDelayBuffer, fxBusDelayBufferSize - 1, delayOut1);
+
+                *sp = ( *sp + delayOut1 ) * mixerGainAttn;
+                sp++;
+                *sp = ( *sp + delayOut1 ) * mixerGainAttn;
+                sp++;
+
+                currentDelaySize1 += delaySizeInc1;
+                currentFeedback += feedbackInc;
+            }
+        }
+        break;
         default:
             // NO EFFECT
             break;
