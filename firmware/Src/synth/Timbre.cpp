@@ -854,7 +854,7 @@ void Timbre::fxAfterBlock() {
             delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
 
             float currentDelaySize1 = delaySize1;
-            delaySize1 = clamp(1 + delayBufferSizeM1 * delayReadFrac, 0, delayBufferSize-1);
+            delaySize1 = clamp(1 + delayBufferSizeM1 * delayReadFrac, 0, delayBufferSizeM1);
             float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
@@ -1074,7 +1074,7 @@ void Timbre::fxAfterBlock() {
         break;
         case FILTER_DOUBLER: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.5f;
+            float mixerGainAttn = mixerGain_ * 0.7f;
 
             float param1 = this->params_.effect.param1;
 
@@ -1086,17 +1086,17 @@ void Timbre::fxAfterBlock() {
             feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * 0.5f;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
-            float filterA2    = 0.85f;
+            float filterA2    = 0.875f;
             float filterA     = (filterA2 * filterA2 * 0.5f);
             _in_lp_b = 1 - filterA;
             _in_lp_a = 1 - _in_lp_b;
 
-            const float f = 0.75f;
+            const float f = 0.79f;
             const float fb = 1;
             const float scale = 1;
 
             float *sp = sampleBlock_;
-            float delayReadPos120, delayReadPos240, level1, level2, level3;
+            float delayReadPos90, delayReadPos180, delayReadPos270, level1, level2, level3, level4;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
@@ -1118,29 +1118,36 @@ void Timbre::fxAfterBlock() {
                 delayBuffer[delayWritePos] = lowL;
 
                 delayReadPos = modulo(delayReadPos + currentShift, delayBufferSize);
-                delayReadPos120 = modulo(delayReadPos + delayBufferSize120, delayBufferSize);
-                delayReadPos240 = modulo(delayReadPos + delayBufferSize240, delayBufferSize);
+                delayReadPos90 = modulo(delayReadPos + delayBufferSize90, delayBufferSize);
+                delayReadPos180 = modulo(delayReadPos + delayBufferSize180, delayBufferSize);
+                delayReadPos270 = modulo(delayReadPos + delayBufferSize270, delayBufferSize);
 
                 delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
-                delayOut2 = delayAllpassInterpolation(delayReadPos120, delayBuffer, delayBufferSizeM1, delayOut2);
-                delayOut3 = delayAllpassInterpolation(delayReadPos240, delayBuffer, delayBufferSizeM1, delayOut3);
+                delayOut2 = delayAllpassInterpolation(delayReadPos90, delayBuffer, delayBufferSizeM1, delayOut2);
+                delayOut3 = delayAllpassInterpolation(delayReadPos180, delayBuffer, delayBufferSizeM1, delayOut3);
+                delayOut4 = delayAllpassInterpolation(delayReadPos270, delayBuffer, delayBufferSizeM1, delayOut4);
 
                 float rwp1 = modulo2(((float) delayWritePos - delayReadPos), delayBufferSize);
-                float rwp2 = modulo2(((float) delayWritePos - delayReadPos120), delayBufferSize);
-                float rwp3 = modulo2(((float) delayWritePos - delayReadPos240), delayBufferSize);
+                float rwp2 = modulo2(((float) delayWritePos - delayReadPos90), delayBufferSize);
+                float rwp3 = modulo2(((float) delayWritePos - delayReadPos180), delayBufferSize);
+                float rwp4 = modulo2(((float) delayWritePos - delayReadPos270), delayBufferSize);
 
                 level1 = fastSin(rwp1 * delayBufferSizeInv);
                 level2 = fastSin(rwp2 * delayBufferSizeInv);
                 level3 = fastSin(rwp3 * delayBufferSizeInv);
+                level4 = fastSin(rwp4 * delayBufferSizeInv);
 
-                delaySumOut  = 
-                delayOut1 * level1 + 
-                delayOut2 * level2 +
-                delayOut3 * level3;
+                float out1 = delayOut1 * level1;
+                float out2 = delayOut2 * level2;
+                float out3 = delayOut3 * level3;
+                float out4 = delayOut4 * level4;
 
-                *sp = (*sp + delaySumOut) * mixerGainAttn;
+                delaySumOut  = out1 + out2 + out3 - out4;
+                float delaySumOut2  = out1 + out2 - out3 + out4;
+
+                *sp = (*sp + delaySumOut * 0.5f) * mixerGainAttn;
                 sp++;
-                *sp = (*sp + delaySumOut) * mixerGainAttn;
+                *sp = (*sp + delaySumOut2 * 0.5f) * mixerGainAttn;
                 sp++;
 
                 currentFeedback += feedbackInc;
@@ -1150,7 +1157,7 @@ void Timbre::fxAfterBlock() {
         break;
         case FILTER_PITCHSHIFTER: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.55f;
+            float mixerGainAttn = mixerGain_ * 0.5f;
 
             float param1 = this->params_.effect.param1;
 
@@ -1167,7 +1174,7 @@ void Timbre::fxAfterBlock() {
             _in_lp_b = 1 - filterA;
             _in_lp_a = 1 - _in_lp_b;
 
-            const float f = 0.8f;
+            const float f = 0.79f;
             const float fb = 1;
             const float scale = 1;
 
