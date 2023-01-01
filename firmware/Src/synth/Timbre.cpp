@@ -1338,7 +1338,7 @@ void Timbre::fxAfterBlock() {
             float mixerGainAttn = mixerGain_ * 0.5f;
 
             float currentShift = shift;
-            shift = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.1f, 0, 0.9999f);
+            shift = clamp(this->params_.effect.param1 * 0.25f + matrixFilterFrequency * 0.1f, 0, 0.9999f);
             shift *= shift;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
@@ -1350,36 +1350,48 @@ void Timbre::fxAfterBlock() {
             float biquad1, biquad2, biquad3, biquad4, biquad5, biquad6, biquad7, biquad8;
             float cos, sin;
             float phase2;
-            float shifterOut;
+            float shifterIn, shifterOut;
+
+            float filterA2    = 0.875f;
+            float filterA     = (filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
 
+                // delay in hp
+                hp_in_x0     = clamp(monoIn + shifterOut * currentFeedback, -1, 1);
+                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y1     = hp_in_y0;
+                hp_in_x1     = hp_in_x0;
+
+                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
+
+                // feedback lp
+                lpF   = _in_lp_a * hp_in_y0 + lpF * _in_lp_b;
+
+                delayBuffer[delayWritePos] = lpF;
+
+                delayReadPos = modulo(delayReadPos + 200, delayBufferSize);
+
+                shifterIn = hp_in_y0;
+
                 //Hilbert phase shift
 
-                // 90
-                // biquad~ 1.94632 -0.94657 0.94657 -1.94632 1
-                // biquad~ 0.83774 -0.06338 0.06338 -0.83774 1
-                //biquad1 = biquad(monoIn, 1.94632f, -0.94657f, 0.94657f, -1.94632f, &hb1_1, &hb1_2, &hb1_3);
-                //biquad2 = biquad(biquad1, 0.83774f, -0.06338f, 0.06338f, -0.83774f, &hb2_1, &hb2_2, &hb2_3);
-                //0.47944111608296202665,0.87624358989504858020,0.97660296916871658368,0.99749940412203375040,
-                biquad1 = biquad(samplen1,  0.47944111608296202665f,  &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
+                // Phase reference path
+                biquad1 = biquad(samplen1, 0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
                 biquad2 = biquad(biquad1,  0.87624358989504858020f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
                 biquad3 = biquad(biquad2,  0.97660296916871658368f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
                 biquad4 = biquad(biquad3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
 
-                // 0
-                // biquad~ -0.02569 0.260502 -0.260502 0.02569 1
-                // biquad~ 1.8685 -0.870686 0.870686 -1.8685 1
-                //biquad3 = biquad(samplen1, -0.02569f, -0.260502f, -0.260502f, 0.02569f, &hb3_1, &hb3_2, &hb3_3);
-                //biquad4 = biquad(biquad3, 1.8685f, -0.870686, 0.870686f, -1.8685f, &hb4_1, &hb4_2, &hb4_3);
-                //0.16177741706363166219,0.73306690130335572242,0.94536301966806279840,0.99060051416704042460
-                biquad5 = biquad(monoIn, 0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
-                biquad6 = biquad(biquad5,  0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
-                biquad7 = biquad(biquad6,  0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
-                biquad8 = biquad(biquad7,  0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
+                // +90 deg path
+                biquad5 = biquad(shifterIn,  0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
+                biquad6 = biquad(biquad5, 0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
+                biquad7 = biquad(biquad6, 0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
+                biquad8 = biquad(biquad7, 0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
 
-                samplen1 = monoIn;
+                samplen1 = shifterIn;
 
                 // cos and sin
                 phase1 = phase1 + shift;
@@ -1387,8 +1399,12 @@ void Timbre::fxAfterBlock() {
                     phase1 -= 2;
                 }
                 //phase1 = modulo(phase1 + shiftInc, 1);
-                phase2 = modulo(phase1 + 0.25f, 1);
-                
+                //phase2 = modulo(phase1 + 0.25f, 1);
+                phase2 = phase1 + 0.25f;
+                if(phase2>=1) {
+                    phase2 -= 2;
+                }
+
                 cos = fastSin(phase1);
                 sin = fastSin(phase2);
 
@@ -1412,35 +1428,13 @@ void Timbre::fxAfterBlock() {
 }
 
 float Timbre::biquad(float x, float a1, float *xn1, float *xn2, float *yn1, float *yn2) {
-    //Syntax: biquad~ fb1 fb2 ff1 ff2 ff3
-    // y(n) = ff1 * w(n) + ff2 * w(n-1) + ff3 * w(n-2)
-    // w(n) = x(n) + fb1 * w(n-1) + fb2 * w(n-2)
-    /*float prevWn = *(wn);
-    float prevWn1 = *(wn1);
-    float y = ff1 * *(wn) + ff2 * *(wn1) + *(wn2);
-    *(wn) = x + fb1 * *(wn1) + fb2 * *(wn2);
-    
-    *(wn1) = prevWn;
-    *(wn2) = prevWn1;
-
-    if(y != y ) {
-        y = 0;
-    }*/
-
-    /*float y = a1 * (x + *yn2) -  *xn2;
-    *yn2 =  *yn1;
-    *yn1 =  y;
-    *xn2 =  *xn1;
-    *xn1 =  x;*/
-
-    //y[n] = a0*(x[n]+y[n-2]) + a1*(y[n-1]-x[n-1]) + x[n-2]
-    //float y = a0 * (x + *yn2) + a1 * (*yn1 - *xn1) + *xn2;
-    //𝑦[𝑘] = 𝑐( 𝑥[𝑘] + 𝑦[𝑘−2] ) − 𝑥[𝑘−2]
+    // https://dsp.stackexchange.com/a/59157
+    // 𝑦[𝑘] = 𝑐( 𝑥[𝑘] + 𝑦[𝑘−2] ) − 𝑥[𝑘−2]
     float y = a1 * (x + *yn2) - *xn2;
-    *yn2 =  *yn1;
-    *yn1 =  y;
-    *xn2 =  *xn1;
-    *xn1 =  x;
+    *yn2 = *yn1;
+    *yn1 = y;
+    *xn2 = *xn1;
+    *xn1 = x;
 
     return y;
 }
