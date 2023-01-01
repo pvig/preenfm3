@@ -270,7 +270,6 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     }
 
     // hi pass params
-
     float filterB2     = 0.18f;
     float filterB     = (filterB2 * filterB2 * 0.5f);
 
@@ -279,7 +278,6 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     _in_a1 = -_in_a0;
 
     // hi pass params 2
-
     filterB2     = 0.2f;
     filterB     = (filterB2 * filterB2 * 0.5f);
 
@@ -304,17 +302,6 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     float f4 = clamp(0.17f + f3, 0.01f, 0.99f);
     apcoef4 = (1.0f - f4) / (1.0f + f4);
     
-    /*** ---------------low shell --------------------- */
-
-   /* float A = 0.5f;
-    float res = 0.5f;
-    float k = 1 / (0.0001f + res);
-    float g = 0.6f;
-    ls_a1 = 1 / (1 + g * (g + k));
-    ls_a2 = g * ls_a1;
-    ls_a3 = g * ls_a2;
-    ls_m1 = k * (A - 1);
-    ls_m2 = (A * A - 1);*/
 }
 
 void Timbre::setVoiceNumber(int v, int n) {
@@ -1334,8 +1321,11 @@ void Timbre::fxAfterBlock() {
         }
         break;
         case FILTER_BODE: {
-            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.5f;
+            mixerGain_ = clamp(0.02f * gainTmp + .98f * mixerGain_, 0, 1);
+
+            float dry = panTable[(int)((1 - mixerGain_) * 255)];
+            float wet = panTable[(int)((mixerGain_) * 255)];
+
 
             float currentShift = shift;
             shift = clamp(this->params_.effect.param1 * 0.25f + matrixFilterFrequency * 0.1f, 0, 0.9999f);
@@ -1352,7 +1342,7 @@ void Timbre::fxAfterBlock() {
             float phase2;
             float shifterIn, shifterOut;
 
-            float filterA2    = 0.875f;
+            float filterA2    = 0.75f;
             float filterA     = (filterA2 * filterA2 * 0.5f);
             _in_lp_b = 1 - filterA;
             _in_lp_a = 1 - _in_lp_b;
@@ -1361,7 +1351,7 @@ void Timbre::fxAfterBlock() {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
 
                 // delay in hp
-                hp_in_x0     = clamp(monoIn + shifterOut * currentFeedback, -1, 1);
+                hp_in_x0     = clamp(monoIn , -1, 1);
                 hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
@@ -1373,9 +1363,10 @@ void Timbre::fxAfterBlock() {
 
                 delayBuffer[delayWritePos] = lpF;
 
-                delayReadPos = modulo(delayReadPos + 200, delayBufferSize);
+                delayReadPos = modulo(delayReadPos + delayBufferSizeM4 * currentShift, delayBufferSize);
+                delayOut1 = delayAllpassInterpolation(delayReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
 
-                shifterIn = hp_in_y0;
+                shifterIn = hp_in_y0 + delayOut1 * currentFeedback;
 
                 //Hilbert phase shift
 
@@ -1386,7 +1377,7 @@ void Timbre::fxAfterBlock() {
                 biquad4 = biquad(biquad3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
 
                 // +90 deg path
-                biquad5 = biquad(shifterIn,  0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
+                biquad5 = biquad(shifterIn, 0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
                 biquad6 = biquad(biquad5, 0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
                 biquad7 = biquad(biquad6, 0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
                 biquad8 = biquad(biquad7, 0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
@@ -1394,26 +1385,26 @@ void Timbre::fxAfterBlock() {
                 samplen1 = shifterIn;
 
                 // cos and sin
-                phase1 = phase1 + shift;
-                if(phase1>=1) {
+                phase1 = phase1 + currentShift;
+                if(unlikely(phase1>=1)) {
                     phase1 -= 2;
                 }
-                //phase1 = modulo(phase1 + shiftInc, 1);
-                //phase2 = modulo(phase1 + 0.25f, 1);
+
                 phase2 = phase1 + 0.25f;
-                if(phase2>=1) {
+                if(unlikely(phase2>=1)) {
                     phase2 -= 2;
                 }
 
                 cos = fastSin(phase1);
                 sin = fastSin(phase2);
 
-                //out = cos * phase90 - sin * phase0
                 shifterOut = sin * biquad4 - cos * biquad8;
+                
+                float shifterOutAttn = shifterOut * wet;
 
-                *sp = ( shifterOut ) * mixerGainAttn;
+                *sp = (*sp * dry) + shifterOutAttn;
                 sp++;
-                *sp = ( shifterOut ) * mixerGainAttn;
+                *sp = (*sp * dry) + shifterOutAttn;
                 sp++;
 
                 currentFeedback += feedbackInc;
@@ -1445,7 +1436,6 @@ float Timbre::delayAllpassInterpolation(float readPos, float buffer[], int buffe
     int readPosInt = readPos;
     float y0 = buffer[readPosInt];
     float y1 = buffer[(unlikely(readPosInt >= bufferLenM1) ? readPosInt - bufferLenM1 + 1 : readPosInt + 1)];
-    //float y1 = buffer[((readPosInt == 0 ) ? bufferLenM1: readPosInt - 1)];
     float x = readPos - floorf(readPos);
     return y1 + (1 - x) * (y0 - prevVal);
 }

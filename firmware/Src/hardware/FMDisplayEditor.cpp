@@ -1203,7 +1203,7 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
     {
         "Ptch",
         "Feed",
-        "Gain" }
+        "Mix " }
 };
 
 const char *oscShapeNames[] = {
