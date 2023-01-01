@@ -184,13 +184,11 @@ private:
     void fxAfterBlock();
     float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
     float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
+    float biquad(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
 
     static const int delayBufferSize        = 4000;
     const int delayBufferSize120     = delayBufferSize * 0.3333f;
     const int delayBufferSize240     = delayBufferSize * 0.6666f;
-    const int delayBufferSize10     = delayBufferSize * 0.00027f;
-    const int delayBufferSize20     = delayBufferSize * 0.00054f;
-    const int delayBufferSize30     = delayBufferSize * 0.00081f;
     const int delayBufferSize90     = delayBufferSize * 0.25f;
     const int delayBufferSize180     = delayBufferSize * 0.5f;
     const int delayBufferSize270     = delayBufferSize * 0.75f;
@@ -244,6 +242,21 @@ private:
     float _lx4 = 0;
     float apcoef1, apcoef2, apcoef3, apcoef4;
     int prevEffectType;
+
+    // frequency shifter 
+
+    float hb1_x1 = 0, hb1_x2 = 0, hb1_y1 = 0, hb1_y2 = 0;
+    float hb2_x1 = 0, hb2_x2 = 0, hb2_y1 = 0, hb2_y2 = 0;
+    float hb3_x1 = 0, hb3_x2 = 0, hb3_y1 = 0, hb3_y2 = 0;
+    float hb4_x1 = 0, hb4_x2 = 0, hb4_y1 = 0, hb4_y2 = 0;
+    float hb5_x1 = 0, hb5_x2 = 0, hb5_y1 = 0, hb5_y2 = 0;
+    float hb6_x1 = 0, hb6_x2 = 0, hb6_y1 = 0, hb6_y2 = 0;
+    float hb7_x1 = 0, hb7_x2 = 0, hb7_y1 = 0, hb7_y2 = 0;
+    float hb8_x1 = 0, hb8_x2 = 0, hb8_y1 = 0, hb8_y2 = 0;
+    float phase1 = 0;
+    float samplen1 = 0;
+    float shifterOut;
+
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;

@@ -931,7 +931,7 @@ const char *fxName[] = {
     "Dblr", /*  53  */
     "Shft", /*  54  */
     "Harm", /*  55  */
-    "Tape"  /*  56  */
+    "Bode"  /*  56  */
 };
 
 struct ParameterRowDisplay effectParameterRow = {
@@ -1201,9 +1201,9 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
         "Ptc2",
         "Gain" },
     {
-        "Ptc1",
-        "Ptc2",
-        "Gain" }
+        "Ptch",
+        "Feed",
+        "Mix " }
 };
 
 const char *oscShapeNames[] = {
