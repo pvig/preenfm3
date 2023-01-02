@@ -1054,10 +1054,12 @@ void Timbre::fxAfterBlock() {
         }
         break;
         case FILTER_DOUBLER: {
-            mixerGain_ = clamp(0.02f * gainTmp + .98f * mixerGain_, 0, 1);
-
-            float dry = panTable[(int)((1 - mixerGain_) * 255)];
-            float wet = panTable[(int)((mixerGain_) * 255)] * 0.5f;
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            float dry = panTable[(int)((1 - mixerGain_01) * 255)];
+            float wet = panTable[(int)((mixerGain_01) * 255)];
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
 
             float param1 = this->params_.effect.param1;
 
@@ -1137,10 +1139,12 @@ void Timbre::fxAfterBlock() {
         }
         break;
         case FILTER_HARMONIZER: {
-            mixerGain_ = clamp(0.02f * gainTmp + .98f * mixerGain_, 0, 1);
-
-            float dry = panTable[(int)((1 - mixerGain_) * 255)];
-            float wet = panTable[(int)((mixerGain_) * 255)];
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            float dry = panTable[(int)((1 - mixerGain_01) * 255)];
+            float wet = panTable[(int)((mixerGain_01) * 255)];
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
 
             float currentShift = shift;
             shift = clamp(this->params_.effect.param1 * 2 + matrixFilterFrequency * 0.5f, 0, 16);
@@ -1234,13 +1238,15 @@ void Timbre::fxAfterBlock() {
         }
         break;
         case FILTER_BODE: {
-            mixerGain_ = clamp(0.02f * gainTmp + .98f * mixerGain_, 0, 1);
-
-            float dry = panTable[(int)((1 - mixerGain_) * 255)];
-            float wet = panTable[(int)((mixerGain_) * 255)];
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            float dry = panTable[(int)((1 - mixerGain_01) * 255)];
+            float wet = panTable[(int)((mixerGain_01) * 255)];
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
 
             float currentShift = shift;
-            shift = clamp(this->params_.effect.param1 * 0.3f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
+            shift = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
             shift *= shift;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
