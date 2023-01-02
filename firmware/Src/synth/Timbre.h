@@ -186,7 +186,7 @@ private:
     float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
     float biquad(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
 
-    static const int delayBufferSize        = 4000;
+    static const int delayBufferSize        = 4800;
     const int delayBufferSize120     = delayBufferSize * 0.3333f;
     const int delayBufferSize240     = delayBufferSize * 0.6666f;
     const int delayBufferSize90     = delayBufferSize * 0.25f;
@@ -256,6 +256,9 @@ private:
     float phase1 = 0;
     float samplen1 = 0;
     float shifterOut;
+
+    const float dcBlockerCoef1 = 0.9973854301f;//~20 hz
+    float dcBlock1a = 0, dcBlock1b = 0, dcBlock2a = 0 , dcBlock2b = 0;
 
     /** --------------end of FX conf--------------  */
 
