@@ -255,7 +255,7 @@ private:
     float hb8_x1 = 0, hb8_x2 = 0, hb8_y1 = 0, hb8_y2 = 0;
     float phase1 = 0;
     float samplen1 = 0;
-    float shifterOut;
+    float shifterOut = 0, shifterOutR = 0, shifterOutI = 0;
 
     const float dcBlockerCoef1 = 0.9973854301f;//~20 hz
     float dcBlock1a = 0, dcBlock1b = 0, dcBlock2a = 0 , dcBlock2b = 0;

@@ -321,8 +321,8 @@ enum FILTER_TYPE {
     FILTER_DOUBLER,
     FILTER_HARMONIZER,
     FILTER_BODE,
-    FILTER_LAST,
-    FILTER_NONE
+    FILTER_BODE2,
+    FILTER_LAST
 };
 
 // Display information

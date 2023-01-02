@@ -1266,7 +1266,7 @@ void Timbre::fxAfterBlock() {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
                 
                 // delay in hp
-                hp_in_x0     = shifterOut;
+                hp_in_x0     = sigmoid(shifterOut);
                 hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
@@ -1321,6 +1321,107 @@ void Timbre::fxAfterBlock() {
                 *sp = (*sp * dry) + shifterOutAttn;
                 sp++;
                 *sp = (*sp * dry) + shifterOutAttn;
+                sp++;
+
+                currentFeedback += feedbackInc;
+                currentShift += shiftInc;                
+            }
+        }
+        break;
+        case FILTER_BODE2: {
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            float dry = panTable[(int)((1 - mixerGain_01) * 255)];
+            float wet = panTable[(int)((mixerGain_01) * 255)];
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
+
+            float currentShift = shift;
+            shift = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
+            shift *= shift;
+            float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
+
+            float currentFeedback = feedback;
+            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f);
+            float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
+
+            float *sp = sampleBlock_;
+            float biquad1, biquad2, biquad3, biquad4, biquad5, biquad6, biquad7, biquad8;
+            float cos, sin;
+            float phase2;
+            float shifterIn;
+
+            const float f = 0.8f;
+
+            float filterA2    = 0.85f;
+            float filterA     = (filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                float monoIn = (*sp + *(sp + 1)) * 0.5f;
+                
+                // feedback lp
+                lpF   = _in_lp_a * sigmoid(shifterOutR) + lpF * _in_lp_b;
+
+                // delay in hp
+                hp_in_x0     = lpF;
+                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y1     = hp_in_y0;
+                hp_in_x1     = hp_in_x0;
+
+                lowL  += f * bandL;
+                bandL += f * (hp_in_y0 - lowL - bandL);
+                
+                float delayIn = clamp(lowL * currentFeedback, -1, 1);
+
+                delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
+                delayBuffer[delayWritePos] = delayIn;
+
+                delayReadPos = modulo2(delayWritePos - delayBufferSizeM4, delayBufferSize);
+                delayOut1 = delayBuffer[(int) delayReadPos];
+
+                shifterIn = clamp(monoIn + delayOut1 * currentFeedback, -1, 1);
+
+                // Frequency shifter 
+
+                //     Phase reference path
+                biquad1 = biquad(samplen1, 0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
+                biquad2 = biquad(biquad1,  0.87624358989504858020f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
+                biquad3 = biquad(biquad2,  0.97660296916871658368f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
+                biquad4 = biquad(biquad3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
+
+                //     +90 deg path
+                biquad5 = biquad(shifterIn, 0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
+                biquad6 = biquad(biquad5,   0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
+                biquad7 = biquad(biquad6,   0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
+                biquad8 = biquad(biquad7,   0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
+
+                samplen1 = shifterIn;
+
+                //     cos and sin
+                phase1 = phase1 + currentShift;
+                if(unlikely(phase1>=1)) {
+                    phase1 -= 2;
+                }
+
+                phase2 = phase1 + 0.25f;
+                if(unlikely(phase2>=1)) {
+                    phase2 -= 2;
+                }
+
+                cos = fastSin(phase1);
+                sin = fastSin(phase2);
+                
+                shifterOutR = sin * biquad4;
+                shifterOutI = cos * biquad8;
+                //shifterOut = sin * biquad4 - cos * biquad8;
+                
+                //float shifterOutAttn = shifterOut * wet;
+
+                *sp = (*sp * dry) + shifterOutR * wet;
+                sp++;
+                *sp = (*sp * dry) + shifterOutI * wet;
                 sp++;
 
                 currentFeedback += feedbackInc;
