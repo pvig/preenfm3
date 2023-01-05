@@ -1021,12 +1021,12 @@ void Timbre::fxAfterBlock() {
 
                 // audio in hp
                 hp_in_x0     = *sp + feedL;
-                hp_in_y0     = _in2_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in2_b1 * hp_in_y1;
+                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
                 hp_in2_x0    = *(sp + 1) + feedR;
-                hp_in2_y0    = _in2_a0 * hp_in2_x0 + _in_a1 * hp_in2_x1 + _in2_b1 * hp_in2_y1;
+                hp_in2_y0    = _in_a0 * hp_in2_x0 + _in_a1 * hp_in2_x1 + _in_b1 * hp_in2_y1;
                 hp_in2_y1    = hp_in2_y0;
                 hp_in2_x1    = hp_in2_x0;
 
@@ -1260,7 +1260,7 @@ void Timbre::fxAfterBlock() {
             wet += extraAmp;
 
             float currentShift = shift;
-            float shiftval = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
+            float shiftval = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.01f, 0, 0.9999f);
             shiftval *= shiftval;
             shift = shift * 0.96f + 0.04f * shiftval;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
@@ -1352,7 +1352,7 @@ void Timbre::fxAfterBlock() {
             wet += extraAmp;
 
             float currentShift = shift;
-            float shiftval = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
+            float shiftval = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.01f, 0, 0.9999f);
             shiftval *= shiftval;
             shift = shift * 0.96f + 0.04f * shiftval;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
