@@ -179,34 +179,20 @@ float sigmoid(float x)
 {
     return x * (1.5f - 0.5f * x * x);
 }
+inline
+float sigmoidPos(float x)
+{
+    //x : 0 -> 1
+    return (sigmoid((x * 2) - 1) + 1) * 0.5f;
+}
+inline
+float tanh3(float x)
+{
+    return 1.5f * x / (1.7f + fabsf(0.34f * x * x));
+}
 inline 
 float fastSin(float x) {
     return 3.9961f * x * ( 1 - fabsf(x) );
-}
-inline
-float sqrt3(const float x)
-{
-  union
-  {
-    int i;
-    float x;
-  } u;
-
-  u.x = x;
-  u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
-  return u.x;
-}
-inline
-float window(float x) {
-    if (x < 0 || x > 1) {
-        return 0;
-    } else if (x < 0.01f) {
-        return x * x * 10000;
-    } else if (x > 0.999f) {
-        return 1 - sqrt3((x-0.999f) * 2000);
-    } else {
-        return 1;
-    }
 }
 Timbre::Timbre() {
 
@@ -265,6 +251,7 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     lowerNoteReleased_ = true;
 
     /** --------------FX conf--------------  */
+
     for (int s = 0; s < delayBufferSize; s++) {
         delayBuffer[s] = 0;
     }
@@ -757,7 +744,12 @@ void Timbre::fxAfterBlock() {
     switch (effectType) {
         case FILTER_FLANGE: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.66f;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            float dry = panTable[(int)((1 - mixerGain_01) * 255)];
+            float wet = panTable[(int)((mixerGain_01) * 255)] * 0.33f;
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
+
             float fxParamTmp = foldAbs( (this->params_.effect.param1 + matrixFilterFrequency ) * 0.0625f );
             delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
             
@@ -823,9 +815,9 @@ void Timbre::fxAfterBlock() {
                 _lx4 = _ly2;
 
 
-                *sp = (*sp + (_ly3 + delayOut1) * 0.5f ) * mixerGainAttn;
+                *sp = (*sp * dry + (_ly3 + delayOut1) * wet);
                 sp++;
-                *sp = (*sp + (_ly4 + delayOut2) * 0.5f ) * mixerGainAttn;
+                *sp = (*sp * dry + (_ly4 + delayOut2) * wet);
                 sp++;
 
                 currentDelaySize1 += delaySizeInc1;
@@ -836,7 +828,12 @@ void Timbre::fxAfterBlock() {
         break;
         case FILTER_FLNG2: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.85f;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            float dry = panTable[(int)((1 - mixerGain_01) * 255)];
+            float wet = panTable[(int)((mixerGain_01) * 255)] * 0.85f;
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
+
             float fxParamTmp = foldAbs( (this->params_.effect.param1 + matrixFilterFrequency ) * 0.0625f );
             delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
 
@@ -883,9 +880,9 @@ void Timbre::fxAfterBlock() {
 
                 delaySumOut  = delayOut1;
 
-                *sp = (*sp + delaySumOut) * mixerGainAttn;
+                *sp = (*sp * dry + delaySumOut * wet);
                 sp++;
-                *sp = (*sp + delaySumOut) * mixerGainAttn;
+                *sp = (*sp * dry + delaySumOut * wet);
                 sp++;
 
                 currentFeedback += feedbackInc;
@@ -895,7 +892,12 @@ void Timbre::fxAfterBlock() {
         break;
         case FILTER_CHORUS: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.36f;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            float dry = panTable[(int)((1 - mixerGain_01) * 255)];
+            float wet = panTable[(int)((mixerGain_01) * 255)] * 0.36f;
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
+
             float param1 = this->params_.effect.param1;
             param1 *= param1;
             float fxParamTmp = foldAbs( (0.125f *  (0.5f + (param1 + matrixFilterFrequency) * 0.5f ) ) );
@@ -969,10 +971,9 @@ void Timbre::fxAfterBlock() {
 
                 _ly2 = apcoef2 * (_ly2 + delayOut2) - _lx2; // allpass 2
                 _lx2 = delayOut2;*/
-
-                *sp = (*sp + lowL) * mixerGainAttn;
+                *sp = (*sp * dry + lowL * wet);
                 sp++;
-                *sp = (*sp + lowR) * mixerGainAttn;
+                *sp = (*sp * dry + lowR * wet);
                 sp++;
 
                 currentDelaySize1 += delaySizeInc1;
@@ -985,7 +986,12 @@ void Timbre::fxAfterBlock() {
         break;
         case FILTER_DIMENSION: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGainAttn = mixerGain_ * 0.5f;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            float dry = panTable[(int)((1 - mixerGain_01) * 255)];
+            float wet = panTable[(int)((mixerGain_01) * 255)];
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
+
             float param1 = this->params_.effect.param1;
 
             float fxParamTmp  = foldAbs( (0.125f *  (0.5f + (param1 + matrixFilterFrequency) * 0.5f ) ) );
@@ -1015,12 +1021,12 @@ void Timbre::fxAfterBlock() {
 
                 // audio in hp
                 hp_in_x0     = *sp + feedL;
-                hp_in_y0     = _in2_a0 * hp_in_x0 + _in2_a1 * hp_in_x1 + _in2_b1 * hp_in_y1;
+                hp_in_y0     = _in2_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in2_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
                 hp_in2_x0    = *(sp + 1) + feedR;
-                hp_in2_y0    = _in2_a0 * hp_in2_x0 + _in2_a1 * hp_in2_x1 + _in2_b1 * hp_in2_y1;
+                hp_in2_y0    = _in2_a0 * hp_in2_x0 + _in_a1 * hp_in2_x1 + _in2_b1 * hp_in2_y1;
                 hp_in2_y1    = hp_in2_y0;
                 hp_in2_x1    = hp_in2_x0;
 
@@ -1041,9 +1047,9 @@ void Timbre::fxAfterBlock() {
                 lpF   = _in_lp_a * delayOut1 + lpF * _in_lp_b;
                 lpF2  = _in_lp_a * delayOut2 + lpF2 * _in_lp_b;
 
-                *sp = (*sp + lpc1 - (lpF2 - lpF * 0.3f) * 0.4f) * mixerGainAttn;
+                *sp = (*sp * dry + (lpc1 - (lpF2 - lpF * 0.3f) * 0.4f) * wet);
                 sp++;
-                *sp = (*sp + lpc2 - (lpF - lpF2 * 0.3f) * 0.4f) * mixerGainAttn;
+                *sp = (*sp * dry + (lpc2 - (lpF - lpF2 * 0.3f) * 0.4f) * wet);
                 sp++;
 
                 currentDelaySize1 += delaySizeInc1;
@@ -1076,10 +1082,18 @@ void Timbre::fxAfterBlock() {
             _in_lp_b = 1 - filterA;
             _in_lp_a = 1 - _in_lp_b;
 
-            const float f = 0.79f;
+            const float f = 0.65f;
 
             float *sp = sampleBlock_;
             float delayReadPos90, delayReadPos180, delayReadPos270, level1, level2, level3, level4;
+
+            // hi pass params
+            float filterB2     = 0.05f + sigmoidPos( clamp(shift, 0, 1) ) * 0.15f;
+            float filterB     = (filterB2 * filterB2 * 0.5f);
+
+            _in2_b1 = (1 - filterB);
+            _in2_a0 = (1 + _in2_b1 * _in2_b1 * _in2_b1) * 0.5f;
+            _in2_a1 = -_in2_a0;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
@@ -1089,7 +1103,7 @@ void Timbre::fxAfterBlock() {
 
                 // delay in hp
                 hp_in_x0     = clamp(monoIn + lpF * currentFeedback, -1, 1);
-                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y0     = _in2_a0 * hp_in_x0 + _in2_a1 * hp_in_x1 + _in2_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
@@ -1246,16 +1260,17 @@ void Timbre::fxAfterBlock() {
             wet += extraAmp;
 
             float currentShift = shift;
-            shift = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
-            shift *= shift;
+            float shiftval = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
+            shiftval *= shiftval;
+            shift = shift * 0.96f + 0.04f * shiftval;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
-            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f);
+            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * 0.9f;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float *sp = sampleBlock_;
-            float biquad1, biquad2, biquad3, biquad4, biquad5, biquad6, biquad7, biquad8;
+            float iirFilter1, iirFilter2, iirFilter3, iirFilter4, iirFilter5, iirFilter6, iirFilter7, iirFilter8;
             float cos, sin;
             float phase2;
             float shifterIn;
@@ -1287,16 +1302,16 @@ void Timbre::fxAfterBlock() {
                 // Frequency shifter 
 
                 //     Phase reference path
-                biquad1 = biquad(samplen1, 0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
-                biquad2 = biquad(biquad1,  0.87624358989504858020f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
-                biquad3 = biquad(biquad2,  0.97660296916871658368f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
-                biquad4 = biquad(biquad3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
+                iirFilter1 = iirFilter(samplen1,    0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
+                iirFilter2 = iirFilter(iirFilter1,  0.87624358989504858020f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
+                iirFilter3 = iirFilter(iirFilter2,  0.97660296916871658368f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
+                iirFilter4 = iirFilter(iirFilter3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
 
                 //     +90 deg path
-                biquad5 = biquad(shifterIn, 0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
-                biquad6 = biquad(biquad5,   0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
-                biquad7 = biquad(biquad6,   0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
-                biquad8 = biquad(biquad7,   0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
+                iirFilter5 = iirFilter(shifterIn,    0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
+                iirFilter6 = iirFilter(iirFilter5,   0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
+                iirFilter7 = iirFilter(iirFilter6,   0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
+                iirFilter8 = iirFilter(iirFilter7,   0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
 
                 samplen1 = shifterIn;
 
@@ -1314,7 +1329,7 @@ void Timbre::fxAfterBlock() {
                 cos = fastSin(phase1);
                 sin = fastSin(phase2);
 
-                shifterOut = sin * biquad4 - cos * biquad8;
+                shifterOut = sin * iirFilter4 - cos * iirFilter8;
                 
                 float shifterOutAttn = shifterOut * wet;
 
@@ -1337,16 +1352,17 @@ void Timbre::fxAfterBlock() {
             wet += extraAmp;
 
             float currentShift = shift;
-            shift = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
-            shift *= shift;
+            float shiftval = clamp(this->params_.effect.param1 * 0.5f + matrixFilterFrequency * 0.05f, 0, 0.9999f);
+            shiftval *= shiftval;
+            shift = shift * 0.96f + 0.04f * shiftval;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
-            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f);
+            feedback = clamp(this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * 0.9f;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float *sp = sampleBlock_;
-            float biquad1, biquad2, biquad3, biquad4, biquad5, biquad6, biquad7, biquad8;
+            float iirFilter1, iirFilter2, iirFilter3, iirFilter4, iirFilter5, iirFilter6, iirFilter7, iirFilter8;
             float cos, sin;
             float phase2;
             float shifterIn;
@@ -1362,7 +1378,7 @@ void Timbre::fxAfterBlock() {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
                 
                 // feedback lp
-                lpF   = _in_lp_a * sigmoid(shifterOutR) + lpF * _in_lp_b;
+                lpF   = _in_lp_a * sigmoid(shifterOut2) + lpF * _in_lp_b;
 
                 // delay in hp
                 hp_in_x0     = lpF;
@@ -1381,21 +1397,21 @@ void Timbre::fxAfterBlock() {
                 delayReadPos = modulo2(delayWritePos - delayBufferSizeM4, delayBufferSize);
                 delayOut1 = delayBuffer[(int) delayReadPos];
 
-                shifterIn = clamp(monoIn + delayOut1 * currentFeedback, -1, 1);
+                shifterIn = clamp(monoIn + delayOut1 * currentFeedback, -1, 1) * 0.9f;
 
                 // Frequency shifter 
 
                 //     Phase reference path
-                biquad1 = biquad(samplen1, 0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
-                biquad2 = biquad(biquad1,  0.87624358989504858020f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
-                biquad3 = biquad(biquad2,  0.97660296916871658368f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
-                biquad4 = biquad(biquad3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
+                iirFilter1 = iirFilter(samplen1, 0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
+                iirFilter2 = iirFilter(iirFilter1,  0.87624358989504858020f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
+                iirFilter3 = iirFilter(iirFilter2,  0.97660296916871658368f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
+                iirFilter4 = iirFilter(iirFilter3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
 
                 //     +90 deg path
-                biquad5 = biquad(shifterIn, 0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
-                biquad6 = biquad(biquad5,   0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
-                biquad7 = biquad(biquad6,   0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
-                biquad8 = biquad(biquad7,   0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
+                iirFilter5 = iirFilter(shifterIn, 0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
+                iirFilter6 = iirFilter(iirFilter5,   0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
+                iirFilter7 = iirFilter(iirFilter6,   0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
+                iirFilter8 = iirFilter(iirFilter7,   0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
 
                 samplen1 = shifterIn;
 
@@ -1413,15 +1429,14 @@ void Timbre::fxAfterBlock() {
                 cos = fastSin(phase1);
                 sin = fastSin(phase2);
                 
-                shifterOutR = sin * biquad4;
-                shifterOutI = cos * biquad8;
-                //shifterOut = sin * biquad4 - cos * biquad8;
-                
-                //float shifterOutAttn = shifterOut * wet;
+                shifterOutR = sin * iirFilter4;
+                shifterOutI = cos * iirFilter8;
+                shifterOut = shifterOutR - shifterOutI;
+                shifterOut2 = shifterOutR + shifterOutI;
 
-                *sp = (*sp * dry) + shifterOutR * wet;
+                *sp = (*sp * dry) + shifterOut * wet;
                 sp++;
-                *sp = (*sp * dry) + shifterOutI * wet;
+                *sp = (*sp * dry) + shifterOut2 * wet;
                 sp++;
 
                 currentFeedback += feedbackInc;
@@ -1435,7 +1450,7 @@ void Timbre::fxAfterBlock() {
     }
 }
 
-float Timbre::biquad(float x, float a1, float *xn1, float *xn2, float *yn1, float *yn2) {
+float Timbre::iirFilter(float x, float a1, float *xn1, float *xn2, float *yn1, float *yn2) {
     // https://dsp.stackexchange.com/a/59157
     // 𝑦[𝑘] = 𝑐( 𝑥[𝑘] + 𝑦[𝑘−2] ) − 𝑥[𝑘−2]
     float y = a1 * (x + *yn2) - *xn2;

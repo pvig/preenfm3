@@ -184,7 +184,7 @@ private:
     void fxAfterBlock();
     float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
     float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
-    float biquad(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
+    float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
 
     static const int delayBufferSize        = 4800;
     const int delayBufferSize120     = delayBufferSize * 0.3333f;
@@ -255,7 +255,7 @@ private:
     float hb8_x1 = 0, hb8_x2 = 0, hb8_y1 = 0, hb8_y2 = 0;
     float phase1 = 0;
     float samplen1 = 0;
-    float shifterOut = 0, shifterOutR = 0, shifterOutI = 0;
+    float shifterOut = 0, shifterOut2 = 0, shifterOutR = 0, shifterOutI = 0;
 
     const float dcBlockerCoef1 = 0.9973854301f;//~20 hz
     float dcBlock1a = 0, dcBlock1b = 0, dcBlock2a = 0 , dcBlock2b = 0;

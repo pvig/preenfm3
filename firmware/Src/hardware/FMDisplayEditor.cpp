@@ -1175,19 +1175,19 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
     {
         "Dpth",
         "Feed",
-        "Gain" },
+        "Mix " },
     {
         "Dpth",
         "Feed",
-        "Gain" },
+        "Mix " },
     {
         "Widt",
         "Feed",
-        "Gain" },
+        "Mix " },
     {
         "Widt",
         "Feed",
-        "Gain" },
+        "Mix " },
     {
         "Ptch",
         "Feed",
