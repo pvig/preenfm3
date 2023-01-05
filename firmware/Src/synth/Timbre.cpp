@@ -894,7 +894,7 @@ void Timbre::fxAfterBlock() {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
             float mixerGain_01 = clamp(mixerGain_, 0, 1);
             float dry = panTable[(int)((1 - mixerGain_01) * 255)];
-            float wet = panTable[(int)((mixerGain_01) * 255)] * 0.36f;
+            float wet = panTable[(int)((mixerGain_01) * 255)] * 0.66f;
             float extraAmp = clamp(mixerGain_ - 1, 0, 1);
             wet += extraAmp;
 
@@ -915,7 +915,7 @@ void Timbre::fxAfterBlock() {
             float delaySizeInc3 = (delaySize3 - currentDelaySize3) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
-            feedback = clamp( (this->params_.effect.param2 + matrixFilterParam2), -0.9999f, 0.9999f);
+            feedback = clamp( (this->params_.effect.param2 + matrixFilterParam2), -0.9999f, 0.9999f) * 0.49999f;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float *sp = sampleBlock_;
@@ -943,10 +943,10 @@ void Timbre::fxAfterBlock() {
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
-                //float delayIn = clamp(hp_in_y0 + (delayOut1 - delayOut3 + delayOut2) * currentFeedback, -1, 1);
+                float delayIn = clamp(hp_in_y0 + (lpF + lpF2) * currentFeedback, -1, 1);
 
                 delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
-                delayBuffer[delayWritePos] = hp_in_y0;
+                delayBuffer[delayWritePos] = delayIn;
 
                 delReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
                 delayOut1  = delayAllpassInterpolation(delReadPos, delayBuffer, delayBufferSizeM1, delayOut1);
