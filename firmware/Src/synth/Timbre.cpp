@@ -167,6 +167,19 @@ float clamp(float d, float min, float max) {
     return unlikely(t > max) ? max : t;
 }
 inline
+float sqrt3(const float x)
+{
+  union
+  {
+    int i;
+    float x;
+  } u;
+
+  u.x = x;
+  u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
+  return u.x;
+}
+inline
 float foldAbs(float x) {
     x *= 0.5f;
     float f = (fabsf(x - roundf(x)));
@@ -193,9 +206,19 @@ float sigmoid2(float x)
     return x * (1.8f - 0.864f * x * x );
 }
 inline
+float sigmoid3(float x)
+{
+    return x * (1.4f - 0.4065f * x * x);
+}
+inline
 float tanh3(float x)
 {
     return 1.5f * x / (1.7f + fabsf(0.34f * x * x));
+}
+inline
+float tanh4(float x)
+{
+    return x / sqrt3(x * x + 1);
 }
 inline 
 float fastSin(float x) {
@@ -870,7 +893,6 @@ void Timbre::fxAfterBlock() {
             const float f = 0.8f;
 
             float *sp = sampleBlock_;
-            float delayReadPos10, delayReadPos20, delayReadPos30, level1, level2, level3, level4;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
@@ -1291,13 +1313,21 @@ void Timbre::fxAfterBlock() {
             float phase2;
             float shifterIn;
 
-            const float f = 0.8f;
+            const float f = 0.85f;
+
+            float filterA2    = 0.83f;
+            float filterA     = (filterA2 * filterA2 * 0.5f);
+            _in_lp_b = 1 - filterA;
+            _in_lp_a = 1 - _in_lp_b;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
-                
+
+                // monoIn lp
+                lpF   = _in_lp_a * monoIn + lpF * _in_lp_b;
+
                 // delay in hp
-                hp_in_x0     = sigmoid2(shifterOut);
+                hp_in_x0     = sigmoid2(tanh4(shifterOut));
                 hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
@@ -1310,10 +1340,10 @@ void Timbre::fxAfterBlock() {
                 delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
                 delayBuffer[delayWritePos] = delayIn;
 
-                delayReadPos = modulo2(delayWritePos - delayBufferSize180, delayBufferSize);
+                delayReadPos = modulo2(delayWritePos - 1100, delayBufferSize);
                 delayOut1 = delayBuffer[(int) delayReadPos];
 
-                shifterIn = clamp(monoIn + delayOut1 * currentFeedback, -1, 1);
+                shifterIn = clamp(lpF + delayOut1 * currentFeedback, -1, 1);
 
                 // Frequency shifter 
 
@@ -1371,13 +1401,13 @@ void Timbre::fxAfterBlock() {
             param1 *= param1;
 
             float currentShift = shift;
-            float shiftval = clamp(param1 * 0.5f + matrixFilterFrequency * 0.01f, 0, 0.9999f);
+            float shiftval = clamp(param1 * 0.5f + matrixFilterFrequency * 0.1f, 0, 0.9999f);
             shiftval *= shiftval;
             shift = shift * 0.96f + 0.04f * shiftval;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
-            feedback = clamp(this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f);
+            feedback = clamp(this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * ((49 + param1 + param1) * 0.0195f) * 0.98f;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float *sp = sampleBlock_;
@@ -1386,21 +1416,22 @@ void Timbre::fxAfterBlock() {
             float phase2;
             float shifterIn;
 
-            const float f = 0.8f;
+            const float f = 0.78f;
 
             float filterA2    = 0.83f;
             float filterA     = (filterA2 * filterA2 * 0.5f);
             _in_lp_b = 1 - filterA;
             _in_lp_a = 1 - _in_lp_b;
+            float tapReadPos1, tapReadPos2, tapReadPos3;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
                 
-                // feedback lp
-                lpF   = _in_lp_a * sigmoid2(shifterOut2) + lpF * _in_lp_b;
+                // monoIn lp
+                lpF   = _in_lp_a * monoIn + lpF * _in_lp_b;
 
-                // delay in hp
-                hp_in_x0     = lpF;
+                // feedback hp
+                hp_in_x0     = tanh4(shifterOut2 * 2);
                 hp_in_y0     = _in2_a0 * hp_in_x0 + _in2_a1 * hp_in_x1 + _in2_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
@@ -1408,26 +1439,33 @@ void Timbre::fxAfterBlock() {
                 lowL  += f * bandL;
                 bandL += f * (hp_in_y0 - lowL - bandL);
                 
-                float delayIn = clamp(lowL * currentFeedback, -1, 1);
+                float delayIn = (lowL * currentFeedback);
 
                 delayWritePos = modulo(delayWritePos + 1, delayBufferSize);
                 delayBuffer[delayWritePos] = delayIn;
 
-                delayReadPos = modulo2(delayWritePos - delayBufferSizeM4, delayBufferSize);
-                delayOut1 = delayBuffer[(int) delayReadPos];
+                tapReadPos1 = modulo2(delayWritePos - 400, delayBufferSize);
+                delayOut1 = delayBuffer[(int) tapReadPos1];
 
-                shifterIn = clamp(monoIn + delayOut1 * currentFeedback, -1, 1);
+                tapReadPos2 = modulo2(delayWritePos - 800, delayBufferSize);
+                delayOut2 = delayBuffer[(int) tapReadPos2];
+
+                //tapReadPos3 = modulo2(delayWritePos - 1100, delayBufferSize);
+                //delayOut3 = delayBuffer[(int) tapReadPos3];
+
+                float tap = (delayOut1 - delayOut2 ) * 0.5f;
+                shifterIn = clamp(lpF - tap * currentFeedback, -1, 1);
 
                 // Frequency shifter 
 
                 //     Phase reference path
-                iirFilter1 = iirFilter(samplen1, 0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
+                iirFilter1 = iirFilter(samplen1,    0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
                 iirFilter2 = iirFilter(iirFilter1,  0.87624358989504858020f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
                 iirFilter3 = iirFilter(iirFilter2,  0.97660296916871658368f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
                 iirFilter4 = iirFilter(iirFilter3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
 
                 //     +90 deg path
-                iirFilter5 = iirFilter(shifterIn, 0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
+                iirFilter5 = iirFilter(shifterIn,    0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
                 iirFilter6 = iirFilter(iirFilter5,   0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
                 iirFilter7 = iirFilter(iirFilter6,   0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
                 iirFilter8 = iirFilter(iirFilter7,   0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
