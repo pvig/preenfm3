@@ -748,19 +748,19 @@ void FxBus::processBlock(int32_t *outBuff) {
 }
 
 float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
+    //y(n) = C * x(n) + x(n-1) - C * y(n-1)
     //v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
     int readPosInt = readPos;
-    float y0 = buffer[readPosInt];
-    float y1 = buffer[(unlikely(readPosInt >= bufferLenM1) ? readPosInt - bufferLenM1 + 1 : readPosInt + 1)];
-    //float y1 = buffer[((readPosInt == 0 ) ? bufferLenM1: readPosInt - 1)];
+    float y1 = buffer[readPosInt];
+    float y0 = buffer[(unlikely(readPosInt <= 0) ? readPosInt + bufferLenM1 : readPosInt - 1)];
     float x = readPos - floorf(readPos);
-    return y1 + (1 - x) * (y0 - prevVal);
+    return y1 + x * (y0 - prevVal);
 }
 
 float FxBus::delayInterpolation(float readPos, float buffer[], int bufferLenM1) {
     int readPosInt = readPos;
-    float y0 = buffer[readPosInt];
-    float y1 = buffer[(unlikely(readPosInt == 0) ? bufferLenM1 : readPosInt - 1)];
+    float y1 = buffer[readPosInt];
+    float y0 = buffer[(unlikely(readPosInt <= 0) ? readPosInt + bufferLenM1 : readPosInt - 1)];
     float x = readPos - floorf(readPos);
     return y0 + x * (y1 - y0);
 }
