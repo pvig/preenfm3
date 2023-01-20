@@ -183,6 +183,7 @@ private:
     /** --------------FX conf--------------  */
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
+    float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
     float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
     float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
@@ -209,13 +210,13 @@ private:
     float delayReadFrac2      = 0;
     float readPos             = 0;
     float _in_lp_a, _in_lp_b;
-    float lpF, lpF2, lpF3;
+    float lpF, lpF2, lpF3, lpF4;
      
     float lowL = 0, highL = 0, bandL = 0;
     float lowR = 0, highR = 0, bandR = 0;
 
-    int delayBufStereoSize = delayBufferSize * 0.5f;
-    int delayBufStereoSizeM1 = delayBufferSize - 1;
+    int delayBufStereoSize = 2400;//delayBufferSize * 0.5f;
+    int delayBufStereoSizeM1 = delayBufStereoSize - 1;
     float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
     float delaySumOut = 0, delaySumOut2 = 0;
 
