@@ -210,6 +210,7 @@ private:
     float delayReadFrac2      = 0;
     float readPos             = 0;
     float _in_lp_a, _in_lp_b;
+    float _in_lp2_a, _in_lp2_b;
     float lpF, lpF2, lpF3, lpF4;
      
     float lowL = 0, highL = 0, bandL = 0;
