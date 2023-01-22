@@ -1241,7 +1241,7 @@ void Timbre::fxAfterBlock() {
             wet += extraAmp;
 
             float param1 = this->params_.effect.param1;
-            param1 *= param1;
+            param1 *= param1 * param1;
 
             float currentShift = shift;
             float shiftval = clamp(fabsf(param1 * 0.75f + matrixFilterFrequency * 0.025f), 0, 0.9999f);
@@ -1250,7 +1250,7 @@ void Timbre::fxAfterBlock() {
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             float currentFeedback = feedback;
-            feedback = clamp( this->params_.effect.param2 + matrixFilterParam2, -0.9999f, 0.9999f) * 0.765f;
+            feedback = clamp( sqrt3(this->params_.effect.param2 + matrixFilterParam2), -0.9999f, 0.9999f) * 0.765f;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float currentDelaySize1 = clamp(delaySize1, 0, delayBufferSize);
@@ -1278,7 +1278,7 @@ void Timbre::fxAfterBlock() {
                 lpF   = _in_lp_a * monoIn + lpF * _in_lp_b;
 
                 // delay in hp
-                hp_in_x0     = tanh4(shifterOut * 1.8f);
+                hp_in_x0     = tanh4(lpF2 * 1.25f);
                 hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
@@ -1296,6 +1296,11 @@ void Timbre::fxAfterBlock() {
 
                 shifterIn = clamp(lpF + delayOut1 * currentFeedback, -1.f, 1.f);
 
+                hp_in2_x0    = shifterIn;
+                hp_in2_y0    = _in2_a0 * hp_in2_x0 + _in2_a1 * hp_in2_x1 + _in2_b1 * hp_in2_y1;
+                hp_in2_y1    = hp_in2_y0;
+                hp_in2_x1    = hp_in2_x0;
+
                 // Frequency shifter 
 
                 //     Phase reference path
@@ -1305,12 +1310,12 @@ void Timbre::fxAfterBlock() {
                 iirFilter4 = iirFilter(iirFilter3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
 
                 //     +90 deg path
-                iirFilter5 = iirFilter(shifterIn,    0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
+                iirFilter5 = iirFilter(hp_in2_y0,    0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
                 iirFilter6 = iirFilter(iirFilter5,   0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
                 iirFilter7 = iirFilter(iirFilter6,   0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
                 iirFilter8 = iirFilter(iirFilter7,   0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
 
-                samplen1 = shifterIn;
+                samplen1 = hp_in2_y0;
 
                 //     cos and sin
                 phase1 = phase1 + currentShift;
@@ -1326,7 +1331,7 @@ void Timbre::fxAfterBlock() {
                 cos = fastSin(phase1);
                 sin = fastSin(phase2);
 
-                shifterOut = sin * iirFilter4 - cos * iirFilter8;
+                shifterOut = sin * iirFilter4 + cos * iirFilter8;
                                 
                 lpF2   = _in_lp2_b * shifterOut + lpF2 * _in_lp2_b;
 
