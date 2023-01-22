@@ -74,7 +74,7 @@ float FxBus::delay2Buffer[delay2BufferSize] __attribute__((section(".ram_d1")));
 float FxBus::delay3Buffer[delay3BufferSize] __attribute__((section(".ram_d2")));
 float FxBus::delay4Buffer[delay4BufferSize] __attribute__((section(".ram_d2")));
 
-float FxBus::predelayBuffer[predelayBufferSize] __attribute__((section(".ram_d2b")));
+float FxBus::predelayBuffer[predelayBufferSize] __attribute__((section(".ram_d2")));
 
 float FxBus::inputBuffer1[inputBufferLen1] __attribute__((section(".ram_d2")));
 float FxBus::inputBuffer2[inputBufferLen2] __attribute__((section(".ram_d2")));
@@ -83,8 +83,8 @@ float FxBus::inputBuffer4[inputBufferLen4] __attribute__((section(".ram_d2")));
 
 float FxBus::diffuserBuffer1[diffuserBufferLen1] __attribute__((section(".ram_d2")));
 float FxBus::diffuserBuffer2[diffuserBufferLen2] __attribute__((section(".ram_d2")));
-float FxBus::diffuserBuffer3[diffuserBufferLen3] __attribute__((section(".ram_d2")));
-float FxBus::diffuserBuffer4[diffuserBufferLen4] __attribute__((section(".ram_d2")));
+float FxBus::diffuserBuffer3[diffuserBufferLen3] __attribute__((section(".ram_d3")));
+float FxBus::diffuserBuffer4[diffuserBufferLen4] __attribute__((section(".ram_d1")));
 
 FxBus::FxBus() {}
 

@@ -188,7 +188,7 @@ private:
     float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
 
-    static const int delayBufferSize        = 4800;
+    #define delayBufferSize 4096
     const int delayBufferSize120     = delayBufferSize * 0.3333f;
     const int delayBufferSize240     = delayBufferSize * 0.6666f;
     const int delayBufferSize90     = delayBufferSize * 0.25f;
@@ -196,9 +196,11 @@ private:
     const int delayBufferSize270     = delayBufferSize * 0.75f;
     const int delayBufferSizeM1   = delayBufferSize - 1;
     const int delayBufferSizeM4   = delayBufferSize - 4;
-    float delayBufferSizeInv = 1.0f / delayBufferSize;
+    const float delayBufferSizeInv = 1.0f / delayBufferSize;
 
-    static float delayBuffer[delayBufferSize];
+    static float delayBuffer[NUMBER_OF_TIMBRES][delayBufferSize];
+    float *delayBuffer_;
+
     float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0;
     float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0, delayOut4 = 0, delayOut5 = 0, delayOut6 = 0;
     float feedback            = 0;
@@ -216,9 +218,9 @@ private:
     float lowL = 0, highL = 0, bandL = 0;
     float lowR = 0, highR = 0, bandR = 0;
 
-    int delayBufStereoSize = 2400;//delayBufferSize * 0.5f;
-    int delayBufStereoSizeM1 = delayBufStereoSize - 1;
-    float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
+    const int delayBufStereoSize = delayBufferSize * 0.5f;
+    const int delayBufStereoSizeM1 = delayBufStereoSize - 1;
+    const float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
     float delaySumOut = 0, delaySumOut2 = 0;
 
     float hp_in_x0 = 0;
@@ -257,9 +259,6 @@ private:
     float phase1 = 0;
     float samplen1 = 0;
     float shifterOut = 0, shifterOut2 = 0, shifterOutR = 0, shifterOutI = 0;
-
-    const float dcBlockerCoef1 = 0.9973854301f;//~20 hz
-    float dcBlock1a = 0, dcBlock1b = 0, dcBlock2a = 0 , dcBlock2b = 0;
 
     /** --------------end of FX conf--------------  */
 
