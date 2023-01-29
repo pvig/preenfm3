@@ -215,8 +215,10 @@ private:
     float _in_lp2_a, _in_lp2_b;
     float lpF, lpF2, lpF3, lpF4;
      
-    float lowL = 0, highL = 0, bandL = 0;
-    float lowR = 0, highR = 0, bandR = 0;
+    float low1 = 0, band1 = 0;
+    float low2 = 0, band2 = 0;
+    float low3 = 0, band3 = 0;
+    float low4 = 0, band4 = 0;
 
     const int delayBufStereoSize = delayBufferSize * 0.5f;
     const int delayBufStereoSizeM1 = delayBufStereoSize - 1;
