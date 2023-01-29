@@ -184,16 +184,14 @@ private:
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
-    float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
-    float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
 
     #define delayBufferSize 4096
-    const int delayBufferSize120     = delayBufferSize * 0.3333f;
-    const int delayBufferSize240     = delayBufferSize * 0.6666f;
-    const int delayBufferSize90     = delayBufferSize * 0.25f;
-    const int delayBufferSize180     = delayBufferSize * 0.5f;
-    const int delayBufferSize270     = delayBufferSize * 0.75f;
+    const float delayBufferSize120     = delayBufferSize * 0.3333f;
+    const float delayBufferSize240     = delayBufferSize * 0.6666f;
+    const float delayBufferSize90      = delayBufferSize * 0.25f;
+    const float delayBufferSize180     = delayBufferSize * 0.5f;
+    const float delayBufferSize270     = delayBufferSize * 0.75f;
     const int delayBufferSizeM1   = delayBufferSize - 1;
     const int delayBufferSizeM4   = delayBufferSize - 4;
     const float delayBufferSizeInv = 1.0f / delayBufferSize;
