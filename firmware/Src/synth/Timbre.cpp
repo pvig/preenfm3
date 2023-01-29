@@ -1281,18 +1281,17 @@ void Timbre::fxAfterBlock() {
             
             // shift val
             float param1 = fabsf(this->params_.effect.param1 - 0.5f) * 1.3f;
-            param1 *= param1;
 
             // shift increment :
             float currentShift = shift;
-            float shiftval = clamp(fabsf(param1 * 0.75f + matrixFilterFrequency * 0.025f), 0, 0.9999f);
+            float shiftval = clamp(fabsf(param1 * param1 * 0.75f + matrixFilterFrequency * 0.025f), 0, 0.9999f);
             shiftval *= shiftval;
             shift = shift * 0.96f + 0.04f * shiftval;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             // feedback
             float currentFeedback = feedback;
-            feedback = clamp( sqrt3(this->params_.effect.param2 + matrixFilterParam2), -0.9999f, 0.9999f) * (0.9f + param1 * 0.05f);
+            feedback = clamp( sqrt3(this->params_.effect.param2 + matrixFilterParam2), -0.9999f, 0.9999f) * (0.9f + param1 * 0.075f);
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float currentDelaySize1 = clamp(delaySize1, 0, delayBufferSize);
