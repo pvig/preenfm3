@@ -199,6 +199,7 @@ private:
     static float delayBuffer[NUMBER_OF_TIMBRES][delayBufferSize];
     float *delayBuffer_;
 
+    float param1S = 0;
     float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0;
     float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0, delayOut4 = 0, delayOut5 = 0, delayOut6 = 0;
     float feedback            = 0;
