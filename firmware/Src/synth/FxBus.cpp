@@ -83,8 +83,8 @@ float FxBus::inputBuffer4[inputBufferLen4] __attribute__((section(".ram_d2")));
 
 float FxBus::diffuserBuffer1[diffuserBufferLen1] __attribute__((section(".ram_d2")));
 float FxBus::diffuserBuffer2[diffuserBufferLen2] __attribute__((section(".ram_d2")));
-float FxBus::diffuserBuffer3[diffuserBufferLen3] __attribute__((section(".ram_d1")));
-float FxBus::diffuserBuffer4[diffuserBufferLen4] __attribute__((section(".ram_d1")));
+float FxBus::diffuserBuffer3[diffuserBufferLen3] __attribute__((section(".ram_d2b")));
+float FxBus::diffuserBuffer4[diffuserBufferLen4] __attribute__((section(".ram_d2b")));
 
 FxBus::FxBus() {}
 
