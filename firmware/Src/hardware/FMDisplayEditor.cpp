@@ -1185,8 +1185,8 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
         "Ptc2",
         "Mix " },
     {
-        "Ptch",
-        "Feed",
+        "Freq",
+        "Shft",
         "Mix " }
 };
 
