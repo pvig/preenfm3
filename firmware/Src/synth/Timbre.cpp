@@ -1441,10 +1441,15 @@ void Timbre::fxAfterBlock() {
 
             delayReadFrac = (param2S + 99 * delayReadFrac) * 0.01f; // smooth change
 
-            float currentDelaySize1 = delaySize1;
-            delaySize1 = clamp(1 + delayBufStereoSize * delayReadFrac, 0, delayBufStereoSizeM1);
-            int delaySize1Int = (int) delaySize1;
-            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
+            int delaySizeInt = 1000;
+
+            // hi pass params
+            float filterB2    = param2S * param2S;
+            float filterB     = (filterB2 * filterB2 * 0.5f);
+
+            float _hp_b1 = (1 - filterB);
+            float _hp_a0 = (1 + _hp_b1 * _hp_b1 * _hp_b1) * 0.5f;
+            float _hp_a1 = -_hp_a0;
 
             const float f = 0.75f;
 
@@ -1458,9 +1463,11 @@ void Timbre::fxAfterBlock() {
 
                 // delay in hp
                 hp_in_x0     = monoIn;
-                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y0     = _hp_a0 * hp_in_x0 + _hp_a1 * hp_in_x1 + _hp_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
+
+                float hpComplement = monoIn - hp_in_y0;
 
                 delayWritePos = (delayWritePos + 1) & 1023;
                 float delayWritePosF = (float) delayWritePos;
@@ -1469,7 +1476,7 @@ void Timbre::fxAfterBlock() {
                 band1 += f * (hp_in_y0 - low1 - band1);
 
                 delayBuffer_[delayBufStereoSize + delayWritePos] = low1;
-                int wp = modulo2(delayWritePos - delaySize1Int, delayBufStereoSize);
+                int wp = modulo2(delayWritePos - delaySizeInt, delayBufStereoSize);
                 delayBuffer_[delayWritePos] = delayBuffer_[delayBufStereoSize + wp];
 
                 //--------------- shifter 1
@@ -1516,14 +1523,13 @@ void Timbre::fxAfterBlock() {
                 float out5 = delayOut5 * level5;
                 float out6 = delayOut6 * level6;
    
-                *sp = *sp * dry + (out1 + out2 + out3) * wet;
+                *sp = *sp * dry + (hpComplement + out1 + out2 + out3) * wet;
                 sp++;
-                *sp = *sp * dry + (out4 + out5 + out6) * wet;
+                *sp = *sp * dry + (hpComplement + out4 + out5 + out6) * wet;
                 sp++;
 
                 currentShift += shiftInc;
                 currentShift2 += shiftInc2;
-                currentDelaySize1 += delaySizeInc1;
             }
         }
         break;
