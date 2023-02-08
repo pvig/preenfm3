@@ -1419,6 +1419,114 @@ void Timbre::fxAfterBlock() {
             }
         }
         break;
+        case FILTER_WIDE: {
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            int mixerGain255 = mixerGain_01 * 255;
+            float dry = panTable[255 - mixerGain255];
+            float wet = panTable[mixerGain255] * 0.75f;
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
+
+            param1S = 0.02f * this->params_.effect.param1 + .98f * param1S;
+            param2S = 0.02f * (this->params_.effect.param2 + matrixFilterParam2) + .98f * param2S;
+
+            float currentShift = shift;
+            shift =  clamp(1 + fabsf(param1S + matrixFilterFrequency) * 0.03125f, 0, 16);
+            float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
+
+            float currentShift2 = shift2;
+            shift2 = clamp(1 - fabsf(param1S + matrixFilterFrequency) * 0.03125f, 0, 16);
+            float shiftInc2 = (shift2 - currentShift2) * INV_BLOCK_SIZE;
+
+            delayReadFrac = (param2S + 99 * delayReadFrac) * 0.01f; // smooth change
+
+            float currentDelaySize1 = delaySize1;
+            delaySize1 = clamp(1 + delayBufStereoSize * delayReadFrac, 0, delayBufStereoSizeM1);
+            int delaySize1Int = (int) delaySize1;
+            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
+
+            const float f = 0.75f;
+
+            float *sp = sampleBlock_;
+            
+            float level1, level2, level3, level4, level5, level6;
+            float delayReadPos120, delayReadPos240;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+                float monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                // delay in hp
+                hp_in_x0     = monoIn;
+                hp_in_y0     = _in_a0 * hp_in_x0 + _in_a1 * hp_in_x1 + _in_b1 * hp_in_y1;
+                hp_in_y1     = hp_in_y0;
+                hp_in_x1     = hp_in_x0;
+
+                delayWritePos = (delayWritePos + 1) & 1023;
+                float delayWritePosF = (float) delayWritePos;
+
+                low1  += f * band1;
+                band1 += f * (hp_in_y0 - low1 - band1);
+
+                delayBuffer_[delayBufStereoSize + delayWritePos] = low1;
+                int wp = modulo2(delayWritePos - delaySize1Int, delayBufStereoSize);
+                delayBuffer_[delayWritePos] = delayBuffer_[delayBufStereoSize + wp];
+
+                //--------------- shifter 1
+                
+                delayReadPos = modulo(delayReadPos + currentShift, delayBufStereoSize);
+                delayReadPos120 = modulo(delayReadPos + 338, delayBufStereoSize);
+                delayReadPos240 = modulo(delayReadPos + 676, delayBufStereoSize);
+
+                delayOut1 = delayInterpolation(delayReadPos, delayBuffer_, delayBufStereoSizeM1);
+                delayOut2 = delayInterpolation(delayReadPos120, delayBuffer_, delayBufStereoSizeM1);
+                delayOut3 = delayInterpolation(delayReadPos240, delayBuffer_, delayBufStereoSizeM1);
+
+                float rwp1 = modulo2(delayWritePosF - delayReadPos, delayBufStereoSize);
+                float rwp2 = modulo2(delayWritePosF - delayReadPos120, delayBufStereoSize);
+                float rwp3 = modulo2(delayWritePosF - delayReadPos240, delayBufStereoSize);
+
+                level1 = fastSin(rwp1 * delayBufStereoSizeInv);
+                level2 = fastSin(rwp2 * delayBufStereoSizeInv);
+                level3 = fastSin(rwp3 * delayBufStereoSizeInv);
+
+                float out1 = delayOut1 * level1;
+                float out2 = delayOut2 * level2;
+                float out3 = delayOut3 * level3;
+
+                //--------------- shifter 2
+
+                delayReadPos2 = modulo(delayReadPos2 + currentShift2, delayBufStereoSize);
+                delayReadPos120 = modulo(delayReadPos2 + 338, delayBufStereoSize);
+                delayReadPos240 = modulo(delayReadPos2 + 676, delayBufStereoSize);
+
+                delayOut4 = delayInterpolation(delayReadPos2, delayBuffer_, delayBufStereoSizeM1);
+                delayOut5 = delayInterpolation(delayReadPos120, delayBuffer_, delayBufStereoSizeM1);
+                delayOut6 = delayInterpolation(delayReadPos240, delayBuffer_, delayBufStereoSizeM1);
+
+                float rwp4 = modulo2(delayWritePosF - delayReadPos2, delayBufStereoSize);
+                float rwp5 = modulo2(delayWritePosF - delayReadPos120, delayBufStereoSize);
+                float rwp6 = modulo2(delayWritePosF - delayReadPos240, delayBufStereoSize);
+
+                level4 = fastSin(rwp4 * delayBufStereoSizeInv);
+                level5 = fastSin(rwp5 * delayBufStereoSizeInv);
+                level6 = fastSin(rwp6 * delayBufStereoSizeInv);
+
+                float out4 = delayOut4 * level4;
+                float out5 = delayOut5 * level5;
+                float out6 = delayOut6 * level6;
+   
+                *sp = *sp * dry + (out1 + out2 + out3) * wet;
+                sp++;
+                *sp = *sp * dry + (out4 + out5 + out6) * wet;
+                sp++;
+
+                currentShift += shiftInc;
+                currentShift2 += shiftInc2;
+                currentDelaySize1 += delaySizeInc1;
+            }
+        }
+        break;
         default:
             // NO EFFECT
             break;

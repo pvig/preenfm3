@@ -206,6 +206,7 @@ private:
     float feedback            = 0;
     float shift = 0, shift2 = 0;
     int delayWritePos         = 0;
+    int delayWritePos2        = 0;
     float delayReadPos        = 0;
     float delayReadPos2       = 0;
     float delayReadFrac       = 0;
@@ -223,6 +224,8 @@ private:
     const int delayBufStereoSize = delayBufferSize * 0.5f;
     const int delayBufStereoSizeM1 = delayBufStereoSize - 1;
     const float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
+    const float delayBufStereoSizeInv = 1.0f / delayBufStereoSize;
+
     float delaySumOut = 0, delaySumOut2 = 0;
 
     float hp_in_x0 = 0;
