@@ -227,9 +227,9 @@ private:
     const float delayBufStereoSizeInv = 1.0f / delayBufStereoSize;
 
     float delaySumOut = 0, delaySumOut2 = 0;
-    float deltaParam1 = 0, prevParam1 = 0;
-    float glitchTrig = 0;
-    int glitchTrigDeltaCount = 0;
+    float glitchFaderFloat = 0;
+    float glitchFaderDest = 0;
+    int glitchLoopCount = 0;
 
     float hp_in_x0 = 0;
     float hp_in_y0 = 0;
