@@ -1558,14 +1558,14 @@ void Timbre::fxAfterBlock() {
             float mixerGain_01 = clamp(mixerGain_, 0, 1);
             int mixerGain255 = mixerGain_01 * 255;
             float dry = panTable[255 - mixerGain255];
-            float wet = panTable[mixerGain255] * 0.75f;
+            float wet = panTable[mixerGain255] * 1.25f;
             float extraAmp = clamp(mixerGain_ - 1, 0, 1);
             wet += extraAmp;
 
             float wetL = wet * (1 + matrixFilterPan);
             float wetR = wet * (1 - matrixFilterPan);
 
-            param1S = 0.01f * (this->params_.effect.param1 + matrixFilterFrequency) + .99f * param1S;
+            param1S = 0.01f * (this->params_.effect.param1) + .99f * param1S;
             param2S = 0.05f * (this->params_.effect.param2 + matrixFilterParam2) + .95f * param2S;
 
             feedback = clamp(param2S, 0, 0.97f);
@@ -1575,10 +1575,11 @@ void Timbre::fxAfterBlock() {
             float inputIncCount = 0;
 
             float currentDelaySize1 = clamp(delaySize1, 0, delayBufferSize);
-            delaySize1 = 1.f + (delayBufferSize - 16) * clamp(param1S, 0.f, 1.f);
-            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE * sampleRateDivideInv;
+            delaySize1 = 1.f + (delayBufferSize - 16) * clamp(param1S + (matrixFilterFrequency * 0.125f), 0.f, 1.f);
+            float delaySizeInc1 = (delaySize1 - currentDelaySize1) * sampleRateDivideInv * INV_BLOCK_SIZE;
 
-            float f = 0.72f;
+            float f = 0.825f;
+            float f2 = 0.75f;
 
             float *sp = sampleBlock_;
 
@@ -1610,11 +1611,11 @@ void Timbre::fxAfterBlock() {
                 delayOut1 = delayInterpolation(delayReadPos, delayBuffer_, delayBufferSizeM1);
 
                 // lp output 
-                low3  += f * band3;
-                band3 += f * (delayOut1 - low3 - band3);
+                low3  += f2 * band3;
+                band3 += f2 * (delayOut1 - low3 - band3);
 
-                low4  += f * band4;
-                band4 += f * (low3 - low4 - band4);
+                low4  += f2 * band4;
+                band4 += f2 * (low3 - low4 - band4);
 
                 *sp = *sp * dry + low4 * wetL;
                 sp++;
