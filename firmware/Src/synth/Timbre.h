@@ -231,6 +231,7 @@ private:
     float glitchFaderDest = 0;
     int glitchLoopCount = 0;
 
+    // hp filter
     float hp_in_x0 = 0;
     float hp_in_y0 = 0;
     float hp_in_y1 = 0;
@@ -239,10 +240,15 @@ private:
     float hp_in2_y0 = 0;
     float hp_in2_y1 = 0;
     float hp_in2_x1 = 0;
+    float hp_in3_x0 = 0;
+    float hp_in3_y0 = 0;
+    float hp_in3_y1 = 0;
+    float hp_in3_x1 = 0;
     float _in_b1, _in_a0, _in_a1;
     float _in2_b1, _in2_a0, _in2_a1;
     float _in3_b1, _in3_a0, _in3_a1;
 
+    // allpass filters
     float _ly1 = 0;
     float _lx1 = 0;
     float _ly2 = 0;
@@ -255,7 +261,6 @@ private:
     int prevEffectType;
 
     // frequency shifter 
-
     float hb1_x1 = 0, hb1_x2 = 0, hb1_y1 = 0, hb1_y2 = 0;
     float hb2_x1 = 0, hb2_x2 = 0, hb2_y1 = 0, hb2_y2 = 0;
     float hb3_x1 = 0, hb3_x2 = 0, hb3_y1 = 0, hb3_y2 = 0;

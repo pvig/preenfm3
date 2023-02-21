@@ -303,14 +303,6 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     _in2_a0 = (1 + _in2_b1 * _in2_b1 * _in2_b1) * 0.5f;
     _in2_a1 = -_in2_a0;
 
-    // hi pass params 3
-    filterB2     = 0.1f;
-    filterB     = (filterB2 * filterB2 * 0.5f);
-
-    _in3_b1 = (1 - filterB);
-    _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
-    _in3_a1 = -_in3_a0;
-
     // low pass params
     float filterA2     = 0.62f;
     float filterA     = (filterA2 * filterA2 * 0.5f);
@@ -1568,7 +1560,7 @@ void Timbre::fxAfterBlock() {
             param1S = 0.01f * (this->params_.effect.param1) + .99f * param1S;
             param2S = 0.05f * (this->params_.effect.param2 + matrixFilterParam2) + .95f * param2S;
 
-            feedback = clamp(param2S, 0, 0.97f);
+            feedback = clamp(param2S, 0, 1.f) * 1.17f;
 
             const float sampleRateDivide = 4;
             const float sampleRateDivideInv = 1 / sampleRateDivide;
@@ -1578,7 +1570,14 @@ void Timbre::fxAfterBlock() {
             delaySize1 = 1.f + (delayBufferSize - 16) * clamp(param1S + (matrixFilterFrequency * 0.125f), 0.f, 1.f);
             float delaySizeInc1 = (delaySize1 - currentDelaySize1) * sampleRateDivideInv * INV_BLOCK_SIZE;
 
-            float f = 0.825f;
+            float filterB2     = 0.15f + clamp(param2S * param2S, 0, 1.f)  * 0.21f;
+            float filterB     = (filterB2 * filterB2 * 0.5f);
+
+            _in3_b1 = (1 - filterB);
+            _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
+            _in3_a1 = -_in3_a0;
+
+            float f = 0.82f;
             float f2 = 0.75f;
 
             float *sp = sampleBlock_;
@@ -1592,19 +1591,29 @@ void Timbre::fxAfterBlock() {
                     delayWritePos = (delayWritePos + 1) & 2047;
                     float delayIn = monoIn + delayOut1 * feedback;
 
-                    // hp
-                    hp_in_x0     = delayIn;
-                    hp_in_y0     = _in2_a0 * hp_in_x0 + _in2_a1 * hp_in_x1 + _in2_b1 * hp_in_y1;
-                    hp_in_y1     = hp_in_y0;
-                    hp_in_x1     = hp_in_x0;
-
                     low1  += f * band1;
-                    band1 += f * (hp_in_y0 - low1 - band1);
-
+                    band1 += f * (delayIn - low1 - band1);
+                    
                     low2  += f * band2;
                     band2 += f * (low1 - low2 - band2);
 
-                    delayBuffer_[delayWritePos] = low2;
+                    // hp
+                    hp_in_x0     = low2;
+                    hp_in_y0     = _in3_a0 * hp_in_x0 + _in3_a1 * hp_in_x1 + _in3_b1 * hp_in_y1;
+                    hp_in_y1     = hp_in_y0;
+                    hp_in_x1     = hp_in_x0;
+
+                    hp_in2_x0    = hp_in_y0;
+                    hp_in2_y0    = _in3_a0 * hp_in2_x0 + _in3_a1 * hp_in2_x1 + _in3_b1 * hp_in2_y1;
+                    hp_in2_y1    = hp_in2_y0;
+                    hp_in2_x1    = hp_in2_x0;
+
+                    hp_in3_x0    = hp_in2_y0;
+                    hp_in3_y0    = _in3_a0 * hp_in3_x0 + _in3_a1 * hp_in3_x1 + _in3_b1 * hp_in3_y1;
+                    hp_in3_y1    = hp_in3_y0;
+                    hp_in3_x1    = hp_in3_x0;
+
+                    delayBuffer_[delayWritePos] = hp_in3_y0;
                 }
 
                 delayReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
