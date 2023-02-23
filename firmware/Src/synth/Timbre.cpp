@@ -784,9 +784,6 @@ void Timbre::fxAfterBlock() {
             float extraAmp = clamp(mixerGain_ - 1, 0, 1);
             wet += extraAmp;
 
-            float wetL = wet * (1 + matrixFilterPan);
-            float wetR = wet * (1 - matrixFilterPan);
-
             param1S = 0.02f * this->params_.effect.param1 + .98f * param1S;
             float fxParamTmp = foldAbs(param1S * (param1S + matrixFilterFrequency) * 0.125f);
             delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
@@ -861,9 +858,9 @@ void Timbre::fxAfterBlock() {
                 _lx4 = _ly2;
 
 
-                *sp = *sp * dry + (low1 - _ly3) * wetL;
+                *sp = *sp * dry + (low1 - _ly3) * wet;
                 sp++;
-                *sp = *sp * dry + (low2 - _ly4) * wetR;
+                *sp = *sp * dry + (low2 - _ly4) * wet;
                 sp++;
 
                 currentDelaySize1 += delaySizeInc1;
@@ -979,9 +976,6 @@ void Timbre::fxAfterBlock() {
             float extraAmp = clamp(mixerGain_ - 1, 0, 1);
             wet += extraAmp;
 
-            float wetL = wet * (1 + matrixFilterPan);
-            float wetR = wet * (1 - matrixFilterPan);
-
             param1S = 0.02f * matrixFilterFrequency + .98f * param1S;
             float param1 = this->params_.effect.param1;
 
@@ -1066,9 +1060,9 @@ void Timbre::fxAfterBlock() {
                 low4  += f * band4;
                 band4 += f * ((delayOut3) - low4 - band4);
 
-                *sp = (*sp) * dry + (lpc1 + low4 - low3 * 0.3f) * wetL;
+                *sp = (*sp) * dry + (lpc1 + low4 - low3 * 0.3f) * wet;
                 sp++;
-                *sp = (*sp) * dry + (lpc2 + low3 - low4 * 0.3f) * wetR;
+                *sp = (*sp) * dry + (lpc2 + low3 - low4 * 0.3f) * wet;
                 sp++;
 
                 currentDelaySize1 += delaySizeInc1;
@@ -1560,7 +1554,7 @@ void Timbre::fxAfterBlock() {
             param1S = 0.01f * (this->params_.effect.param1) + .99f * param1S;
             param2S = 0.05f * (this->params_.effect.param2 + matrixFilterParam2) + .95f * param2S;
 
-            feedback = clamp(param2S, 0, 1.f) * 1.17f;
+            feedback = clamp(param2S, 0, 1.f) * 1.3f;
 
             const float sampleRateDivide = 4;
             const float sampleRateDivideInv = 1 / sampleRateDivide;
@@ -1570,7 +1564,7 @@ void Timbre::fxAfterBlock() {
             delaySize1 = 1.f + (delayBufferSize - 16) * clamp(param1S + (matrixFilterFrequency * 0.125f), 0.f, 1.f);
             float delaySizeInc1 = (delaySize1 - currentDelaySize1) * sampleRateDivideInv * INV_BLOCK_SIZE;
 
-            float filterB2     = 0.15f + clamp(param2S * param2S, 0, 1.f)  * 0.21f;
+            float filterB2     = 0.15f + clamp(param2S * param2S, 0, 1.f)  * 0.3f;
             float filterB     = (filterB2 * filterB2 * 0.5f);
 
             _in3_b1 = (1 - filterB);
@@ -1578,7 +1572,7 @@ void Timbre::fxAfterBlock() {
             _in3_a1 = -_in3_a0;
 
             float f = 0.82f;
-            float f2 = 0.75f;
+            float f2 = 0.72f;
 
             float *sp = sampleBlock_;
 
@@ -1589,10 +1583,9 @@ void Timbre::fxAfterBlock() {
                 if(++inputIncCount >= sampleRateDivide) {
                     inputIncCount = 0;
                     delayWritePos = (delayWritePos + 1) & 2047;
-                    float delayIn = monoIn + delayOut1 * feedback;
 
                     low1  += f * band1;
-                    band1 += f * (delayIn - low1 - band1);
+                    band1 += f * ((delayOut1 * feedback) - low1 - band1);
                     
                     low2  += f * band2;
                     band2 += f * (low1 - low2 - band2);
@@ -1613,7 +1606,8 @@ void Timbre::fxAfterBlock() {
                     hp_in3_y1    = hp_in3_y0;
                     hp_in3_x1    = hp_in3_x0;
 
-                    delayBuffer_[delayWritePos] = hp_in3_y0;
+                    float delayIn = monoIn + hp_in3_y0;
+                    delayBuffer_[delayWritePos] = delayIn;
                 }
 
                 delayReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
