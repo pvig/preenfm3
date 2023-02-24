@@ -1375,16 +1375,16 @@ void Timbre::fxAfterBlock() {
                 // Frequency shifter 
 
                 //     Phase reference path
-                iirFilter1 = iirFilter(samplen1,    0.47944111608296202665f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
-                iirFilter2 = iirFilter(iirFilter1,  0.87624358989504858020f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
-                iirFilter3 = iirFilter(iirFilter2,  0.97660296916871658368f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
-                iirFilter4 = iirFilter(iirFilter3,  0.99749940412203375040f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
+                iirFilter1 = iirFilter(samplen1,    0.48645677879491144857f, &hb1_x1,  &hb1_x2,  &hb1_y1, &hb1_y2);
+                iirFilter2 = iirFilter(iirFilter1,  0.88068726735639790704f, &hb2_x1,  &hb2_x2,  &hb2_y1, &hb2_y2);
+                iirFilter3 = iirFilter(iirFilter2,  0.97790456293916316888f, &hb3_x1,  &hb3_x2,  &hb3_y1, &hb3_y2);
+                iirFilter4 = iirFilter(iirFilter3,  0.99767037906310385154f, &hb4_x1,  &hb4_x2,  &hb4_y1, &hb4_y2);
 
                 //     +90 deg path
-                iirFilter5 = iirFilter(low4,         0.16177741706363166219f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
-                iirFilter6 = iirFilter(iirFilter5,   0.73306690130335572242f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
-                iirFilter7 = iirFilter(iirFilter6,   0.94536301966806279840f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
-                iirFilter8 = iirFilter(iirFilter7,   0.99060051416704042460f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
+                iirFilter5 = iirFilter(low4,         0.16507919004304125177f, &hb5_x1,  &hb5_x2,  &hb5_y1, &hb5_y2);
+                iirFilter6 = iirFilter(iirFilter5,   0.73969068299070206418f, &hb6_x1,  &hb6_x2,  &hb6_y1, &hb6_y2);
+                iirFilter7 = iirFilter(iirFilter6,   0.94788883423814862539f, &hb7_x1,  &hb7_x2,  &hb7_y1, &hb7_y2);
+                iirFilter8 = iirFilter(iirFilter7,   0.99119752093109647628f, &hb8_x1,  &hb8_x2,  &hb8_y1, &hb8_y2);
 
                 samplen1 = low4;
 
@@ -1554,7 +1554,7 @@ void Timbre::fxAfterBlock() {
             param1S = 0.01f * (this->params_.effect.param1) + .99f * param1S;
             param2S = 0.05f * (this->params_.effect.param2 + matrixFilterParam2) + .95f * param2S;
 
-            feedback = clamp(param2S, 0, 1.f) * 1.3f;
+            feedback = clamp(param2S, 0, 1.f) * 1.31f;
 
             const float sampleRateDivide = 4;
             const float sampleRateDivideInv = 1 / sampleRateDivide;
