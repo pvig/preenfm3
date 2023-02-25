@@ -1394,7 +1394,7 @@ void Timbre::fxAfterBlock() {
                     phase1 -= 2.f;
                 }
                 //     cos = sin( x + 90°)
-                phase2 = phase1 + 0.25f;
+                phase2 = phase1 + 0.5f;
                 if (phase2 >= 1)  {
                     phase2 -= 2.f;
                 }
@@ -1470,10 +1470,7 @@ void Timbre::fxAfterBlock() {
 
                 // predelay
                 delayBuffer_[delayBufStereoSize + delayWritePos] = monoIn;
-                int wp = delayWritePos - delaySizeInt;
-                if (wp < 0) {
-                    wp += delayBufStereoSize;
-                }
+                int wp = (delayWritePos - delaySizeInt) & 1023;
 
                 // hp
                 hp_in_x0     = delayBuffer_[delayBufStereoSize + wp];
@@ -1554,7 +1551,7 @@ void Timbre::fxAfterBlock() {
             param1S = 0.01f * (this->params_.effect.param1) + .99f * param1S;
             param2S = 0.05f * (this->params_.effect.param2 + matrixFilterParam2) + .95f * param2S;
 
-            feedback = clamp(param2S, 0, 1.f) * 1.31f;
+            feedback = clamp(param2S, 0, 1.f) * 1.25f;
 
             const float sampleRateDivide = 4;
             const float sampleRateDivideInv = 1 / sampleRateDivide;
