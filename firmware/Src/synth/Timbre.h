@@ -200,6 +200,7 @@ private:
     float *delayBuffer_;
 
     float param1S = 0;
+    float matrixFilterFrequencyS = 0;
     float param2S = 0;
     float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0;
     float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0, delayOut4 = 0, delayOut5 = 0, delayOut6 = 0;
@@ -207,6 +208,7 @@ private:
     float shift = 0, shift2 = 0;
     int delayWritePos         = 0;
     int delayWritePos2        = 0;
+    float delayWritePosF      = 0;
     float delayReadPos        = 0;
     float delayReadPos2       = 0;
     float delayReadFrac       = 0;
