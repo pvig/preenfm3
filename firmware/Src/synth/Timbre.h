@@ -275,6 +275,9 @@ private:
     float samplen1 = 0;
     float shifterOut = 0, shifterOut2 = 0, shifterOutR = 0, shifterOutI = 0, shifterOutMix = 0;
 
+    // Karplus Strong
+    float prevFreq = 0;
+    float flipVoice = 0;
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;
