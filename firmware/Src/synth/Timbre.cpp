@@ -1749,7 +1749,7 @@ void Timbre::fxAfterBlock() {
             float mixerGain_01 = clamp(mixerGain_, 0, 1);
             int mixerGain255 = mixerGain_01 * 255;
             float dry = panTable[255 - mixerGain255];
-            float wet = panTable[mixerGain255] * 1.25f;
+            float wet = panTable[mixerGain255] * 1.5f;
             float extraAmp = clamp(mixerGain_ - 1, 0, 1);
             wet += extraAmp;
 
@@ -1777,7 +1777,7 @@ void Timbre::fxAfterBlock() {
             float delaySize1Plus = clamp(delaySize1 + allFreqMod, 1, delayBufStereoSizeM1 - 2);
             float delaySize2Plus = clamp(delaySize2 + allFreqMod, 1, delayBufStereoSizeM1 - 2);
 
-            float f = 0.1f + clamp(param2S * param2S, 0, 1) * 0.9f;
+            float f = 0.05f + clamp(param2S * param2S, 0, 1) * 0.95f;
 
             float filterB2 = 0.1f;
             float filterB = (filterB2 * filterB2 * 0.5f);
@@ -1793,14 +1793,14 @@ void Timbre::fxAfterBlock() {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
 
                 low1  += f * band1;
-                band1 += f * ((monoIn) - low1 - band1);
+                band1 += f * (monoIn - low1 - band1);
 
                 delayWritePos = (delayWritePos + 1) & delayBufStereoSizeM1;
                 delayWritePosF = (float) delayWritePos;
 
                 // - - - -  Voice 1 
                 // hp in
-                hp_in_x0     = delayOut1;
+                hp_in_x0     = (delayOut1);
                 hp_in_y0     = _in3_a0 * hp_in_x0 + _in3_a1 * hp_in_x1 + _in3_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
@@ -1811,7 +1811,7 @@ void Timbre::fxAfterBlock() {
 
 
                 // - - - -  Voice 2
-                hp_in2_x0     = delayOut2;
+                hp_in2_x0     = (delayOut2);
                 hp_in2_y0     = _in3_a0 * hp_in2_x0 + _in3_a1 * hp_in2_x1 + _in3_b1 * hp_in2_y1;
                 hp_in2_y1     = hp_in2_y0;
                 hp_in2_x1     = hp_in2_x0;
@@ -1821,7 +1821,7 @@ void Timbre::fxAfterBlock() {
                 delayOut2 = delayInterpolation2(delayReadPos, delayBuffer_, delayBufStereoSizeM1, delayBufStereoSize);
 
 
-                delaySumOut = delayOut1 + delayOut2;
+                delaySumOut = tanh4((delayOut1 - delayOut2) * 0.2f);
 
                 *sp = *sp * dry + delaySumOut * wetL;
                 sp++;
