@@ -184,6 +184,8 @@ private:
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
+    float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
+    float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
 
     #define delayBufferSize 2048
@@ -202,7 +204,8 @@ private:
     float param1S = 0;
     float matrixFilterFrequencyS = 0;
     float param2S = 0;
-    float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0;
+    float delaySize1 = 0, delaySize2 = 0, delaySize3 = 0, delaySize4 = 0;
+    float delaySizeInc1 = 0, delaySizeInc2 = 0, delaySizeInc3 = 0, delaySizeInc4 = 0;
     float delayOut1 = 0, delayOut2 = 0, delayOut3 = 0, delayOut4 = 0, delayOut5 = 0, delayOut6 = 0;
     float feedback            = 0;
     float shift = 0, shift2 = 0;
@@ -229,9 +232,6 @@ private:
     const float delayBufStereoSizeInv = 1.0f / delayBufStereoSize;
 
     float delaySumOut = 0, delaySumOut2 = 0;
-    float glitchFaderFloat = 0;
-    float glitchFaderDest = 0;
-    int glitchLoopCount = 0;
 
     // hp filter
     float hp_in_x0 = 0;
