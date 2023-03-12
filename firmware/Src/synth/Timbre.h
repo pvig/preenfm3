@@ -189,6 +189,7 @@ private:
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
 
     #define delayBufferSize 2048
+    const float delayBufferSizeF       = delayBufferSize;
     const float delayBufferSize120     = delayBufferSize * 0.3333f;
     const float delayBufferSize240     = delayBufferSize * 0.6666f;
     const float delayBufferSize90      = delayBufferSize * 0.25f;
@@ -227,11 +228,13 @@ private:
     float low4 = 0, band4 = 0;
 
     const int delayBufStereoSize = delayBufferSize * 0.5f;
+    const float delayBufStereoSizeF = delayBufStereoSize;
     const int delayBufStereoSizeM1 = delayBufStereoSize - 1;
     const float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
     const float delayBufStereoSizeInv = 1.0f / delayBufStereoSize;
 
     float delaySumOut = 0, delaySumOut2 = 0;
+    float delayIn = 0;
 
     // hp filter
     float hp_in_x0 = 0;
@@ -275,9 +278,17 @@ private:
     float samplen1 = 0;
     float shifterOut = 0, shifterOut2 = 0, shifterOutR = 0, shifterOutI = 0, shifterOutMix = 0;
 
-    // Karplus Strong
-    float prevFreq = 0;
-    float flipVoice = 0;
+    // diffusers
+    float diff1Out = 0, diff2Out = 0, diff3Out = 0, diff4Out = 0;
+    int inputWritePos1     = 0;
+    int inputWritePos2     = 0;
+    int inputWritePos3     = 0;
+    int inputWritePos4     = 0;
+    const int inputBufferLen1 = 112;
+    const int inputBufferLen2 = 220;
+    const int inputBufferLen3 = 137;
+    const int inputBufferLen4 = 242;
+
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;

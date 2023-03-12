@@ -939,7 +939,7 @@ const char *fxName[] = {
     "Wide", /*  55  */
     "Delc", /*  56  */
     "Ping", /*  57  */
-    "Plck", /*  58  */
+    "Diff", /*  58  */
 };
 
 struct ParameterRowDisplay effectParameterRow = {
@@ -1217,8 +1217,8 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
         "Feed",
         "Mix " },
     {
-        "Size",
-        "Tone",
+        "Time",
+        "Feed",
         "Mix " }
 };
 
