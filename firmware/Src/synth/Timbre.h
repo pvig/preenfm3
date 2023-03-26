@@ -184,8 +184,6 @@ private:
     void fxAfterBlock();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
-    float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);
-    float delayAllpassInterpolation2(float readPos, float buffer[], int bufferLenM1, float prevVal, int offset);
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
 
     #define delayBufferSize 2048
@@ -281,15 +279,17 @@ private:
     float shifterOut = 0, shifterOut2 = 0, shifterOutR = 0, shifterOutI = 0, shifterOutMix = 0;
 
     // diffusers
-    float diff1Out = 0, diff2Out = 0, diff3Out = 0, diff4Out = 0;
+    float diff1Out = 0, diff2Out = 0, diff3Out = 0, diff4Out = 0, diff5Out = 0;
     int inputWritePos1     = 0;
     int inputWritePos2     = 0;
     int inputWritePos3     = 0;
     int inputWritePos4     = 0;
+    int inputWritePos5     = 0;
     const int inputBufferLen1 = 112;
     const int inputBufferLen2 = 220;
     const int inputBufferLen3 = 137;
     const int inputBufferLen4 = 242;
+    const int inputBufferLen5 = 300;
 
     /** --------------end of FX conf--------------  */
 

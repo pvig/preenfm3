@@ -753,9 +753,9 @@ struct ParameterRowDisplay engineCurveParameterRow = {
  53  Harm, -53-
  54  Bode, -54-
  55  Wide, -55-
- 56  Glit, -56-
+ 56  DelC, -56-
  57  Ping, -57-
- 58  Plck, -58-
+ 58  Diff, -58-
  */
 
 const unsigned char filtersOrder[] = {
@@ -1218,7 +1218,7 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
         "Mix " },
     {
         "Time",
-        "Feed",
+        "Size",
         "Mix " }
 };
 
