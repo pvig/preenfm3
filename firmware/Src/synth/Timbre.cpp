@@ -924,6 +924,13 @@ void Timbre::fxAfterBlock() {
             const float f = 0.8f;
             const float f2 = 0.7f;
 
+            float filterB2     = 0.15f;
+            float filterB     = (filterB2 * filterB2 * 0.5f);
+
+            _in3_b1 = (1 - filterB);
+            _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
+            _in3_a1 = -_in3_a0;
+
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 monoIn = (*sp + *(sp + 1)) * 0.5f;
 
@@ -935,7 +942,7 @@ void Timbre::fxAfterBlock() {
 
                 // audio in hp
                 hp_in_x0     = low3;
-                hp_in_y0     = _in2_a0 * hp_in_x0 + _in2_a1 * hp_in_x1 + _in2_b1 * hp_in_y1;
+                hp_in_y0     = _in3_a0 * hp_in_x0 + _in3_a1 * hp_in_x1 + _in3_b1 * hp_in_y1;
                 hp_in_y1     = hp_in_y0;
                 hp_in_x1     = hp_in_x0;
 
@@ -1325,8 +1332,10 @@ void Timbre::fxAfterBlock() {
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             // feedback
+            float feedbackZeroZone = clamp(0.88f + (param1 * param1 * 100), 0, 1);
+
             float currentFeedback = feedback;
-            feedback = (clamp( (this->params_.effect.param2 + matrixFilterParam2), -1, 1)) * (clamp(0.01f + (param1 * param1 * 800), 0, 0.85f) );
+            feedback = (clamp( (this->params_.effect.param2 + matrixFilterParam2), -1, 1)) * feedbackZeroZone * 0.78f;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float currentDelaySize1 = clamp(delaySize1, 0, delayBufferSize);
@@ -1343,7 +1352,8 @@ void Timbre::fxAfterBlock() {
             const float f = 0.75f;
             const float f2 = 0.7f;
 
-            float filterB2     = 0.22f;
+            float hpZeroZone = clamp(0.01f + (param1 * param1 * 120), 0, 1);
+            float filterB2     = 0.15f + (1 - hpZeroZone) * 0.25f;
             float filterB     = (filterB2 * filterB2 * 0.5f);
 
             _in3_b1 = (1 - filterB);
@@ -1470,6 +1480,8 @@ void Timbre::fxAfterBlock() {
 
             int delaySizeInt = 500;
 
+            const float f = 0.72f;
+
             // hi pass params
             float filterB2    = param2S * param2S * 0.93f;
             float filterB     = (filterB2 * filterB2 * 0.5f);
@@ -1485,12 +1497,15 @@ void Timbre::fxAfterBlock() {
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
+                
+                low1  += f * band1;
+                band1 += f * (monoIn - low1 - band1);
 
                 delayWritePos = (delayWritePos + 1) & delayBufStereoSizeM1;
                 delayWritePosF = (float) delayWritePos;
 
                 // predelay
-                delayBuffer_[delayBufStereoSize + delayWritePos] = monoIn;
+                delayBuffer_[delayBufStereoSize + delayWritePos] = low1;
                 int wp = (delayWritePos - delaySizeInt) & delayBufStereoSizeM1;
 
                 // hp
@@ -1590,7 +1605,7 @@ void Timbre::fxAfterBlock() {
             _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
             _in3_a1 = -_in3_a0;
 
-            float f = 0.75f;
+            float f = 0.725f;
             float f2 = 0.62f;
 
             float *sp = sampleBlock_;

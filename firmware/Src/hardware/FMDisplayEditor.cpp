@@ -934,7 +934,7 @@ const char *fxName[] = {
     "Chor", /*  50  */
     "Dim ", /*  51  */
     "Dblr", /*  52  */
-    "Harm", /*  53  */
+    "Trpl", /*  53  */
     "Bode", /*  54  */
     "Wide", /*  55  */
     "Delc", /*  56  */
