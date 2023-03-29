@@ -278,7 +278,7 @@ private:
     float samplen1 = 0;
     float shifterOut = 0, shifterOut2 = 0, shifterOutR = 0, shifterOutI = 0, shifterOutMix = 0;
 
-    // diffusers
+    // diffuser
     float diff1Out = 0, diff2Out = 0, diff3Out = 0, diff4Out = 0, diff5Out = 0;
     int inputWritePos1     = 0;
     int inputWritePos2     = 0;
@@ -286,10 +286,10 @@ private:
     int inputWritePos4     = 0;
     int inputWritePos5     = 0;
     const int inputBufferLen1 = 112;
-    const int inputBufferLen2 = 220;
+    const int inputBufferLen2 = 210;
     const int inputBufferLen3 = 137;
     const int inputBufferLen4 = 242;
-    const int inputBufferLen5 = 300;
+    const int inputBufferLen5 = 160;
 
     /** --------------end of FX conf--------------  */
 
