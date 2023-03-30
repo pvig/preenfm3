@@ -960,11 +960,17 @@ void Timbre::fxAfterBlock() {
                 band1 += f2 * (delaySumOut - low1 - band1);
 
                 low2  += f2 * band2;
-                band2 += f2 * (delaySumOut2 - low2 - band2);
+                band2 += f2 * (low1 - low2 - band2);
 
-                *sp = *sp * dry + low1 * wetL;
+                low5  += f2 * band5;
+                band5 += f2 * (delaySumOut2 - low5 - band5);
+
+                low6  += f2 * band6;
+                band6 += f2 * (low5 - low6 - band6);
+
+                *sp = *sp * dry + low2 * wetL;
                 sp++;
-                *sp = *sp * dry + low2 * wetR;
+                *sp = *sp * dry + low6 * wetR;
                 sp++;
 
                 currentDelaySize1 += delaySizeInc1;
@@ -1065,11 +1071,18 @@ void Timbre::fxAfterBlock() {
                 band3 += f2 * ((delayOut1) - low3 - band3);
 
                 low4  += f2 * band4;
-                band4 += f2 * ((delayOut3) - low4 - band4);
+                band4 += f2 * ((low3) - low4 - band4);
 
-                *sp = (*sp) * dry + (lpc1 + low4 - low3 * 0.3f) * wet;
+                low5  += f2 * band5;
+                band5 += f2 * (delayOut3 - low5 - band5);
+
+                low6  += f2 * band6;
+                band6 += f2 * (low5 - low6 - band6);
+
+
+                *sp = (*sp) * dry + (lpc1 + low6 - low4 * 0.3f) * wet;
                 sp++;
-                *sp = (*sp) * dry + (lpc2 + low3 - low4 * 0.3f) * wet;
+                *sp = (*sp) * dry + (lpc2 + low4 - low6 * 0.3f) * wet;
                 sp++;
 
                 currentDelaySize1 += delaySizeInc1;
@@ -1098,7 +1111,7 @@ void Timbre::fxAfterBlock() {
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
 
             float param1 = fabsf(param1S - 0.5f);// 2 quadrant for up & down shift
-            float feedbackZeroZone = clamp(0.8f + (param1 * param1 * param1 * 2600), 0, 1) * 0.95f;
+            float feedbackZeroZone = clamp(0.86f + (param1 * param1 * param1 * 7600), 0, 1) * 0.95f;
 
             float feed = (this->params_.effect.param2 + matrixFilterParam2) * (feedbackZeroZone);
             float currentFeedback = feedback;
@@ -1120,9 +1133,9 @@ void Timbre::fxAfterBlock() {
             float delayReadPos90, delayReadPos180, delayReadPos270, level1, level2, level3, level4;
 
             // hi pass params
-            float hpZeroZone  = 1 - clamp(param1 * param1 * 2300, 0, 1);
+            float hpZeroZone  = 1 - clamp(param1 * param1 * 8300, 0, 1);
 
-            float filterB2     = 0.15f + sigmoidPos( clamp(shift, 0, 1) ) * (0.22f + hpZeroZone * 0.285f) + param1S * 0.1f;
+            float filterB2     = 0.15f + sigmoidPos( clamp(shift, 0, 1) ) * (0.22f + hpZeroZone * 0.25f) + param1S * 0.1f;
             float filterB     = (filterB2 * filterB2 * 0.5f);
 
             _in2_b1 = (1 - filterB);
@@ -1344,7 +1357,7 @@ void Timbre::fxAfterBlock() {
             float feedbackParam = (clamp( (this->params_.effect.param2 + matrixFilterParam2), -1, 1));
 
             float currentFeedback = feedback;
-            feedback = feedbackParam * feedbackZeroZone * 0.78f;
+            feedback = feedbackParam * feedbackZeroZone;
             float feedbackInc = (feedback - currentFeedback) * INV_BLOCK_SIZE;
 
             float currentDelaySize1 = clamp(delaySize1, 0, delayBufferSize);
