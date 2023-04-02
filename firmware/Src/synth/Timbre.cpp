@@ -756,7 +756,6 @@ uint8_t Timbre::voicesNextBlock() {
         }
     }
 
-
     return numberOfPlayingVoices_;
 }
 
@@ -813,7 +812,7 @@ void Timbre::fxAfterBlock() {
             _in3_a1 = -_in3_a0;
 
             const float f = 0.75f;
-            const float f2 = 0.72f;
+            const float f2 = 0.74f;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 
@@ -954,7 +953,7 @@ void Timbre::fxAfterBlock() {
                 delayOut3  = delayInterpolation(delReadPos3, delayBuffer_, delayBufferSizeM1);
 
                 delaySumOut = (delayOut1 - delayOut3 + delayOut2) ;
-                delaySumOut2 = (delayOut3 - delayOut1 + delayOut2) ;
+                float delaySumOut2 = (delayOut3 - delayOut1 + delayOut2) ;
 
                 low1  += f2 * band1;
                 band1 += f2 * (delaySumOut - low1 - band1);
@@ -1346,7 +1345,7 @@ void Timbre::fxAfterBlock() {
 
             // shift increment :
             float currentShift = shift;
-            float shiftval = clamp(fabsf(param1 + matrixFilterFrequency * 0.5f), 0, 0.9999f);
+            float shiftval = clamp(fabsf(param1 * 1.34f + matrixFilterFrequency * 0.5f), 0, 0.9999f);
             shiftval *= shiftval * 0.05f;
             shift = shift * 0.96f + 0.04f * shiftval;
             float shiftInc = (shift - currentShift) * INV_BLOCK_SIZE;
@@ -1370,6 +1369,7 @@ void Timbre::fxAfterBlock() {
             float cos, sin;
             float phase2;
             float shifterIn;
+            float shifterOutR = 0, shifterOutI = 0, shifterOut = 0, shifterOut2 = 0;
 
             const float f = 0.7f;
             const float f2 = 0.75f;
@@ -1507,7 +1507,7 @@ void Timbre::fxAfterBlock() {
             shift2 = clamp(1 - detune, 0, 16);
             float shiftInc2 = (shift2 - currentShift2) * INV_BLOCK_SIZE;
 
-            int delaySizeInt = 500;
+            const int delaySizeInt = 500;
 
             const float f = 0.72f;
 
@@ -1515,9 +1515,9 @@ void Timbre::fxAfterBlock() {
             float filterB2    = param2S * param2S * 0.93f;
             float filterB     = (filterB2 * filterB2 * 0.5f);
 
-            float _hp_b1 = (1 - filterB);
-            float _hp_a0 = (1 + _hp_b1 * _hp_b1 * _hp_b1) * 0.5f;
-            float _hp_a1 = -_hp_a0;
+            const float _hp_b1 = (1 - filterB);
+            const float _hp_a0 = (1 + _hp_b1 * _hp_b1 * _hp_b1) * 0.5f;
+            const float _hp_a1 = -_hp_a0;
 
             float *sp = sampleBlock_;
             
@@ -1638,7 +1638,7 @@ void Timbre::fxAfterBlock() {
             float f2 = 0.62f;
 
             float *sp = sampleBlock_;
-
+ 
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
                 float monoIn = (*sp + *(sp + 1)) * 0.5f;
@@ -1837,6 +1837,8 @@ void Timbre::fxAfterBlock() {
 
             const float inputCoef1 = 0.75f;
             const float inputCoef2 = 0.625f;
+
+            float diff1Out = 0, diff2Out = 0, diff3Out = 0, diff4Out = 0, diff5Out = 0;
 
             float sizeParamInpt = 0.2f + param1S * 0.2f;
             float inputBuffer1ReadLen = inputBufferLen1 * sizeParamInpt;

@@ -218,7 +218,7 @@ private:
     float readPos             = 0;
     float _in_lp_a, _in_lp_b;
     float _in_lp2_a, _in_lp2_b;
-    float lpF, lpF2, lpF3, lpF4;
+    float lpF, lpF2;
      
     float low1 = 0, band1 = 0;
     float low2 = 0, band2 = 0;
@@ -233,7 +233,7 @@ private:
     const float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
     const float delayBufStereoSizeInv = 1.0f / delayBufStereoSize;
 
-    float delaySumOut = 0, delaySumOut2 = 0;
+    float delaySumOut = 0;
     float delayIn = 0;
 
     // hp filter
@@ -276,10 +276,9 @@ private:
     float hb8_x1 = 0, hb8_x2 = 0, hb8_y1 = 0, hb8_y2 = 0;
     float phase1 = 0;
     float samplen1 = 0;
-    float shifterOut = 0, shifterOut2 = 0, shifterOutR = 0, shifterOutI = 0, shifterOutMix = 0;
+    float shifterOutMix = 0;
 
     // diffuser
-    float diff1Out = 0, diff2Out = 0, diff3Out = 0, diff4Out = 0, diff5Out = 0;
     int inputWritePos1     = 0;
     int inputWritePos2     = 0;
     int inputWritePos3     = 0;
