@@ -739,17 +739,27 @@ struct ParameterRowDisplay engineCurveParameterRow = {
  46  LPx1, -30-
  47  LPx2, -31-
  48  Alkx, -48-
+ 49  Flng, -49-
+ 50  Chor, -50-
+ 51  Dim , -51-
+ 52  Dblr, -52-
+ 53  Harm, -53-
+ 54  Bode, -54-
+ 55  Wide, -55-
+ 56  DelC, -56-
+ 57  Ping, -57-
+ 58  Diff, -58-
  */
 
 const unsigned char filtersOrder[] = { 0, 1, 2, 3, 4, 5, 6, 38, 39, 40, 46, 47,
         22, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25,
         26, 32, 33, 34, 35, 36, 37, 41, 42, 9, 43, 44, 45, 27, 28, 29, 30, 31,
-        48 };
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58 };
 
 const unsigned char filtersPosition[] = { 0, 1, 2, 3, 4, 5, 6, 13, 14, 39, 15,
         16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 12, 27, 28, 29, 30, 43, 44,
         45, 46, 47, 31, 32, 33, 34, 35, 36, 7, 8, 9, 37, 38, 40, 41, 42, 10, 11,
-        48 };
+        48, 49,  50, 51, 52, 53, 54, 55, 56, 57, 58 };
 
 const char *fxName[] = {
     "Off ", /*  0   */
@@ -801,6 +811,16 @@ const char *fxName[] = {
     "h3o+", /*  46  */
     "Svh3", /*  47  */
     "Alkx", /*  48  */
+    "Flng", /*  49  */
+    "Dim ", /*  50  */
+    "Chor", /*  51  */
+    "Wide", /*  52  */
+    "Dblr", /*  53  */
+    "3Voi", /*  54  */
+    "Bode", /*  55  */
+    "Delc", /*  56  */
+    "Ping", /*  57  */
+    "Diff", /*  58  */
 };
 
 struct ParameterRowDisplay effectParameterRow = {
@@ -1040,7 +1060,48 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
     {
         "Smp1",
         "Smp2",
-        "Gain" } };
+        "Gain" },
+    {
+        "Dpth",
+        "Feed",
+        "Mix " },
+    {
+        "Widt",
+        "Feed",
+        "Mix " },
+    {
+        "Widt",
+        "Feed",
+        "Mix " },
+    {
+        "Detu",
+        "Freq",
+        "Mix " },
+    {
+        "Ptch",
+        "Feed",
+        "Mix " },
+    {
+        "Ptc1",
+        "Ptc2",
+        "Mix " },
+    {
+        "Freq",
+        "Feed",
+        "Mix " },
+    {
+        "Time",
+        "Feed",
+        "Mix " },
+    {
+        "Time",
+        "Feed",
+        "Mix " },
+    {
+        "Time",
+        "Size",
+        "Mix " }
+};
 
 const char *oscShapeNames[] = {
     "sin ",
@@ -3620,6 +3681,17 @@ void FMDisplayEditor::encoderTurnedPfm3(int encoder6, int ticks) {
     encoderTurnedPfm2(row, encoder4, ticks);
 }
 
+int FMDisplayEditor::getEditPageMultiplier() {
+    const struct Pfm3EditMenu *editMenu = mainMenu.editMenu[synthState_->fullState.mainPage];
+    const struct Pfm3OneButton *page = editMenu->pages[synthState_->fullState.editPage];
+    uint8_t buttonState = synthState_->fullState.buttonState[page->buttonId];
+    int multiplier = synthState_->fullState.editPage == 0 ? 1 : 2;
+    if(synthState_->fullState.editPage == 1  && buttonState == 1) {
+        // env curve page
+        multiplier = 1;
+    }
+    return multiplier;
+}
 
 /*
  * In some case we want to shortcut the Operator row calculation case
@@ -3769,7 +3841,7 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
 
         // Special Case for filter - hide not so good filter
         if (unlikely(param->valueNameOrderReversed == filtersPosition)) {
-            if (ticks > 0 && oldValue != FILTER_LADDER) {
+            if (ticks > 0 && oldValue != FILTER_DIFFUSER) {
                 newValue = param->valueNameOrder[pos + 1];
             }
             if (ticks < 0 && pos > param->minValue) {
