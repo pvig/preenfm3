@@ -290,6 +290,20 @@ private:
     const int inputBufferLen4 = 242;
     const int inputBufferLen5 = 160;
 
+    // ramp, start, size, amp
+    const int GRAIN_RAMP = 0;
+    const int GRAIN_START = 1;
+    const int GRAIN_SIZE = 2;
+    const int GRAIN_AMP = 3;
+
+    int grainNext = 0;
+    float grainTable[4][4] = {
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0}
+    };
+
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;
