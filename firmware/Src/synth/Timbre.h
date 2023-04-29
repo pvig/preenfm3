@@ -290,20 +290,20 @@ private:
     // granulator
     enum GRAIN_PARAMS {
         GRAIN_RAMP = 0,
-        GRAIN_START,
+        GRAIN_POS,
         GRAIN_SIZE,
-        GRAIN_CURRENT_RATE,
-        GRAIN_NEXT_RATE,
+        GRAIN_CURRENT_SHIFT,
+        GRAIN_NEXT_SHIFT,
         GRAIN_INC,
         GRAIN_AMP
     };
 
     int grainNext = 0;
     float grainTable[4][7] = {
-        {1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1}
+        {1, 1, 1, 0, 0, 0, 1},
+        {1, 1, 1, 0, 0, 0, 1},
+        {1, 1, 1, 0, 0, 0, 1},
+        {1, 1, 1, 0, 0, 0, 1}
     };
 
     /** --------------end of FX conf--------------  */
