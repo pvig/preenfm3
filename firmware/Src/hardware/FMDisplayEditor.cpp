@@ -1110,8 +1110,8 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
         "Rnd ",
         "Mix " },
     {
-        "Prob",
-        "Rnd ",
+        "Size",
+        "Jitt",
         "Mix " }
 };
 
