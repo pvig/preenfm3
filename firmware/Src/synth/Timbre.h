@@ -300,12 +300,12 @@ private:
     };
 
     int grainNext = 0, grainPrev = 0;
-    float grainTable[4][8] = {
-        {1, 1, 1, 0, 0, 0, 1, 0.5f},
+    float grainTable[3][8] = {
         {1, 1, 1, 0, 0, 0, 1, 0.5f},
         {1, 1, 1, 0, 0, 0, 1, 0.5f},
         {1, 1, 1, 0, 0, 0, 1, 0.5f}
     };
+    float lockA, lockB;
 
     /** --------------end of FX conf--------------  */
 

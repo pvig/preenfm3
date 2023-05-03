@@ -1978,158 +1978,24 @@ void Timbre::fxAfterBlock() {
             const float sampleRateDivideInv = 1 / sampleRateDivide;
             float inputIncCount = 0;
 
+            lockA = lockA * 0.98f + ((param2S > 0.99f) ? 0 : 1) * 0.02f;
+            lockB = (1 - lockA);
+
             bool grainProb = 0.95f >= fabs(noise[0]);
    
             if(grainProb) {
                 if(grainTable[grainNext][GRAIN_RAMP] >= 1 && grainTable[grainPrev][GRAIN_RAMP] > 0.33f) {
                     //grain done, compute another one
-                    float grainRate = sampleRateDivideInv * (1 + noise[4] * 0.025f);
+                    float jitter = param2S * lockA;
+                    float grainRate = sampleRateDivideInv * (1 + jitter * noise[4] * 0.025f);
                     grainTable[grainNext][GRAIN_RAMP] = 0;
-                    grainTable[grainNext][GRAIN_SIZE] = clamp((500 + (noise[2]) * 80 * param2S * param2S) * param1S * param1S, 100, delayBufferSize - 1);
-                    grainTable[grainNext][GRAIN_POS] = modulo2(delayWritePosF - 1, delayBufferSize);
+                    grainTable[grainNext][GRAIN_SIZE] = clamp((1800 + (noise[2]) * 40 * jitter * jitter) * param1S * param1S, 50, delayBufferSize - 100);
+                    grainTable[grainNext][GRAIN_POS] = modulo2(delayWritePosF - (200 + jitter * noise[5] * 90), delayBufferSize);
                     float invGrainSize = 1 / grainTable[grainNext][GRAIN_SIZE];
                     grainTable[grainNext][GRAIN_CURRENT_SHIFT] = grainTable[grainNext][GRAIN_NEXT_SHIFT];
                     grainTable[grainNext][GRAIN_NEXT_SHIFT] = grainRate * invGrainSize;
-                    grainTable[grainNext][GRAIN_INC] = clamp( (grainTable[grainNext][GRAIN_NEXT_SHIFT] - grainTable[grainNext][GRAIN_CURRENT_SHIFT]) * invGrainSize * sampleRateDivideInv, 0, 0.5f);
-                    grainTable[grainNext][GRAIN_AMP] = (noise[3]);
-                    grainTable[grainNext][GRAIN_PAN] = (1 + (noise[6]) * sqrt3(param2S)) * 0.5f;
-                    grainPrev = grainNext;
-                }
-                if(++grainNext > 2) {
-                    grainNext = 0;
-                }
-            }
-
-            float env;
-
-            float filterB2    = 0.15f;
-            float filterB     = (filterB2 * filterB2 * 0.5f);
-
-            _in3_b1 = (1 - filterB);
-            _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
-            _in3_a1 = -_in3_a0;
-
-            const float f = 0.78f;
-            const float f2 = 0.78f;
-
-            float grain1, grain2, grain3;
-            float grain1L, grain1R;
-            float grain2L, grain2R;
-            float grain3L, grain3R;
-            float grainSumR, grainSumL;
-
-            float *sp = sampleBlock_;
-
-            for (int k = 0; k < BLOCK_SIZE; k++) {
-
-                float monoIn = (*sp + *(sp + 1)) * 0.5f;
-
-                if (++inputIncCount >= sampleRateDivide)
-                {
-                    inputIncCount = 0;
-                    delayWritePos = (delayWritePos + 1) & delayBufferSizeM1;
-                    delayWritePosF = (float)delayWritePos;
-
-                    // hp
-                    hp_in3_x0    = monoIn;
-                    hp_in3_y0    = _in3_a0 * hp_in3_x0 + _in3_a1 * hp_in3_x1 + _in3_b1 * hp_in3_y1;
-                    hp_in3_y1    = hp_in3_y0;
-                    hp_in3_x1    = hp_in3_x0;
-
-                    low2  += f * band2;
-                    band2 += f * (hp_in3_y0 - low2 - band2);
-
-                    delayBuffer_[delayWritePos] = low2;
-                }
-
-                ///-------- grain 1
-                grain1L = grain1R = 0;
-                if (grainTable[0][GRAIN_RAMP] < 1)
-                {
-                    delayReadPos = modulo2(grainTable[0][GRAIN_POS] - grainTable[0][GRAIN_RAMP] * grainTable[0][GRAIN_SIZE], delayBufferSize);
-                    env = hann(grainTable[0][GRAIN_RAMP]) * grainTable[0][GRAIN_AMP];
-                    grain1 = env * delayInterpolation(delayReadPos, delayBuffer_, delayBufferSizeM1);
-                    grain1L = grain1 * grainTable[0][GRAIN_PAN];
-                    grain1R = grain1 * (1 - grainTable[0][GRAIN_PAN]);
-                }
-                grainTable[0][GRAIN_RAMP] += grainTable[0][GRAIN_CURRENT_SHIFT];
-                grainTable[0][GRAIN_CURRENT_SHIFT] += grainTable[0][GRAIN_INC];
-
-                ///-------- grain 2
-                grain2L = grain2R = 0;
-                if (grainTable[1][GRAIN_RAMP] < 1)
-                {
-                    delayReadPos = modulo2(grainTable[1][GRAIN_POS] - grainTable[1][GRAIN_RAMP] * grainTable[1][GRAIN_SIZE], delayBufferSize);
-                    env = hann(grainTable[1][GRAIN_RAMP]) * grainTable[1][GRAIN_AMP];
-                    grain2 = env * delayInterpolation(delayReadPos, delayBuffer_, delayBufferSizeM1);
-                    grain2L = grain2 * grainTable[1][GRAIN_PAN];
-                    grain2R = grain2 * (1 - grainTable[1][GRAIN_PAN]);
-                }
-                grainTable[1][GRAIN_RAMP] += grainTable[1][GRAIN_CURRENT_SHIFT];
-                grainTable[1][GRAIN_CURRENT_SHIFT] += grainTable[1][GRAIN_INC];
-
-                ///-------- grain 3
-                grain3L = grain3R = 0;
-                if (grainTable[2][GRAIN_RAMP] < 1)
-                {
-                    delayReadPos = modulo2(grainTable[2][GRAIN_POS] - grainTable[2][GRAIN_RAMP] * grainTable[2][GRAIN_SIZE], delayBufferSize);
-                    env = hann(grainTable[2][GRAIN_RAMP]) * grainTable[2][GRAIN_AMP];
-                    grain3 = env * delayInterpolation(delayReadPos, delayBuffer_, delayBufferSizeM1);
-                    grain3L = grain3 * grainTable[2][GRAIN_PAN];
-                    grain3R = grain3 * (1 - grainTable[2][GRAIN_PAN]);
-                }
-                grainTable[2][GRAIN_RAMP] += grainTable[2][GRAIN_CURRENT_SHIFT];
-                grainTable[2][GRAIN_CURRENT_SHIFT] += grainTable[2][GRAIN_INC];
-
-                grainSumL = grain1L + grain2L + grain3L;
-                grainSumR = grain1R + grain2R + grain3R;
-
-                low3  += f2 * band3;
-                band3 += f2 * (grainSumL - low3 - band3);
-
-                low4  += f2 * band4;
-                band4 += f2 * (grainSumR - low4 - band4);
-
-                *sp = *sp * dry + low3 * wetL;
-                sp++;
-                *sp = *sp * dry + low4 * wetR;
-                sp++;
-            }
-        }
-        break;
-        case FILTER_GRAIN2: {
-            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
-            float mixerGain_01 = clamp(mixerGain_, 0, 1);
-            int mixerGain255 = mixerGain_01 * 255;
-            float dry = panTable[255 - mixerGain255];
-            float wet = panTable[mixerGain255] * 1.5f;
-            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
-            wet += extraAmp;
-
-            float wetL = wet * (1 + matrixFilterPan);
-            float wetR = wet * (1 - matrixFilterPan);
-
-            param1S = 0.05f * (this->params_.effect.param1 + matrixFilterFrequency) + .95f * param1S;
-            param2S = 0.05f * clamp( fabsf(this->params_.effect.param2 + matrixFilterParam2), 0, 1) + 0.95f * param2S;
-
-            const float sampleRateDivide = 4;
-            const float sampleRateDivideInv = 1 / sampleRateDivide;
-            float inputIncCount = 0;
-
-            bool grainProb = true;//0.95f >= fabs(noise[0]);
-   
-            if(grainProb) {
-                if(grainTable[grainNext][GRAIN_RAMP] >= 1 && grainTable[grainPrev][GRAIN_RAMP] > 0.33f) {
-                    //grain done, compute another one
-                    float grainRate = sampleRateDivideInv * (1 + param2S * noise[4] * 0.25f);
-                    grainTable[grainNext][GRAIN_RAMP] = 0;
-                    grainTable[grainNext][GRAIN_SIZE] = clamp((1800 + (noise[2]) * 400 * param2S * param2S) * param1S * param1S, 50, delayBufferSize - 100);
-                    grainTable[grainNext][GRAIN_POS] = modulo2(delayWritePosF - 100, delayBufferSize);
-                    float invGrainSize = 1 / grainTable[grainNext][GRAIN_SIZE];
-                    grainTable[grainNext][GRAIN_CURRENT_SHIFT] = grainTable[grainNext][GRAIN_NEXT_SHIFT];
-                    grainTable[grainNext][GRAIN_NEXT_SHIFT] = grainRate * invGrainSize;
-                    grainTable[grainNext][GRAIN_INC] = clamp( (grainTable[grainNext][GRAIN_NEXT_SHIFT] - grainTable[grainNext][GRAIN_CURRENT_SHIFT]) * invGrainSize * sampleRateDivideInv, 0, 0.5f);
-                    grainTable[grainNext][GRAIN_AMP] = (noise[3]);
+                    grainTable[grainNext][GRAIN_INC] = clamp( (grainTable[grainNext][GRAIN_NEXT_SHIFT] - grainTable[grainNext][GRAIN_CURRENT_SHIFT]) * invGrainSize, 0, 0.5f);
+                    grainTable[grainNext][GRAIN_AMP] = sqrt3(fabsf(noise[3]));
                     grainTable[grainNext][GRAIN_PAN] = (1 + (noise[6]) * sqrt3(param2S)) * 0.5f;
                     grainPrev = grainNext;
                 }
@@ -2147,7 +2013,7 @@ void Timbre::fxAfterBlock() {
             _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
             _in3_a1 = -_in3_a0;
 
-            const float f = 0.78f;
+            const float f = 0.85f;
             const float f2 = 0.78f;
 
             float grain1, grain2, grain3;
@@ -2157,10 +2023,9 @@ void Timbre::fxAfterBlock() {
             float grainSumR, grainSumL;
 
             float *sp = sampleBlock_;
+            float monoIn;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
-
-                float monoIn = (*sp + *(sp + 1)) * 0.5f;
 
                 if (++inputIncCount >= sampleRateDivide)
                 {
@@ -2168,16 +2033,21 @@ void Timbre::fxAfterBlock() {
                     delayWritePos = (delayWritePos + 1) & delayBufferSizeM1;
                     delayWritePosF = (float)delayWritePos;
 
+                    delayReadPos = modulo(delayWritePos + 48, delayBufferSize);
+                    float feedback = delayBuffer_[(int) delayReadPos];
+
+                    monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                    low2  += f * band2;
+                    band2 += f * (monoIn - low2 - band2);
+
                     // hp
-                    hp_in3_x0    = monoIn;
+                    hp_in3_x0    = low2 * lockA + feedback * lockB;
                     hp_in3_y0    = _in3_a0 * hp_in3_x0 + _in3_a1 * hp_in3_x1 + _in3_b1 * hp_in3_y1;
                     hp_in3_y1    = hp_in3_y0;
                     hp_in3_x1    = hp_in3_x0;
 
-                    low2  += f * band2;
-                    band2 += f * (hp_in3_y0 - low2 - band2);
-
-                    delayBuffer_[delayWritePos] = low2;
+                    delayBuffer_[delayWritePos] = hp_in3_y0;
                 }
 
                 ///-------- grain 1
@@ -2221,6 +2091,157 @@ void Timbre::fxAfterBlock() {
 
                 grainSumL = grain1L + grain2L + grain3L;
                 grainSumR = grain1R + grain2R + grain3R;
+
+                delaySumOut = grainSumL + grainSumR;
+
+                low3  += f2 * band3;
+                band3 += f2 * (grainSumL - low3 - band3);
+
+                low4  += f2 * band4;
+                band4 += f2 * (grainSumR - low4 - band4);
+
+                *sp = *sp * dry + low3 * wetL;
+                sp++;
+                *sp = *sp * dry + low4 * wetR;
+                sp++;
+            }
+        }
+
+        break;
+        case FILTER_GRAIN2: {
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            int mixerGain255 = mixerGain_01 * 255;
+            float dry = panTable[255 - mixerGain255];
+            float wet = panTable[mixerGain255] * 1.5f;
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
+
+            float wetL = wet * (1 + matrixFilterPan);
+            float wetR = wet * (1 - matrixFilterPan);
+
+            param1S = 0.05f * (this->params_.effect.param1 + matrixFilterFrequency) + .95f * param1S;
+            param2S = 0.05f * clamp( fabsf(this->params_.effect.param2 + matrixFilterParam2), 0, 1) + 0.95f * param2S;
+
+            const float sampleRateDivide = 4;
+            const float sampleRateDivideInv = 1 / sampleRateDivide;
+            float inputIncCount = 0;
+
+            lockA = lockA * 0.95f + ((param2S > 0.99f) ? 0 : 1) * 0.05f;
+            lockB = (1 - lockA);
+
+            bool grainProb = 0.95f >= fabs(noise[0]);
+   
+            if(grainProb) {
+                if(grainTable[grainNext][GRAIN_RAMP] >= 1 && grainTable[grainPrev][GRAIN_RAMP] > 0.33f) {
+                    //grain done, compute another one
+                    float jitter = param2S * lockA;
+                    float grainRate = sampleRateDivideInv * (1 + jitter * noise[4] * 0.025f);
+                    grainTable[grainNext][GRAIN_RAMP] = 0;
+                    grainTable[grainNext][GRAIN_SIZE] = clamp((1800 + (noise[2]) * 40 * jitter * jitter) * param1S * param1S, 50, delayBufferSize - 100);
+                    grainTable[grainNext][GRAIN_POS] = modulo2(delayWritePosF - 100, delayBufferSize);
+                    float invGrainSize = 1 / grainTable[grainNext][GRAIN_SIZE];
+                    grainTable[grainNext][GRAIN_CURRENT_SHIFT] = grainTable[grainNext][GRAIN_NEXT_SHIFT];
+                    grainTable[grainNext][GRAIN_NEXT_SHIFT] = grainRate * invGrainSize;
+                    grainTable[grainNext][GRAIN_INC] = clamp( (grainTable[grainNext][GRAIN_NEXT_SHIFT] - grainTable[grainNext][GRAIN_CURRENT_SHIFT]) * invGrainSize * sampleRateDivideInv, 0, 0.5f);
+                    grainTable[grainNext][GRAIN_AMP] = (noise[3]);
+                    grainTable[grainNext][GRAIN_PAN] = (1 + (noise[6]) * sqrt3(param2S)) * 0.5f;
+                    grainPrev = grainNext;
+                }
+                if(++grainNext > 2) {
+                    grainNext = 0;
+                }
+            }
+
+            float env;
+
+            float filterB2     = 0.15f;
+            float filterB     = (filterB2 * filterB2 * 0.5f);
+
+            _in3_b1 = (1 - filterB);
+            _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
+            _in3_a1 = -_in3_a0;
+
+            const float f = 0.85f;
+            const float f2 = 0.78f;
+
+            float grain1, grain2, grain3;
+            float grain1L, grain1R;
+            float grain2L, grain2R;
+            float grain3L, grain3R;
+            float grainSumR, grainSumL;
+
+            float *sp = sampleBlock_;
+            float monoIn;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+
+                if (++inputIncCount >= sampleRateDivide)
+                {
+                    inputIncCount = 0;
+                    delayWritePos = (delayWritePos + 1) & delayBufferSizeM1;
+                    delayWritePosF = (float)delayWritePos;
+
+                    delayReadPos = modulo(delayWritePos + 48, delayBufferSize);
+                    float feedback = delayBuffer_[(int) delayReadPos];
+
+                    monoIn = (*sp + *(sp + 1)) * 0.5f;
+
+                    low2  += f * band2;
+                    band2 += f * (monoIn - low2 - band2);
+
+                    // hp
+                    hp_in3_x0    = low2 * lockA + feedback * lockB;
+                    hp_in3_y0    = _in3_a0 * hp_in3_x0 + _in3_a1 * hp_in3_x1 + _in3_b1 * hp_in3_y1;
+                    hp_in3_y1    = hp_in3_y0;
+                    hp_in3_x1    = hp_in3_x0;
+
+                    delayBuffer_[delayWritePos] = hp_in3_y0;
+                }
+
+                ///-------- grain 1
+                grain1L = grain1R = 0;
+                if (grainTable[0][GRAIN_RAMP] < 1)
+                {
+                    delayReadPos = modulo(grainTable[0][GRAIN_POS] + grainTable[0][GRAIN_RAMP] * grainTable[0][GRAIN_SIZE], delayBufferSize);
+                    env = hann(grainTable[0][GRAIN_RAMP]) * grainTable[0][GRAIN_AMP];
+                    grain1 = env * delayInterpolation(delayReadPos, delayBuffer_, delayBufferSizeM1);
+                    grain1L = grain1 * grainTable[0][GRAIN_PAN];
+                    grain1R = grain1 * (1 - grainTable[0][GRAIN_PAN]);
+                }
+                grainTable[0][GRAIN_RAMP] += grainTable[0][GRAIN_CURRENT_SHIFT];
+                grainTable[0][GRAIN_CURRENT_SHIFT] += grainTable[0][GRAIN_INC];
+
+                ///-------- grain 2
+                grain2L = grain2R = 0;
+                if (grainTable[1][GRAIN_RAMP] < 1)
+                {
+                    delayReadPos = modulo(grainTable[1][GRAIN_POS] + grainTable[1][GRAIN_RAMP] * grainTable[1][GRAIN_SIZE], delayBufferSize);
+                    env = hann(grainTable[1][GRAIN_RAMP]) * grainTable[1][GRAIN_AMP];
+                    grain2 = env * delayInterpolation(delayReadPos, delayBuffer_, delayBufferSizeM1);
+                    grain2L = grain2 * grainTable[1][GRAIN_PAN];
+                    grain2R = grain2 * (1 - grainTable[1][GRAIN_PAN]);
+                }
+                grainTable[1][GRAIN_RAMP] += grainTable[1][GRAIN_CURRENT_SHIFT];
+                grainTable[1][GRAIN_CURRENT_SHIFT] += grainTable[1][GRAIN_INC];
+
+                ///-------- grain 3
+                grain3L = grain3R = 0;
+                if (grainTable[2][GRAIN_RAMP] < 1)
+                {
+                    delayReadPos = modulo(grainTable[2][GRAIN_POS] + grainTable[2][GRAIN_RAMP] * grainTable[2][GRAIN_SIZE], delayBufferSize);
+                    env = hann(grainTable[2][GRAIN_RAMP]) * grainTable[2][GRAIN_AMP];
+                    grain3 = env * delayInterpolation(delayReadPos, delayBuffer_, delayBufferSizeM1);
+                    grain3L = grain3 * grainTable[2][GRAIN_PAN];
+                    grain3R = grain3 * (1 - grainTable[2][GRAIN_PAN]);
+                }
+                grainTable[2][GRAIN_RAMP] += grainTable[2][GRAIN_CURRENT_SHIFT];
+                grainTable[2][GRAIN_CURRENT_SHIFT] += grainTable[2][GRAIN_INC];
+
+                grainSumL = grain1L + grain2L + grain3L;
+                grainSumR = grain1R + grain2R + grain3R;
+
+                delaySumOut = grainSumL + grainSumR;
 
                 low3  += f2 * band3;
                 band3 += f2 * (grainSumL - low3 - band3);
