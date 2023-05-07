@@ -223,6 +223,8 @@ private:
     float low4 = 0, band4 = 0;
     float low5 = 0, band5 = 0;
     float low6 = 0, band6 = 0;
+    float low7 = 0, band7 = 0;
+    float low8 = 0, band8 = 0;
 
     const int delayBufStereoSize = delayBufferSize * 0.5f;
     const float delayBufStereoSizeF = delayBufStereoSize;
@@ -295,7 +297,7 @@ private:
         GRAIN_CURRENT_SHIFT,
         GRAIN_NEXT_SHIFT,
         GRAIN_INC,
-        GRAIN_AMP,
+        GRAIN_VOL,
         GRAIN_PAN
     };
 
@@ -306,6 +308,9 @@ private:
         {1, 1, 1, 0, 0, 0, 1, 0.5f}
     };
     float lockA, lockB;
+
+    float lowL = 0, highL = 0, bandL = 0;
+    float lowR = 0, highR = 0, bandR = 0;
 
     /** --------------end of FX conf--------------  */
 
