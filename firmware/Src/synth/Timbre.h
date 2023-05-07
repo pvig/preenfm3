@@ -188,11 +188,8 @@ private:
 
     #define delayBufferSize 2048
     const float delayBufferSizeF       = delayBufferSize;
-    const float delayBufferSize120     = delayBufferSize * 0.3333f;
-    const float delayBufferSize240     = delayBufferSize * 0.6666f;
     const float delayBufferSize90      = delayBufferSize * 0.25f;
     const float delayBufferSize180     = delayBufferSize * 0.5f;
-    const float delayBufferSize270     = delayBufferSize * 0.75f;
     const int delayBufferSizeM1   = delayBufferSize - 1;
     const int delayBufferSizeM4   = delayBufferSize - 4;
     const float delayBufferSizeInv = 1.0f / delayBufferSize;
@@ -291,6 +288,29 @@ private:
     const int inputBufferLen3 = 137;
     const int inputBufferLen4 = 242;
     const int inputBufferLen5 = 160;
+
+    // granulator
+    enum GRAIN_PARAMS {
+        GRAIN_RAMP = 0,
+        GRAIN_POS,
+        GRAIN_SIZE,
+        GRAIN_CURRENT_SHIFT,
+        GRAIN_NEXT_SHIFT,
+        GRAIN_INC,
+        GRAIN_VOL,
+        GRAIN_PAN
+    };
+
+    int grainNext = 0, grainPrev = 0;
+    float grainTable[3][8] = {
+        {1, 1, 1, 0, 0, 0, 1, 0.5f},
+        {1, 1, 1, 0, 0, 0, 1, 0.5f},
+        {1, 1, 1, 0, 0, 0, 1, 0.5f}
+    };
+    float lockA, lockB;
+
+    float lowL = 0, highL = 0, bandL = 0;
+    float lowR = 0, highR = 0, bandR = 0;
 
     /** --------------end of FX conf--------------  */
 

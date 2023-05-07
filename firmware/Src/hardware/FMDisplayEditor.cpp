@@ -749,17 +749,19 @@ struct ParameterRowDisplay engineCurveParameterRow = {
  56  DelC, -56-
  57  Ping, -57-
  58  Diff, -58-
+ 59  Gra1, -59-
+ 60  Gra2, -60-
  */
 
 const unsigned char filtersOrder[] = { 0, 1, 2, 3, 4, 5, 6, 38, 39, 40, 46, 47,
         22, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25,
         26, 32, 33, 34, 35, 36, 37, 41, 42, 9, 43, 44, 45, 27, 28, 29, 30, 31,
-        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58 };
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60 };
 
 const unsigned char filtersPosition[] = { 0, 1, 2, 3, 4, 5, 6, 13, 14, 39, 15,
         16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 12, 27, 28, 29, 30, 43, 44,
         45, 46, 47, 31, 32, 33, 34, 35, 36, 7, 8, 9, 37, 38, 40, 41, 42, 10, 11,
-        48, 49,  50, 51, 52, 53, 54, 55, 56, 57, 58 };
+        48, 49,  50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60 };
 
 const char *fxName[] = {
     "Off ", /*  0   */
@@ -821,6 +823,8 @@ const char *fxName[] = {
     "Delc", /*  56  */
     "Ping", /*  57  */
     "Diff", /*  58  */
+    "Gra1", /*  59  */
+    "Gra2", /*  60  */
 };
 
 struct ParameterRowDisplay effectParameterRow = {
@@ -1100,6 +1104,14 @@ struct FilterRowDisplay filterRowDisplay[FILTER_LAST] = {
     {
         "Time",
         "Size",
+        "Mix " },
+    {
+        "Size",
+        "Sprd",
+        "Mix " },
+    {
+        "Size",
+        "Sprd",
         "Mix " }
 };
 
@@ -3841,7 +3853,7 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
 
         // Special Case for filter - hide not so good filter
         if (unlikely(param->valueNameOrderReversed == filtersPosition)) {
-            if (ticks > 0 && oldValue != FILTER_DIFFUSER) {
+            if (ticks > 0 && oldValue != (FILTER_LAST - 1)) {
                 newValue = param->valueNameOrder[pos + 1];
             }
             if (ticks < 0 && pos > param->minValue) {
