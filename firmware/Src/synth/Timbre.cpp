@@ -1033,6 +1033,7 @@ void Timbre::fxAfterBlock() {
                 float feedL   = low3 * currentFeedback;
                 float feedR   = low4 * currentFeedback;
 
+
                 low1  += f * band1;
                 band1 += f * (*sp - low1 - band1);
 
@@ -1748,7 +1749,7 @@ void Timbre::fxAfterBlock() {
             float f = 0.7f;
             float f2 = 0.62;
             float f3 = 0.66;
-            const float fnotch = 1.22f;
+            const float fnotch = 1.03f;
 
             float *sp = sampleBlock_;
 
@@ -1865,7 +1866,7 @@ void Timbre::fxAfterBlock() {
 
             float f = 0.7f - clamp(feedback - (param1S * 0.3f), 0, 1) * 0.6f;
             float f2 = 0.64f - param1S * 0.1f;
-            const float fnotch = 1.22f;
+            const float fnotch = 1.03f;
 
             const float inputCoef1 = 0.75f;
             const float inputCoef2 = 0.625f;
