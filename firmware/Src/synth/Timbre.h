@@ -307,7 +307,7 @@ private:
         {1, 1, 1, 0, 0, 0, 1, 0.5f},
         {1, 1, 1, 0, 0, 0, 1, 0.5f}
     };
-    float lockA, lockB;
+    float lockA, lockB, loopSize = 20;
 
     float lowL = 0, highL = 0, bandL = 0;
     float lowR = 0, highR = 0, bandR = 0;
