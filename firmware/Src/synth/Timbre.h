@@ -309,9 +309,6 @@ private:
     };
     float lockA, lockB, loopSize = 20;
 
-    float lowL = 0, highL = 0, bandL = 0;
-    float lowR = 0, highR = 0, bandR = 0;
-
     /** --------------end of FX conf--------------  */
 
     int8_t timbreNumber_;
