@@ -28,7 +28,7 @@
 #define HEIGHT_MIXER_LINE 28
 
 
-const char* outDisplay[] = { "1", "1-2", "  2", "3", "3-4", "  4", "5", "5-6", "  6" };
+const char* outDisplay[] = { "1", "1-2", "  2", "3", "3-4", "  4", "5", "5-6", "  6" , "T1 ", "T2 ", "T3 ", "T4 ", "T5 ", "T6 "};
 const char* compDisplay[]= { "Off", "Slow", "Medium", "Fast"};
 const char* enableNames[] = { "Off", "On" };
 const char* levelMeterWhere[] = { "Off", "Mix", "All" };
@@ -93,7 +93,7 @@ const struct Pfm3MixerButtonState compButtonState = {
 
 const struct Pfm3MixerButtonState outButtonState = {
       "Jack output", MIXER_VALUE_OUT,
-        {0, 8, 9, DISPLAY_TYPE_STRINGS, outDisplay }
+        {0, 14, 15, DISPLAY_TYPE_STRINGS, outDisplay }
 };
 
 

@@ -197,6 +197,9 @@ private:
     static float delayBuffer[NUMBER_OF_TIMBRES][delayBufferSize];
     float *delayBuffer_;
 
+    static float inputBlock[NUMBER_OF_TIMBRES][64];
+    float *inputBlock_;
+
     float param1S = 0;
     float matrixFilterFrequencyS = 0;
     float param2S = 0;

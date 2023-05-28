@@ -364,6 +364,7 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
             // 0 => out1+out2, 1 => out1, 2=> out2
             // 3 => out3+out4, 4 => out3, 5=> out4
             // 6 => out5+out6, 7 => out5, 8=> out8
+            // 9 - 14 => out to timbre
             case 0:
                 cb1 = buffer1;
                 while (cb1 < endcb1) {
@@ -413,6 +414,22 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
                 while (cb3 < endcb3) {
                     *cb3++ += (int32_t) ((*sampleFromTimbre++ + *sampleFromTimbre++) * .5f * sampleMultipler);
                     cb3++;
+                }
+                break;
+            default :
+                // routing to another timbre
+                int tNum = synthState_->mixerState.instrumentState_[timbre].out - 9;
+
+                if(timbre != tNum) {
+                    float *chainBlock = Timbre::inputBlock[tNum];
+
+                    for (int s = 0; s < BLOCK_SIZE; s++) {
+                        float sampleL = *(sampleFromTimbre++);
+                        float sampleR = *(sampleFromTimbre++);
+
+                        *chainBlock++ += sampleR;
+                        *chainBlock++ += sampleL;
+                    }
                 }
                 break;
         }
