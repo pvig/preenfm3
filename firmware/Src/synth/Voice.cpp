@@ -3657,13 +3657,13 @@ void Voice::nextBlock() {
 
             float div3TimesVelocity = .33f * this->velocity;
 
-            float voiceIm1 = modulationIndex1 * div3TimesVelocity;
-            float voiceIm2 = modulationIndex2 * div3TimesVelocity;
-            float voiceIm3 = modulationIndex3 * div3TimesVelocity;
+            float voiceIm1 = modulationIndex1 * 1000;
+            float voiceIm2 = modulationIndex2 * 1000;
+            float voiceIm3 = modulationIndex3 * 1000;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
-                bool isSync = false;;
+                bool isSync = false;
                 oscState4_.frequency = oscState4_.mainFrequencyPlusMatrix;
                 float osc4 = currentTimbre->osc4_.getNextSampleSync(&oscState4_, isSync) * env4Value;
 

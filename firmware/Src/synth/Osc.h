@@ -83,14 +83,17 @@ public:
         int indexInteger = oscState->index;
         // keep decimal part;
         oscState->index -= indexInteger;
-        // indexInteger overflow ?
-        isSync = (indexInteger & waveTable->max) < indexInteger;
         // Put it back inside the table
-        indexInteger &= waveTable->max;
+        int indexIntegerWrap = indexInteger & waveTable->max;
+        // indexInteger overflow ?
+        isSync = indexIntegerWrap < indexInteger;
+        if(isSync) {
+            isSync = true;
+        }
         // Readjust the floating pont inside the table
-        oscState->index += indexInteger;
+        oscState->index += indexIntegerWrap;
 
-        return waveTable->table[indexInteger];
+        return waveTable->table[indexIntegerWrap];
     }
 
 
