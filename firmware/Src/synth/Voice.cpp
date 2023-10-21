@@ -124,29 +124,6 @@ inline
 float wrap(float x) {
     return x - floorf(x);
 }
-inline
-float window(float x) {
-    if (x < 0 || x > 1) {
-        return 0;
-    } else if (x < 0.2f) {
-        return sqrt3( x * 5 );
-    } else if (x > 0.8f) {
-        return sqrt3(1 - (x-0.8f) * 5);
-    } else {
-        return 1;
-    }
-}
-inline float ftan(float fAngle)
-{
-    float fASqr = fAngle * fAngle;
-    float fResult = 2.033e-01f;
-    fResult *= fASqr;
-    fResult += 3.1755e-01f;
-    fResult *= fASqr;
-    fResult += 1.0f;
-    fResult *= fAngle;
-    return fResult;
-}
 enum NewNoteType {
     NEW_NOTE_FREE = 0,
     NEW_NOTE_RELEASE,
@@ -3640,7 +3617,84 @@ void Voice::nextBlock() {
             }
         }
             break;
+        case ALG29:
+            /* Windowed sync AM
+             .---.
+             | 4 |
+             '---'
+             /IM1 |IM2 \IM3
+             .---.  .---.  .---.
+             | 1 |  | 2 |  | 3 |
+             '---'  '---'  '---'
+             |Mix1  |Mix2  | Mix3
 
+             */
+        {
+            currentTimbre->osc1_.calculateFrequencyWithMatrix(&oscState1_, &matrix, freqHarm);
+            currentTimbre->osc2_.calculateFrequencyWithMatrix(&oscState2_, &matrix, freqHarm);
+            currentTimbre->osc3_.calculateFrequencyWithMatrix(&oscState3_, &matrix, freqHarm);
+            currentTimbre->osc4_.calculateFrequencyWithMatrix(&oscState4_, &matrix, freqHarm);
+
+            env1Value = this->env1ValueMem;
+            envNextValue = currentTimbre->env1_.getNextAmpExp(&envState1_);
+            env1Inc = (envNextValue - env1Value) * inv32;  // divide by 32
+            this->env1ValueMem = envNextValue;
+
+            env2Value = this->env2ValueMem;
+            envNextValue = currentTimbre->env2_.getNextAmpExp(&envState2_);
+            env2Inc = (envNextValue - env2Value) * inv32;
+            this->env2ValueMem = envNextValue;
+
+            env3Value = this->env3ValueMem;
+            envNextValue = currentTimbre->env3_.getNextAmpExp(&envState3_);
+            env3Inc = (envNextValue - env3Value) * inv32;
+            this->env3ValueMem = envNextValue;
+
+            env4Value = this->env4ValueMem;
+            envNextValue = currentTimbre->env4_.getNextAmpExp(&envState4_);
+            env4Inc = (envNextValue - env4Value) * inv32;
+            this->env4ValueMem = envNextValue;
+
+            float div3TimesVelocity = .33f * this->velocity;
+
+            float voiceIm1 = modulationIndex1 * div3TimesVelocity;
+            float voiceIm2 = modulationIndex2 * div3TimesVelocity;
+            float voiceIm3 = modulationIndex3 * div3TimesVelocity;
+
+            for (int k = 0; k < BLOCK_SIZE; k++) {
+
+                bool isSync = false;;
+                oscState4_.frequency = oscState4_.mainFrequencyPlusMatrix;
+                float osc4 = currentTimbre->osc4_.getNextSampleSync(&oscState4_, isSync) * env4Value;
+
+                oscState1_.index = isSync? 0 : oscState1_.index;
+                oscState2_.index = isSync? 0 : oscState2_.index;
+                oscState3_.index = isSync? 0 : oscState3_.index;
+
+                oscState3_.frequency = osc4 * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
+                float car3 = currentTimbre->osc3_.getNextSample(&oscState3_) * env3Value * mix3 * div3TimesVelocity * osc4;
+
+                oscState2_.frequency = osc4 * voiceIm2 + oscState2_.mainFrequencyPlusMatrix;
+                float car2 = currentTimbre->osc2_.getNextSample(&oscState2_) * env2Value * mix2 * div3TimesVelocity * osc4;
+
+                oscState1_.frequency = osc4 * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
+                float car1 = currentTimbre->osc1_.getNextSample(&oscState1_) * env1Value * mix1 * div3TimesVelocity * osc4;
+
+                *sample++ = car1 * pan1Right + car2 * pan2Right + car3 * pan3Right;
+                *sample++ = car1 * pan1Left + car2 * pan2Left + car3 * pan3Left;
+
+                env1Value += env1Inc;
+                env2Value += env2Inc;
+                env3Value += env3Inc;
+                env4Value += env4Inc;
+            }
+
+            if (unlikely(currentTimbre->env1_.isDead(&envState1_) && currentTimbre->env2_.isDead(&envState2_) && currentTimbre->env3_.isDead(&envState3_))) {
+                endNoteOrBeginNextOne();
+            }
+
+            break;
+        }
     } // End switch
 
 

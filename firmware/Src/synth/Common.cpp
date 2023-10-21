@@ -46,6 +46,7 @@ struct AlgoInformation  algoInformation[] = {
         { 6, 2, 4},   // ALG26
         { 6, 0, 6},   // ALG27
         { 6, 1, 5},   // ALG28
+        { 4, 3, 3},   // ALG29
 };
 
 
@@ -78,6 +79,7 @@ int algoOpInformation[][NUMBER_OF_OPERATORS] = {
         {1,1,1,2,2,1}, // ALGO26
         {1,1,1,1,1,1}, // ALGO27
         {1,1,1,1,1,2}, // ALGO28
+        {1,1,1,2,0,0}, // ALGO29
 };
 
 
