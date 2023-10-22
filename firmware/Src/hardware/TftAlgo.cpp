@@ -571,7 +571,6 @@ const uint8_t algo29[] = {
     IM, 1, 4, 1,
     IM, 2, 4, 2,
     IM, 3, 4, 3,
-    IM, 6, 4, 4,
     END,
 };
 

@@ -3661,24 +3661,33 @@ void Voice::nextBlock() {
             float voiceIm2 = modulationIndex2 * 1000;
             float voiceIm3 = modulationIndex3 * 1000;
 
+            float mix1V = mix1 * div3TimesVelocity;
+            float mix2V = mix2 * div3TimesVelocity;
+            float mix3V = mix3 * div3TimesVelocity;
+
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
                 bool isSync = false;
                 oscState4_.frequency = oscState4_.mainFrequencyPlusMatrix;
-                float osc4 = currentTimbre->osc4_.getNextSampleSync(&oscState4_, isSync) * env4Value;
+                float osc4 = currentTimbre->osc4_.getNextSampleSync(&oscState4_, isSync);
+                osc4 *= env4Value;
 
+                // sync slave osc
                 oscState1_.index = isSync? 0 : oscState1_.index;
                 oscState2_.index = isSync? 0 : oscState2_.index;
                 oscState3_.index = isSync? 0 : oscState3_.index;
 
                 oscState3_.frequency = osc4 * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
-                float car3 = currentTimbre->osc3_.getNextSample(&oscState3_) * env3Value * mix3 * div3TimesVelocity * osc4;
+                float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_);
+                float car3 = carSample3 * carSample3 * env3Value * mix3V * osc4;
 
                 oscState2_.frequency = osc4 * voiceIm2 + oscState2_.mainFrequencyPlusMatrix;
-                float car2 = currentTimbre->osc2_.getNextSample(&oscState2_) * env2Value * mix2 * div3TimesVelocity * osc4;
+                float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_);
+                float car2 = carSample2 * carSample2 * env2Value * mix2V * osc4;
 
                 oscState1_.frequency = osc4 * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
-                float car1 = currentTimbre->osc1_.getNextSample(&oscState1_) * env1Value * mix1 * div3TimesVelocity * osc4;
+                float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_);
+                float car1 = carSample1 * carSample1 * env1Value * mix1V * osc4;
 
                 *sample++ = car1 * pan1Right + car2 * pan2Right + car3 * pan3Right;
                 *sample++ = car1 * pan1Left + car2 * pan2Left + car3 * pan3Left;
