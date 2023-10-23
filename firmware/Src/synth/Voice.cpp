@@ -3670,27 +3670,32 @@ void Voice::nextBlock() {
                 bool isSync = false;
                 oscState4_.frequency = oscState4_.mainFrequencyPlusMatrix;
                 float osc4 = currentTimbre->osc4_.getNextSampleSync(&oscState4_, isSync);
-                osc4 *= env4Value;
+                // offset & invert
+                osc4 = - osc4;
+                float osc4Env = osc4 * env4Value;
 
                 // sync slave osc
-                oscState1_.index = isSync? 0 : oscState1_.index;
-                oscState2_.index = isSync? 0 : oscState2_.index;
-                oscState3_.index = isSync? 0 : oscState3_.index;
+                oscState1_.index = isSync ? 0 : oscState1_.index;
+                oscState2_.index = isSync ? 0 : oscState2_.index;
+                oscState3_.index = isSync ? 0 : oscState3_.index;
 
-                oscState3_.frequency = osc4 * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
-                float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_);
-                float car3 = carSample3 * carSample3 * env3Value * mix3V * osc4;
+                oscState3_.frequency = osc4Env * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
+                float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_) * osc4;
+                carSample3 *= carSample3;
+                float car3 = carSample3 * env3Value * mix3V;
 
-                oscState2_.frequency = osc4 * voiceIm2 + oscState2_.mainFrequencyPlusMatrix;
-                float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_);
-                float car2 = carSample2 * carSample2 * env2Value * mix2V * osc4;
+                oscState2_.frequency = osc4Env * voiceIm2 + oscState2_.mainFrequencyPlusMatrix;
+                float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_) * osc4;
+                carSample2 *= carSample2;
+                float car2 = carSample2 * env2Value * mix2V;
 
-                oscState1_.frequency = osc4 * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
-                float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_);
-                float car1 = carSample1 * carSample1 * env1Value * mix1V * osc4;
+                oscState1_.frequency = osc4Env * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
+                float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * osc4;
+                carSample1 *= carSample1;
+                float car1 = carSample1 * env1Value * mix1V;
 
                 *sample++ = car1 * pan1Right + car2 * pan2Right + car3 * pan3Right;
-                *sample++ = car1 * pan1Left + car2 * pan2Left + car3 * pan3Left;
+                *sample++ = car1 * pan1Left  + car2 * pan2Left  + car3 * pan3Left;
 
                 env1Value += env1Inc;
                 env2Value += env2Inc;

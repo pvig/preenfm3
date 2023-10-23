@@ -76,6 +76,9 @@ public:
 
     inline float getNextSampleSync(struct OscState *oscState, bool &isSync )  {
         struct WaveTable* waveTable = &waveTables[(int) oscillator->shape];
+        
+        int prevIndexInteger = oscState->index;
+        float prevSample = waveTable->table[prevIndexInteger];
 
         oscState->index +=  oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd;
 
@@ -85,15 +88,12 @@ public:
         oscState->index -= indexInteger;
         // Put it back inside the table
         int indexIntegerWrap = indexInteger & waveTable->max;
-        // indexInteger overflow ?
-        isSync = indexIntegerWrap < indexInteger;
-        if(isSync) {
-            isSync = true;
-        }
         // Readjust the floating pont inside the table
         oscState->index += indexIntegerWrap;
 
-        return waveTable->table[indexIntegerWrap];
+        float sample = waveTable->table[indexIntegerWrap];
+        isSync = signbit(prevSample) != signbit(sample);
+        return sample;
     }
 
 
