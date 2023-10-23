@@ -424,6 +424,8 @@ private:
     unsigned int nextIndex;
     float phase_;
 
+    bool prevSignbit;
+
     // Gliding ?
     bool gliding;
     float glidePhase;
