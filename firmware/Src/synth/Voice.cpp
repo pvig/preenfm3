@@ -3675,12 +3675,15 @@ void Voice::nextBlock() {
                 float osc4Env = osc4 * env4Value;
 
                 // invert osc4 to get a decreasing saw waveform
-                osc4 = -osc4;
+                osc4 = - osc4;
 
                 // sync check
                 bool currentSignbit = signbit(osc4);
                 bool isSync = prevSignbit && !currentSignbit; // sync on zero cross, from neg to pos only
                 prevSignbit = currentSignbit;
+
+                // offset osc4 to get a positive waveform
+                float window = 1 + osc4;
 
                 // sync slave osc
                 oscState1_.index = isSync ? 0 : oscState1_.index;
@@ -3688,17 +3691,17 @@ void Voice::nextBlock() {
                 oscState3_.index = isSync ? 0 : oscState3_.index;
 
                 oscState3_.frequency = osc4Env * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
-                float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_) * osc4;
-                carSample3 *= fabsf(carSample3);
+                float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_) * window;
+                carSample3 *= fabsf(carSample3); // sound tighter
                 float car3 = carSample3 * env3Value * mix3V;
 
                 oscState2_.frequency = osc4Env * voiceIm2 + oscState2_.mainFrequencyPlusMatrix;
-                float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_) * osc4;
+                float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_) * window;
                 carSample2 *= fabsf(carSample2);
                 float car2 = carSample2 * env2Value * mix2V;
 
                 oscState1_.frequency = osc4Env * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
-                float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * osc4;
+                float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
                 carSample1 *= fabsf(carSample1);
                 float car1 = carSample1 * env1Value * mix1V;
 
