@@ -3657,15 +3657,15 @@ void Voice::nextBlock() {
             env4Inc = (envNextValue - env4Value) * inv32;
             this->env4ValueMem = envNextValue;
 
-            float div3TimesVelocity = .33f * this->velocity;
+            float div6TimesVelocity = .16f * this->velocity;
 
             float voiceIm1 = modulationIndex1 * 1000;
             float voiceIm2 = modulationIndex2 * 1000;
             float voiceIm3 = modulationIndex3 * 1000;
 
-            float mix1V = mix1 * div3TimesVelocity;
-            float mix2V = mix2 * div3TimesVelocity;
-            float mix3V = mix3 * div3TimesVelocity;
+            float mix1V = mix1 * div6TimesVelocity;
+            float mix2V = mix2 * div6TimesVelocity;
+            float mix3V = mix3 * div6TimesVelocity;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
@@ -3674,11 +3674,11 @@ void Voice::nextBlock() {
 
                 float osc4Env = osc4 * env4Value;
 
-                // invert osc4 to get a decreasing saw waveform
+                // invert osc4 to get a saw ramp down
                 osc4 = - osc4;
 
                 // sync check
-                bool currentSignbit = signbit(osc4);
+                bool currentSignbit = signbit(osc4); // true if negative
                 bool isSync = prevSignbit && !currentSignbit; // sync on zero cross, from neg to pos only
                 prevSignbit = currentSignbit;
 
@@ -3692,7 +3692,7 @@ void Voice::nextBlock() {
 
                 oscState3_.frequency = osc4Env * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
                 float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_) * window;
-                carSample3 *= fabsf(carSample3); // sound tighter
+                carSample3 *= fabsf(carSample3);
                 float car3 = carSample3 * env3Value * mix3V;
 
                 oscState2_.frequency = osc4Env * voiceIm2 + oscState2_.mainFrequencyPlusMatrix;
@@ -3706,7 +3706,7 @@ void Voice::nextBlock() {
                 float car1 = carSample1 * env1Value * mix1V;
 
                 *sample++ = car1 * pan1Right + car2 * pan2Right + car3 * pan3Right;
-                *sample++ = car1 * pan1Left + car2 * pan2Left + car3 * pan3Left;
+                *sample++ = car1 * pan1Left  + car2 * pan2Left  + car3 * pan3Left;
 
                 env1Value += env1Inc;
                 env2Value += env2Inc;
