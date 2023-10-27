@@ -3742,6 +3742,10 @@ void Voice::nextBlock() {
 
              */
         {
+            float voiceIm1 = modulationIndex1;
+            float voiceIm2 = modulationIndex2;
+            float voiceIm3 = modulationIndex3;
+
             currentTimbre->osc1_.calculateFrequencyWithMatrix(&oscState1_, &matrix, freqHarm);
             currentTimbre->osc2_.calculateFrequencyWithMatrix(&oscState2_, &matrix, freqHarm);
             currentTimbre->osc3_.calculateFrequencyWithMatrix(&oscState3_, &matrix, freqHarm);
@@ -3767,22 +3771,20 @@ void Voice::nextBlock() {
             env4Inc = (envNextValue - env4Value) * inv32;
             this->env4ValueMem = envNextValue;
 
-            float div6TimesVelocity = .16f * this->velocity;
+            oscState4_.frequency = oscState4_.mainFrequencyPlusMatrix;
+            float *osc4Values = currentTimbre->osc4_.getNextBlock(&oscState4_);
 
-            float voiceIm1 = modulationIndex1 * 1000;
-            float voiceIm2 = modulationIndex2 * 1000;
-            float voiceIm3 = modulationIndex3 * 1000;
+            float div3TimesVelocity = .33f * this->velocity;
 
-            float mix1V = mix1 * div6TimesVelocity;
-            float mix2V = mix2 * div6TimesVelocity;
-            float mix3V = mix3 * div6TimesVelocity;
+            float mix1V = mix1 * div3TimesVelocity;
+            float mix2V = mix2 * div3TimesVelocity;
+            float mix3V = mix3 * div3TimesVelocity;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
-                oscState4_.frequency = oscState4_.mainFrequencyPlusMatrix;
-                float osc4 = currentTimbre->osc4_.getNextSample(&oscState4_);
-
-                float osc4Env = osc4 * env4Value;
+                float osc4 = osc4Values[k];
+                float freq4 = osc4 * env4Value;
+                freq4 *= oscState4_.frequency;
 
                 // invert osc4 to get a saw ramp down
                 osc4 = - osc4;
@@ -3800,17 +3802,17 @@ void Voice::nextBlock() {
                 oscState2_.index = isSync ? 0 : oscState2_.index;
                 oscState3_.index = isSync ? 0 : oscState3_.index;
 
-                oscState3_.frequency = osc4Env * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
+                oscState3_.frequency = freq4 * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
                 float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_) * window;
                 carSample3 *= fabsf(carSample3);
                 float car3 = carSample3 * env3Value * mix3V;
 
-                oscState2_.frequency = osc4Env * voiceIm2 + oscState2_.mainFrequencyPlusMatrix;
+                oscState2_.frequency = freq4 * voiceIm2 + oscState2_.mainFrequencyPlusMatrix;
                 float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_) * window;
                 carSample2 *= fabsf(carSample2);
                 float car2 = carSample2 * env2Value * mix2V;
 
-                oscState1_.frequency = osc4Env * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
+                oscState1_.frequency = freq4 * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
                 float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
                 carSample1 *= fabsf(carSample1);
                 float car1 = carSample1 * env1Value * mix1V;
