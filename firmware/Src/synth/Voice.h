@@ -425,6 +425,7 @@ private:
     float phase_;
 
     bool prevSignbit;
+    float prevPhase;
 
     // Gliding ?
     bool gliding;

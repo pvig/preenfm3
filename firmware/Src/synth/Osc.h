@@ -74,6 +74,11 @@ public:
         return waveTable->table[indexInteger];
     }
 
+    inline float getPhase(struct OscState *oscState)  {
+        struct WaveTable* waveTable = &waveTables[(int) oscillator->shape];
+        return oscState->index * waveTable->phaseMul;
+    }
+
    	inline float* getNextBlock(struct OscState *oscState)  {
         int shape = (int) oscillator->shape;
    		int max = waveTables[shape].max;

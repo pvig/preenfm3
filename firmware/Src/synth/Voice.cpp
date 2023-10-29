@@ -3771,9 +3771,6 @@ void Voice::nextBlock() {
             env4Inc = (envNextValue - env4Value) * inv32;
             this->env4ValueMem = envNextValue;
 
-            oscState4_.frequency = oscState4_.mainFrequencyPlusMatrix;
-            float *osc4Values = currentTimbre->osc4_.getNextBlock(&oscState4_);
-
             float div3TimesVelocity = .33f * this->velocity;
 
             float mix1V = mix1 * div3TimesVelocity;
@@ -3782,20 +3779,14 @@ void Voice::nextBlock() {
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
-                float osc4 = osc4Values[k];
-                float freq4 = osc4 * env4Value;
-                freq4 *= oscState4_.frequency;
+                oscState4_.frequency = oscState4_.mainFrequencyPlusMatrix;
+                float osc4 = currentTimbre->osc4_.getNextSample(&oscState4_);
+                float phase = currentTimbre->osc4_.getPhase(&oscState4_);
+                float freq4 = osc4 * env4Value * oscState4_.frequency;
 
-                // invert osc4 to get a saw ramp down
-                osc4 = - osc4;
-
-                // sync check
-                bool currentSignbit = signbit(osc4); // true if negative
-                bool isSync = prevSignbit && !currentSignbit; // sync on zero cross, from neg to pos only
-                prevSignbit = currentSignbit;
-
-                // offset osc4 to get a positive waveform
-                float window = (1 + osc4) * 0.5f;
+                bool isSync = prevPhase > phase;
+                prevPhase = phase;
+                float window = 1.f - phase;
 
                 // sync slave osc
                 oscState1_.index = isSync ? 0 : oscState1_.index;

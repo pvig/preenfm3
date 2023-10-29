@@ -99,6 +99,7 @@ struct WaveTable {
     float useFreq;
     float floatToAdd;
     float precomputedValue;
+    float phaseMul;
 };
 
 struct AlgoInformation {
