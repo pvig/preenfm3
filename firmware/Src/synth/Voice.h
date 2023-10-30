@@ -423,8 +423,7 @@ private:
     float pendingNoteFrequency;
     unsigned int nextIndex;
     float phase_;
-
-    bool prevSignbit;
+    
     float prevPhase;
 
     // Gliding ?
