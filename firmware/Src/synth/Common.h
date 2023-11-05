@@ -767,6 +767,7 @@ enum Algorithm {
     ALG28,
     ALG29,
     ALG30,
+    ALG31,
     ALGO_END
 };
 

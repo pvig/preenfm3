@@ -57,7 +57,8 @@ const char *algoNames[] = {
     "al27",
     "al28",
     "al29",
-    "al30"
+    "al30",
+    "al31"
      };
 
 const char *polyMonoNames[] = {
