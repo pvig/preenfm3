@@ -3707,7 +3707,7 @@ void Voice::nextBlock() {
              .---.         .---.
              | 3*|         | 4 |
              '---'         '---'
-             |IM1 \IM3 IM4/ |IM2
+             |IM1 \IM2 IM3/ |IM4
              .---.          .---.
              |*1 |          |*2 |
              '---'          '---'
@@ -3751,10 +3751,6 @@ void Voice::nextBlock() {
 
             float div2TimesVelocity = this->velocity * .5f;
 
-            float f3x;
-            float f3xm1 = freqAi;
-            float freq3 = freqAo;
-
             float mix1V = mix1 * div2TimesVelocity;
             float mix2V = mix2 * div2TimesVelocity;
 
@@ -3764,9 +3760,7 @@ void Voice::nextBlock() {
                 oscState3_.frequency = oscState3_.mainFrequencyPlusMatrix;
                 float osc3 = currentTimbre->osc3_.getNextSample(&oscState3_);
                 float phase = currentTimbre->osc3_.getPhase(&oscState3_);
-                f3x = osc3 * env3Value * oscState3_.frequency;
-                freq3 = f3x - f3xm1 + 0.99525f * freq3;
-                f3xm1 = f3x;
+                float freq3 = osc3 * env3Value * oscState3_.frequency;
   
                 // sync check
                 bool isSync = prevPhase > phase;
@@ -3777,15 +3771,15 @@ void Voice::nextBlock() {
                 oscState1_.index = isSync ? 0 : oscState1_.index;
                 oscState2_.index = isSync ? 0 : oscState2_.index;
 
-                oscState2_.frequency = freq4 * voiceIm2 + freq3 * voiceIm3 + oscState2_.mainFrequencyPlusMatrix;
-                float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_) * window;
-                carSample2 *= fabsf(carSample2); // vosim shape
-                float car2 = carSample2 * env2Value * mix2V;
-
-                oscState1_.frequency = freq4 * voiceIm4 + freq3 * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
+                oscState1_.frequency = freq3 * voiceIm1 + oscState1_.mainFrequencyPlusMatrix + freq4 * voiceIm3;
                 float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
                 carSample1 *= fabsf(carSample1); // vosim shape
                 float car1 = carSample1 * env1Value * mix1V;
+
+                oscState2_.frequency = freq3 * voiceIm2 + oscState2_.mainFrequencyPlusMatrix + freq4 * voiceIm4;
+                float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_) * window;
+                carSample2 *= fabsf(carSample2); // vosim shape
+                float car2 = carSample2 * env2Value * mix2V;
 
                 *sample++ = car1 * pan1Right + car2 * pan2Right;
                 *sample++ = car1 * pan1Left  + car2 * pan2Left;
@@ -3794,9 +3788,6 @@ void Voice::nextBlock() {
                 env2Value += env2Inc;
                 env3Value += env3Inc;
             }
-
-            freqAi = f3xm1;
-            freqAo = freq3;
 
             if (unlikely(currentTimbre->env1_.isDead(&envState1_) && currentTimbre->env2_.isDead(&envState2_))) {
                 endNoteOrBeginNextOne();
