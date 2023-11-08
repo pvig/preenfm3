@@ -28,6 +28,7 @@
 #define RGB565_ORANGE 0x00fc
 #define RGB565_YELLOW 0xe0ff
 #define RGB565_CYAN 0xff07
+#define RGB565_PURPLE 0xBFE0
 
 const uint8_t digitBits[] = {
     // 0
@@ -579,9 +580,9 @@ const uint8_t algo30[] = {
     OPERATORSYNC, 3, 4,
     OPERATOR, 4, 3,
     IMSYNC, 1, 3, 1,
-    IM, 2, 4, 2,
-    IMSYNC, 3, 3, 2,
-    IM, 4, 4, 1,
+    IMSYNC, 2, 3, 2,
+    IM, 3, 4, 1,
+    IM, 4, 4, 2,
     IM, 6, 4, 4,
     END,
 };
@@ -696,14 +697,14 @@ void TftAlgo::drawLine(uint8_t mode, int16_t x1, int16_t y1, int16_t x2, int16_t
         xinc1 = 0;
         yinc2 = 0;
         den = deltax;
-        num = deltax / 2;
+        num = deltax * 0.5f;
         numadd = deltay;
         numpixels = deltax;
     } else {
         xinc2 = 0;
         yinc1 = 0;
         den = deltay;
-        num = deltay / 2;
+        num = deltay * 0.5f;
         numadd = deltax;
         numpixels = deltay;
     }
@@ -736,9 +737,6 @@ void TftAlgo::drawNumber(int x, int y, int opNum) {
     if (operatorMix_[opNum - 1] == MIX) {
         // Carrier
         setColor(RGB565_YELLOW);
-    } else if (operatorMix_[opNum - 1] == OPERATORSYNC) {
-        // modulator & sync
-        setColor(RGB565_CYAN);
     } else {
         // modulator
         setColor(RGB565_ORANGE);
@@ -796,7 +794,7 @@ void TftAlgo::drawOperator(uint8_t opNum, uint8_t opPosition) {
         setColor(RGB565_CYAN);
     } else if (operatorMix_[opNum - 1] == OPERATORSYNC) {
         // modulator sync
-        setColor(RGB565_ORANGE);
+        setColor(RGB565_PURPLE);
     } else {
         // modulator
         setColor(RGB565_BLUE);
@@ -879,7 +877,7 @@ void TftAlgo::drawAlgo(int algo) {
             case IMSYNC:
                 imSource_[algoInfo[idx] - 1] = algoInfo[idx + 1];
                 imDest_[algoInfo[idx] - 1] = algoInfo[idx + 2];
-                setColor(RGB565_ORANGE);
+                setColor(RGB565_PURPLE);
                 drawIM(1, algoInfo[idx], algoInfo[idx + 1], algoInfo[idx + 2]);
                 idx += 3;
                 break;
