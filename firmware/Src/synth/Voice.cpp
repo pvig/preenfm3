@@ -3675,8 +3675,10 @@ void Voice::nextBlock() {
                 float window = 1.f - phase;
 
                 // sync slave osc
-                oscState1_.index = isSync ? 0 : oscState1_.index;
-                oscState2_.index = isSync ? 0 : oscState2_.index;
+                if(isSync) {
+                    oscState1_.index = 0;
+                    oscState2_.index = 0;
+                }
 
                 oscState1_.frequency = freq3 * voiceIm1 + oscState1_.mainFrequencyPlusMatrix;
                 float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
@@ -3768,8 +3770,10 @@ void Voice::nextBlock() {
                 float window = 1.f - phase;
 
                 // sync slave osc
-                oscState1_.index = isSync ? 0 : oscState1_.index;
-                oscState2_.index = isSync ? 0 : oscState2_.index;
+                if(isSync) {
+                    oscState1_.index = 0;
+                    oscState2_.index = 0;
+                }
 
                 oscState1_.frequency = freq3 * voiceIm1 + oscState1_.mainFrequencyPlusMatrix + freq4 * voiceIm3;
                 float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
@@ -3855,9 +3859,11 @@ void Voice::nextBlock() {
                 float window = 1.f - phase;
 
                 // sync slave osc
-                oscState1_.index = isSync ? 0 : oscState1_.index;
-                oscState2_.index = isSync ? 0 : oscState2_.index;
-                oscState3_.index = isSync ? 0 : oscState3_.index;
+                if(isSync) {
+                    oscState1_.index = 0;
+                    oscState2_.index = 0;
+                    oscState3_.index = 0;
+                }
 
                 oscState3_.frequency = freq4 * voiceIm3 + oscState3_.mainFrequencyPlusMatrix;
                 float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_) * window;
@@ -5466,18 +5472,17 @@ void Voice::fxAfterBlock() {
             int drive = clamp(27 + sqrt3(fxParam1) * 86, 0, 255);
             float gain = 1.1f + 44 * panTable[drive];
             float gainCorrection = (1.2f - sqrt3(panTable[64 + (drive >> 1)] * 0.6f));
-            float bias = -0.1f + (fxParam1 * 0.2f);
 
             for (int k = BLOCK_SIZE; k--;) {
                 // Left voice
-                localv0L = tanh3(bias + sat33(*sp) * gain) * gainCorrection;
+                localv0L = tanh3(sat33(*sp) * gain) * gainCorrection;
                 localv0L = pattern * localv0L + f * (*sp - localv1L);
                 localv1L = pattern * localv1L + f * localv0L;
 
                 *sp++ = clamp((*sp - localv1L) * mixerGain, -ratioTimbres, ratioTimbres);
 
                 // Right voice
-                localv0R = tanh3(bias + sat33(*sp) * gain) * gainCorrection;
+                localv0R = tanh3(sat33(*sp) * gain) * gainCorrection;
                 localv0R = pattern * localv0R + f * (*sp - localv1R);
                 localv1R = pattern * localv1R + f * localv0R;
 
