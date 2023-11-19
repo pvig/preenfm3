@@ -601,10 +601,24 @@ const uint8_t algo31[] = {
     END,
 };
 
-#define NUMBER_OF_ALGOS 31
+const uint8_t algo32[] = {
+    MIX, 1,
+    OPERATOR, 1, 11,
+    OPERATORSYNC, 2, 4,
+    OPERATOR, 3, 2,
+    OPERATOR, 4, 6,
+    IMSYNC, 1, 2, 1,
+    IM, 2, 3, 1,
+    IM, 3, 4, 1,
+    IM, 4, 3, 4,
+    IM, 6, 3, 3,
+    END,
+};
+
+#define NUMBER_OF_ALGOS 32
 const uint8_t* allAlgos[NUMBER_OF_ALGOS] = { algo1, algo2, algo3 , algo4, algo5, algo6, algo7, algo8, algo9, algo10, algo11,
         algo12, algo13, algo14, algo15, algo16, algo17, algo18, algo19, algo20, algo21, algo22, algo23, algo24, algo25,
-        algo26, algo27, algo28, algo29, algo30, algo31 };
+        algo26, algo27, algo28, algo29, algo30, algo31, algo32 };
 
 struct ModulationIndex modulationIndex[ALGO_END][6];
 bool carrierOperator[ALGO_END][6];
