@@ -3897,7 +3897,7 @@ void Voice::nextBlock() {
         }
 
         case ALG32:
-            /* Windowed sync AM, 1 synced by 2
+            /* Windowed sync AM, 1 synced by 4
 
                           IM4
                          ---->
@@ -3941,6 +3941,7 @@ void Voice::nextBlock() {
             this->env4ValueMem = envNextValue;
 
             oscState2_.frequency = oscState2_.mainFrequencyPlusMatrix;
+            float *osc2Values = currentTimbre->osc2_.getNextBlock(&oscState2_);
 
             oscState3_.frequency = oscState3_.mainFrequencyPlusMatrix;
             float *osc3Values = currentTimbre->osc3_.getNextBlockWithFeedbackAndEnveloppe(&oscState3_, feedbackModulation, env3Value, env3Inc,
@@ -3949,19 +3950,16 @@ void Voice::nextBlock() {
             float f4x;
             float f4xm1 = freqAi;
             float freq4 = freqAo;
-
             float mix1V = mix1 * this->velocity;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
-                float osc2 = currentTimbre->osc2_.getNextSample(&oscState2_);
-                float phase = currentTimbre->osc2_.getPhase(&oscState2_);
-                float freq2 = osc2 * env2Value * oscState2_.frequency;
-
+                float freq2 = osc2Values[k] * env2Value * oscState2_.frequency;
                 float freq3 = osc3Values[k];
 
                 oscState4_.frequency = freq3 * voiceIm4 + oscState4_.mainFrequencyPlusMatrix;
 
                 f4x = currentTimbre->osc4_.getNextSample(&oscState4_) * env4Value * oscState4_.frequency;
+                float phase = currentTimbre->osc4_.getPhase(&oscState4_);
                 freq4 = f4x - f4xm1 + 0.99525f * freq4;
                 f4xm1 = f4x;
 
