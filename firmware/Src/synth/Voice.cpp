@@ -42,7 +42,7 @@ extern float noise[32];
 #define filterWindowMin 0.01f
 #define filterWindowMax 0.99f
 
-#define SYNCMATRIXAMP 32.f
+#define SYNCMATRIXAMP 16.f
 
 inline
 float expf_fast(float a) {
