@@ -566,9 +566,12 @@ const uint8_t algo29[] = {
     MIX, 2,
     OPERATOR, 1, 10,
     OPERATOR, 2, 12,
-    OPERATORSYNC, 3, 5,
+    OPERATORSYNC, 3, 4,
+    OPERATOR, 4, 3,
     IMSYNC, 1, 3, 1,
-    IMSYNC, 2, 3, 2,
+    IM, 2, 4, 2,
+    IM, 3, 4, 3,
+    IM, 6, 4, 4,
     END,
 };
 
