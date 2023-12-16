@@ -42,8 +42,6 @@ extern float noise[32];
 #define filterWindowMin 0.01f
 #define filterWindowMax 0.99f
 
-#define SYNCMATRIXAMP 16.f
-
 inline
 float expf_fast(float a) {
   //https://github.com/ekmett/approximate/blob/master/cbits/fast.c
@@ -3676,10 +3674,7 @@ void Voice::nextBlock() {
             float mix2V = mix2 * div2TimesVelocity;
 
             float osc1Matrix = oscState1_.mainFrequencyPlusMatrix - oscState1_.mainFrequency;
-            float osc1FrequencyPlusMatrix = oscState1_.mainFrequency + osc1Matrix * SYNCMATRIXAMP;
-
-            float osc2Matrix = oscState2_.mainFrequencyPlusMatrix - oscState2_.mainFrequency;
-            float osc2FrequencyPlusMatrix = oscState2_.mainFrequency + osc2Matrix * SYNCMATRIXAMP;
+            float osc1FrequencyPlusMatrix = oscState1_.mainFrequency + osc1Matrix * fabsf(osc1Matrix) * 0.25f;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float freq4 = osc4Values[k];
@@ -3772,10 +3767,10 @@ void Voice::nextBlock() {
             float mix2V = mix2 * div2TimesVelocity;
 
             float osc1Matrix = oscState1_.mainFrequencyPlusMatrix - oscState1_.mainFrequency;
-            float osc1FrequencyPlusMatrix = oscState1_.mainFrequency + osc1Matrix * SYNCMATRIXAMP;
+            float osc1FrequencyPlusMatrix = oscState1_.mainFrequency + osc1Matrix * fabsf(osc1Matrix) * 0.25f;
 
             float osc2Matrix = oscState2_.mainFrequencyPlusMatrix - oscState2_.mainFrequency;
-            float osc2FrequencyPlusMatrix = oscState2_.mainFrequency + osc2Matrix * SYNCMATRIXAMP;
+            float osc2FrequencyPlusMatrix = oscState2_.mainFrequency + osc2Matrix * fabsf(osc2Matrix) * 0.25f;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float freq4 = osc4Values[k];
@@ -3869,13 +3864,13 @@ void Voice::nextBlock() {
             float mix3V = mix3 * div3TimesVelocity;
 
             float osc1Matrix = oscState1_.mainFrequencyPlusMatrix - oscState1_.mainFrequency;
-            float osc1FrequencyPlusMatrix = oscState1_.mainFrequency + osc1Matrix * SYNCMATRIXAMP;
+            float osc1FrequencyPlusMatrix = oscState1_.mainFrequency + osc1Matrix * fabsf(osc1Matrix) * 0.25f;
 
             float osc2Matrix = oscState2_.mainFrequencyPlusMatrix - oscState2_.mainFrequency;
-            float osc2FrequencyPlusMatrix = oscState2_.mainFrequency + osc2Matrix * SYNCMATRIXAMP;
+            float osc2FrequencyPlusMatrix = oscState2_.mainFrequency + osc2Matrix * fabsf(osc2Matrix) * 0.25f;
 
             float osc3Matrix = oscState3_.mainFrequencyPlusMatrix - oscState3_.mainFrequency;
-            float osc3FrequencyPlusMatrix = oscState3_.mainFrequency + osc3Matrix * SYNCMATRIXAMP;
+            float osc3FrequencyPlusMatrix = oscState3_.mainFrequency + osc3Matrix * fabsf(osc3Matrix) * 0.25f;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
@@ -3983,7 +3978,7 @@ void Voice::nextBlock() {
             float mix1V = mix1 * this->velocity;
 
             float osc1Matrix = oscState1_.mainFrequencyPlusMatrix - oscState1_.mainFrequency;
-            float osc1FrequencyPlusMatrix = oscState1_.mainFrequency + osc1Matrix * SYNCMATRIXAMP;
+            float osc1FrequencyPlusMatrix = oscState1_.mainFrequency + osc1Matrix * fabsf(osc1Matrix) * 0.25f;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float freq2 = osc2Values[k] * env2Value * oscState2_.frequency;
