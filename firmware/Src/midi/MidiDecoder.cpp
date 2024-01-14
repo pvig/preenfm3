@@ -1128,6 +1128,19 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
                 }
             }
             break;
+        case ROW_EFFECT2:
+            if (encoder == ENCODER_EFFECT_TYPE) {
+                cc.value[0] = CC_FILTER2_TYPE;
+                cc.value[1] = newValue + .1f;
+            } else {
+                cc.value[0] = CC_FILTER2_PARAM1 + encoder - 1;
+                if (encoder == ENCODER_EFFECT_PARAM3) {
+                    cc.value[1] = newValue * 100.0f + .1f;
+                } else {
+                    cc.value[1] = newValue * 128.0f + .1f;
+                }
+            }
+            break;
         case ROW_ENV1_TIME:
             if (encoder == ENCODER_ENV_A) {
                 // CC_ENV_ATK_OP1 is separate from the rest
