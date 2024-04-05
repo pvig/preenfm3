@@ -618,10 +618,25 @@ const uint8_t algo32[] = {
     END,
 };
 
-#define NUMBER_OF_ALGOS 32
+const uint8_t algo33[] = {
+    MIX, 1,
+    OPERATOR, 1, 11,
+    OPERATOR, 2, 4,
+    OPERATOR, 3, 2,
+    OPERATOR, 4, 6,
+    IM, 1, 2, 1,
+    IM, 2, 3, 1,
+    IM, 3, 4, 1,
+    IM, 4, 3, 4,
+    IM, 6, 3, 3,
+    SAMPLEANDHOLD, 1, 4, 2,
+    END,
+};
+
+#define NUMBER_OF_ALGOS 33
 const uint8_t* allAlgos[NUMBER_OF_ALGOS] = { algo1, algo2, algo3 , algo4, algo5, algo6, algo7, algo8, algo9, algo10, algo11,
         algo12, algo13, algo14, algo15, algo16, algo17, algo18, algo19, algo20, algo21, algo22, algo23, algo24, algo25,
-        algo26, algo27, algo28, algo29, algo30, algo31, algo32 };
+        algo26, algo27, algo28, algo29, algo30, algo31, algo32, algo33 };
 
 struct ModulationIndex modulationIndex[ALGO_END][6];
 bool carrierOperator[ALGO_END][6];
@@ -661,6 +676,9 @@ TftAlgo::TftAlgo() {
                 case MIX:
                     carrierOperator[a][algoInfo[idx] - 1] = true;
                     idx++;
+                    break;
+                case SAMPLEANDHOLD:
+                    idx += 3;
                     break;
             }
         }
@@ -853,6 +871,25 @@ void TftAlgo::drawIM(uint8_t mode, uint8_t imNum, uint8_t opSource, uint8_t opDe
         drawLine(mode, x, y - 10, x, y - 8);
     }
 }
+void TftAlgo::drawSAH(uint8_t opSource, uint8_t opDest) {
+
+    if (opSource != opDest) {
+        int xSource = GETX1(operatorPosition_[opSource-1]) + 8;
+        int ySource = GETY1(operatorPosition_[opSource-1]) + 17;
+
+        int xDest = GETX1(operatorPosition_[opDest-1]) + 8;
+        int yDest = GETY1(operatorPosition_[opDest-1]) + 17;
+
+        drawLine(1, xSource, ySource, xDest, yDest + 4);
+
+        for (int x = xDest-2; x < xDest + 2; x++) {
+            SETPIXEL(x, yDest + 2);
+            SETPIXEL(x, yDest + 3);
+            SETPIXEL(x, yDest + 5);
+            SETPIXEL(x, yDest + 6);
+        }
+    }
+}
 
 // Draw the IM on
 void TftAlgo::highlightIM(bool draw, uint8_t imNum, uint8_t opSource, uint8_t opDest) {
@@ -902,6 +939,13 @@ void TftAlgo::drawAlgo(int algo) {
                 operatorMix_[algoInfo[idx] - 1] = MIX;
                 drawMix(algoInfo[idx++]);
                 break;
+            case SAMPLEANDHOLD:
+                imSource_[algoInfo[idx] - 1] = algoInfo[idx + 1];
+                imDest_[algoInfo[idx] - 1] = algoInfo[idx + 2];
+                setColor(RGB565_BLUE);
+                drawSAH(algoInfo[idx + 1], algoInfo[idx + 2]);
+                idx += 3;
+                break;
         }
     }
 
@@ -923,6 +967,9 @@ void TftAlgo::drawAlgo(int algo) {
                 break;
             case MIX:
                 idx++;
+                break;
+            case SAMPLEANDHOLD:
+                idx += 3;
                 break;
         }
     }

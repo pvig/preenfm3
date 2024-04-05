@@ -425,6 +425,7 @@ private:
     float phase_;
     
     float prevPhase;
+    float sah1;
 
     // Gliding ?
     bool gliding;
