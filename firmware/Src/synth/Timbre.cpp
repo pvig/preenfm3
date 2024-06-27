@@ -2476,10 +2476,10 @@ void Timbre::fxAfterBlock() {
             param1S = 0.02f * (this->params_.effect2.param1) + .98f * param1S;
             float spread = param1S * 0.99f;
 
-            const float f = 0.5f + matrixFilterFrequency;
+            const float f = matrixFilterFrequency * 1.23f;
 
-            float bpf1 = 0.5f + fold((f + spread) * 0.5f) * 2;
-            float bpf2 = 0.5f + fold((f - spread) * 0.5f) * 2;
+            float bpf1 = 0.5f + ( fold((f + spread) * 0.5f) * 2 );
+            float bpf2 = 0.5f + ( fold((f - spread) * 0.5f) * 2 );
 
             float *sp  = sampleBlock_;
 
