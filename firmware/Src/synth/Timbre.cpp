@@ -211,6 +211,13 @@ float hann(float x) {
     float s = sqrt3(x * (1 - x));
     return s + s;
 }
+inline
+float sat25(float x)
+{
+    if (unlikely(fabsf(x) > 4))
+        return 0;
+    return x * (1.f - fabsf(x * 0.25f));
+}
 // all pass params
 const float f1 = 0.0156f;
 const float apcoef1 = (1.0f - f1) / (1.0f + f1);
@@ -2452,6 +2459,93 @@ void Timbre::fxAfterBlock() {
             }
         }
 
+        break;
+        case FILTER2_STEREO_BP: {
+
+            mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+            float mixerGain_01 = clamp(mixerGain_, 0, 1);
+            int mixerGain255 = mixerGain_01 * 255;
+            float dry = panTable[255 - mixerGain255];
+            float wet = panTable[mixerGain255];
+            float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+            wet += extraAmp;
+
+            float wetL = wet * (1 + matrixFilterPan);
+            float wetR = wet * (1 - matrixFilterPan);
+
+            param1S = 0.02f * (this->params_.effect2.param1) + .98f * param1S;
+            float spread = param1S * 0.99f;
+
+            const float f = 0.5f + matrixFilterFrequency;
+
+            float bpf1 = 0.5f + fold((f + spread) * 0.5f) * 2;
+            float bpf2 = 0.5f + fold((f - spread) * 0.5f) * 2;
+
+            float *sp  = sampleBlock_;
+
+            float filterParam2 = clamp(matrixFilterParam2 + this->params_.effect2.param2, 0, 1);
+
+            const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
+            const float scale = sqrt3(fb);
+
+            float lowL = low1, highL = 0, bandL = band1;
+            float lowR = low2, highR = 0, bandR = band2;
+
+            float _ly1L = low3, _ly1R = low4;
+            float _lx1L = band3, _lx1R = band4;
+            float _ly2L = low5, _ly2R = low6;
+            float _lx2L = band5, _lx2R = band6;
+            const float f1 = clamp(f * 0.56f, 0.01f, 0.99f);
+            float coef1 = (1.0f - f1) / (1.0f + f1);
+            const float f2 = clamp(0.25f + f * 0.08f, 0.01f, 0.99f);
+            float coef2 = (1.0f - f1) / (1.0f + f1);
+
+            for (int k = BLOCK_SIZE; k--;) {
+
+                // Left voice
+                _ly1L = coef1 * (_ly1L + *sp) - _lx1L; // allpass
+                _lx1L = *sp;
+
+                lowL = lowL + bpf1 * bandL;
+                highL = scale * _ly1L - lowL - fb * sat25(bandL);
+                bandL = bpf1 * highL + bandL;
+
+                _ly2L = coef2 * (_ly2L + bandL) - _lx2L; // allpass 2
+                _lx2L = bandL;
+
+                *sp = *sp * dry + _ly2L * wetL;
+                sp++;
+
+                // Right voice
+                _ly1R = coef1 * (_ly1R + *sp) - _lx1R; // allpass
+                _lx1R = *sp;
+
+                lowR = lowR + bpf2 * bandR;
+                highR = scale * _ly1R - lowR - fb * sat25(bandR);
+                bandR = bpf2 * highR + bandR;
+
+                _ly2R = coef2 * (_ly2R + bandR) - _lx2R; // allpass 2
+                _lx2R = bandR;
+
+                *sp = *sp * dry + _ly2R * wetR;
+                sp++;
+            }
+
+            low1 = lowL;
+            band1 = bandL;
+            low2 = lowR;
+            band2 = bandR;
+
+            low3 = _ly1L;
+            low4 = _ly1R;
+            band3 = _lx1L;
+            band4 = _lx1R;
+            low5 = _ly2L;
+            low6 = _ly2R;
+            band5 = _lx2L;
+            band6 = _lx2R;
+
+        }
         break;
         default:
             // NO EFFECT
