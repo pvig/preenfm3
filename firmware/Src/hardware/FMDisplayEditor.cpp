@@ -1178,7 +1178,7 @@ struct FilterRowDisplay fx2RowDisplay[FILTER2_LAST] = {
         "Sprd",
         "Mix " },
     {
-        "Sprd",
+        "Freq",
         "Reso",
         "Mix " }
 };
