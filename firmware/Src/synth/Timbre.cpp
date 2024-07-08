@@ -2469,31 +2469,29 @@ void Timbre::fxAfterBlock() {
             float wet = panTable[mixerGain255];
             float extraAmp = clamp(mixerGain_ - 1, 0, 1);
             wet += extraAmp;
+            wet *= 0.75f;
 
             float wetL = wet * (1 + matrixFilterPan);
             float wetR = wet * (1 - matrixFilterPan);
 
             param1S = 0.02f * (this->params_.effect2.param1) + .98f * param1S;
-            float spread = (param1S - 0.5f) * 1.99f;
 
             const float f = param1S * param1S;
             const float matrixFreqAtnn = matrixFilterFrequency * 0.5f;
 
-            float bpf1 = clamp(0.05f + fold((f + matrixFreqAtnn) * 0.25f) * 3.95f, 0.01f, 1.23f);
-            float bpf2 = clamp(0.05f + fold((f - matrixFreqAtnn) * 0.25f) * 3.95f, 0.01f, 1.23f);
+            float bpf1 = clamp(fold((f + matrixFreqAtnn) * 0.25f) * 1.85f, 0.01f, 1.23f);
+            float bpf2 = clamp(fold((f - matrixFreqAtnn) * 0.25f) * 1.85f, 0.01f, 1.23f);
 
             float filterB2 = 0.1f;
             float *sp  = sampleBlock_;
 
             float filterParam2 = clamp(matrixFilterParam2 + this->params_.effect2.param2, 0, 1);
 
-            const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
+            const float fb = sqrt3(0.5f - filterParam2 * 0.497f);
             const float scale = sqrt3(fb);
 
             float lowL = low1, highL = 0, bandL = band1;
             float lowR = low2, highR = 0, bandR = band2;
-
-            const float svfGain = (1.3f + filterParam2 * filterParam2 * 0.75f);
 
             float _ly1L = hb1_y1, _ly1R = hb1_y2;
             float _lx1L = hb1_x1, _lx1R = hb1_x2;
@@ -2501,8 +2499,11 @@ void Timbre::fxAfterBlock() {
             float _lx2L = hb2_x1, _lx2R = hb2_x2;
             const float f1 = clamp(0.15f + f * 0.56f, 0.01f, 0.99f);
             float coef1 = (1.0f - f1) / (1.0f + f1);
-            const float f2 = clamp(0.25f + f * 0.56f, 0.01f, 0.99f);
+            const float f2 = clamp(0.10f + f * 0.56f, 0.01f, 0.99f);
             float coef2 = (1.0f - f1) / (1.0f + f1);
+
+            const float sampleRateDivide = 2;
+            float inputIncCount = 0;
 
             for (int k = BLOCK_SIZE; k--;) {
 
@@ -2510,16 +2511,19 @@ void Timbre::fxAfterBlock() {
                 low3  += filterB2 * band3;
                 band3 += filterB2 * (*sp - low3 - band3);
 
-                float inputL = sat25(*sp + low3);
+                if(++inputIncCount >= sampleRateDivide) {
+                    float inputL = *sp + tanh4(low3 * 1.8f);
+                    hb4_y1 = inputL;
+                }
 
-                _ly1L = coef1 * (_ly1L + inputL) - _lx1L; // allpass
-                _lx1L = inputL;
+                _ly1L = coef1 * (_ly1L + hb4_y1) - _lx1L; // allpass
+                _lx1L = hb4_y1;
 
                 lowL = lowL + bpf1 * bandL;
-                highL = scale * _ly1L - lowL - fb * (bandL);
+                highL = scale * _ly1L - lowL - fb * sat25(bandL);
                 bandL = bpf1 * highL + bandL;
 
-                float ap1input = bandL;
+                float ap1input = hb4_y1 * 0.5f + bandL;
 
                 _ly2L = coef2 * (_ly2L + ap1input) - _lx2L; // allpass 2
                 _lx2L = ap1input;
@@ -2531,16 +2535,20 @@ void Timbre::fxAfterBlock() {
                 low4  += filterB2 * band4;
                 band4 += filterB2 * (*sp - low4 - band4);
 
-                float inputR = sat25(*sp + low4);
+                if(inputIncCount >= sampleRateDivide) {
+                    inputIncCount = 0;
+                    float inputR = *sp + tanh4(low4 * 1.8f);
+                    hb4_y2 = inputR;
+                }
 
-                _ly1R = coef1 * (_ly1R + inputR) - _lx1R; // allpass
-                _lx1R = inputR;
+                _ly1R = coef1 * (_ly1R + hb4_y2) - _lx1R; // allpass
+                _lx1R = hb4_y2;
 
                 lowR = lowR + bpf2 * bandR;
-                highR = scale * _ly1R - lowR - fb * (bandR);
+                highR = scale * _ly1R - lowR - fb * sat25(bandR);
                 bandR = bpf2 * highR + bandR;
 
-                float ap2input = bandR;
+                float ap2input = hb4_y2 * 0.5f + bandR;
 
                 _ly2R = coef2 * (_ly2R + ap2input) - _lx2R; // allpass 2
                 _lx2R = ap2input;
