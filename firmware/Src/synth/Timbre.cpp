@@ -2485,10 +2485,9 @@ void Timbre::fxAfterBlock() {
             const float f = param1S * param1S;
             const float matrixFreqAtnn = matrixFilterFrequency * 0.5f;
 
-            float bpf1 = clamp(fold((f + matrixFreqAtnn) * 0.25f) * 4, 0.01f, 1.23f);
-            float bpf2 = clamp(fold((f - matrixFreqAtnn) * 0.25f) * 4, 0.01f, 1.23f);
+            float bpf1 = clamp(0.015f + fold((f + matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
+            float bpf2 = clamp(0.015f + fold((f - matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
 
-            float filterB2 = 0.1f;
             float *sp  = sampleBlock_;
 
             float filterParam2 = clamp(matrixFilterParam2 + this->params_.effect2.param2, 0, 1);
@@ -2496,13 +2495,11 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
-            float lowL = low1, highL = 0, bandL = band1;
-            float lowR = low2, highR = 0, bandR = band2;
+            float high1 = 0;
+            float high2 = 0;
+            float high5 = 0;
+            float high6 = 0;
 
-            float _ly1L = hb1_y1, _ly1R = hb1_y2;
-            float _lx1L = hb1_x1, _lx1R = hb1_x2;
-            float _ly2L = hb2_y1, _ly2R = hb2_y2;
-            float _lx2L = hb2_x1, _lx2R = hb2_x2;
             const float f1 = clamp(0.15f + f * 0.56f, 0.01f, 0.99f);
             float coef1 = (1.0f - f1) / (1.0f + f1);
             const float f2 = clamp(0.10f + f * 0.56f, 0.01f, 0.99f);
@@ -2516,69 +2513,62 @@ void Timbre::fxAfterBlock() {
                 inputIncCount++;
                 
                 // Left voice
-                low3  += filterB2 * band3;
-                band3 += filterB2 * (*sp - low3 - band3);
-
+  
                 if(inputIncCount >= sampleRateDivide) {
-                    float inputL = *sp;// + tanh4(low3 * 1.5f);
-                    hb4_y1 = inputL;
+                    hb4_y1 = *sp;
                 }
 
-                _ly1L = coef1 * (_ly1L + hb4_y1) - _lx1L; // allpass
-                _lx1L = hb4_y1;
+                hb1_y1 = coef1 * (hb1_y1 + hb4_y1) - hb1_x1; // allpass
+                hb1_x1 = hb4_y1;
 
-                lowL = lowL + bpf1 * bandL;
-                highL = scale * _ly1L - lowL - fb * clamp(sat33(bandL), -1, 1);
-                bandL = bpf1 * highL + bandL;
+                low1 = low1 + bpf1 * band1;
+                high1 = scale * (hb1_y1) - low1 - fb * sat33(band1);
+                band1 = bpf1 * high1 + band1;
 
-                float ap1input = hb4_y1 * 0.125f + bandL;
+                float ap1input = clamp(band1, -1, 1);
 
-                _ly2L = coef2 * (_ly2L + ap1input) - _lx2L; // allpass 2
-                _lx2L = ap1input;
+                hb2_y1 = coef2 * (hb2_y1 + ap1input) - hb2_x1; // allpass 2
+                hb2_x1 = ap1input;
 
-                *sp = *sp * dry + _ly2L * wetL;
+                low2 = low2 + bpf1 * band2;
+                high2 = scale * hb2_y1 - low2 - fb * (band2);
+                band2 = bpf1 * high2 + band2;
+
+                hb3_y1 = coef1 * (hb3_y1 + band2) - hb3_x1; // allpass 3
+                hb3_x1 = band2;
+
+                *sp = *sp * dry + hb3_y1 * wetL;
                 sp++;
 
                 // Right voice
-                low4  += filterB2 * band4;
-                band4 += filterB2 * (*sp - low4 - band4);
 
                 if(inputIncCount >= sampleRateDivide) {
                     inputIncCount = 0;
-                    float inputR = *sp;// + tanh4(low4 * 1.5f);
-                    hb4_y2 = inputR;
+                    hb4_y2 = *sp;
                 }
 
-                _ly1R = coef1 * (_ly1R + hb4_y2) - _lx1R; // allpass
-                _lx1R = hb4_y2;
+                hb1_y2 = coef1 * (hb1_y2 + hb4_y2) - hb1_x2; // allpass
+                hb1_x2 = hb4_y2;
 
-                lowR = lowR + bpf2 * bandR;
-                highR = scale * _ly1R - lowR - fb * clamp(sat33(bandR), -1, 1);
-                bandR = bpf2 * highR + bandR;
+                low5 = low5 + bpf2 * band5;
+                high5 = scale * (hb1_y2) - low5 - fb * sat33(band5);
+                band5 = bpf2 * high5 + band5;
 
-                float ap2input = hb4_y2 * 0.125f + bandR;
+                float ap2input = clamp(band5, -1, 1);;
 
-                _ly2R = coef2 * (_ly2R + ap2input) - _lx2R; // allpass 2
-                _lx2R = ap2input;
+                hb2_y2 = coef2 * (hb2_y2 + ap2input) - hb2_x2; // allpass 2
+                hb2_x2 = ap2input;
 
-                *sp = *sp * dry + _ly2R * wetR;
+                low6 = low6 + bpf2 * band6;
+                high6 = scale * hb2_y2 - low6 - fb * (band6);
+                band6 = bpf2 * high6 + band6;
+
+                hb3_y2 = coef1 * (hb3_y2 + band6) - hb3_x2; // allpass 3
+                hb3_x2 = band6;
+
+                *sp = *sp * dry + hb3_y2 * wetR;
                 sp++;
             }
-
-            low1 = lowL;
-            band1 = bandL;
-            low2 = lowR;
-            band2 = bandR;
-
-            hb1_y1 = _ly1L;
-            hb1_y2 = _ly1R;
-            hb1_x1 = _lx1L;
-            hb1_x2 = _lx1R;
-            hb2_y1 = _ly2L;
-            hb2_y2 = _ly2R;
-            hb2_x1 = _lx2L;
-            hb2_x2 = _lx2R;
-
         }
         break;
         default:
