@@ -2477,13 +2477,10 @@ void Timbre::fxAfterBlock() {
             float extraAmp = clamp(mixerGain_ - 1, 0, 1);
             wet += extraAmp;
 
-            float wetL = wet * (1 + matrixFilterPan);
-            float wetR = wet * (1 - matrixFilterPan);
-
             param1S = 0.02f * (this->params_.effect2.param1) + .98f * param1S;
 
             const float f = param1S * param1S;
-            const float matrixFreqAtnn = matrixFilterFrequency * 0.5f;
+            const float matrixFreqAtnn = matrixFilterFrequency * 0.25f;
 
             float bpf1 = clamp(0.015f + fold((f + matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
             float bpf2 = clamp(0.015f + fold((f - matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
@@ -2492,18 +2489,29 @@ void Timbre::fxAfterBlock() {
 
             float filterParam2 = clamp(matrixFilterParam2 + this->params_.effect2.param2, 0, 1);
 
-            const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
+            const float fb = sqrt3(0.5f - filterParam2 * 0.4752f);
             const float scale = sqrt3(fb);
+
+            const float finalGain = (2 - filterParam2 * filterParam2 * 0.9f);
+
+            wet *= finalGain;
+            
+            float wetL = wet * (1 + matrixFilterPan);
+            float wetR = wet * (1 - matrixFilterPan);
 
             float high1 = 0;
             float high2 = 0;
             float high5 = 0;
             float high6 = 0;
 
-            const float f1 = clamp(0.15f + f * 0.56f, 0.01f, 0.99f);
+            float fAttn = f * 0.33f;
+
+            const float f1 = clamp(0.10f + fAttn, 0.01f, 0.99f);
             float coef1 = (1.0f - f1) / (1.0f + f1);
-            const float f2 = clamp(0.10f + f * 0.56f, 0.01f, 0.99f);
-            float coef2 = (1.0f - f1) / (1.0f + f1);
+            const float f2 = clamp(0.25f + fAttn, 0.01f, 0.99f);
+            float coef2 = (1.0f - f2) / (1.0f + f2);
+            const float f3 = clamp(0.23f + fAttn, 0.01f, 0.99f);
+            float coef3 = (1.0f - f3) / (1.0f + f3);
 
             const float sampleRateDivide = 2;
             float inputIncCount = 0;
@@ -2531,10 +2539,10 @@ void Timbre::fxAfterBlock() {
                 hb2_x1 = ap1input;
 
                 low2 = low2 + bpf1 * band2;
-                high2 = scale * hb2_y1 - low2 - fb * (band2);
+                high2 = scale * hb2_y1 - low2 - fb * sat33(band2);
                 band2 = bpf1 * high2 + band2;
 
-                hb3_y1 = coef1 * (hb3_y1 + band2) - hb3_x1; // allpass 3
+                hb3_y1 = coef3 * (hb3_y1 + band2) - hb3_x1; // allpass 3
                 hb3_x1 = band2;
 
                 *sp = *sp * dry + hb3_y1 * wetL;
@@ -2560,10 +2568,10 @@ void Timbre::fxAfterBlock() {
                 hb2_x2 = ap2input;
 
                 low6 = low6 + bpf2 * band6;
-                high6 = scale * hb2_y2 - low6 - fb * (band6);
+                high6 = scale * hb2_y2 - low6 - fb * sat33(band6);
                 band6 = bpf2 * high6 + band6;
 
-                hb3_y2 = coef1 * (hb3_y2 + band6) - hb3_x2; // allpass 3
+                hb3_y2 = coef3 * (hb3_y2 + band6) - hb3_x2; // allpass 3
                 hb3_x2 = band6;
 
                 *sp = *sp * dry + hb3_y2 * wetR;
