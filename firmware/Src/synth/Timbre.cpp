@@ -2492,7 +2492,7 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.485f);
             const float scale = sqrt3(fb);
 
-            const float finalGain = (2 - filterParam2 * filterParam2 * 0.9f);
+            const float finalGain = (2 - filterParam2 * filterParam2 * 0.5f);
 
             wet *= finalGain;
             
@@ -2523,7 +2523,7 @@ void Timbre::fxAfterBlock() {
                 // Left voice
   
                 if(inputIncCount >= sampleRateDivide) {
-                    hb4_y1 = sat33(*sp);//clamp(*sp, -1, 1);
+                    hb4_y1 = (*sp);//clamp(*sp, -1, 1);
                 }
 
                 hb1_y1 = coef1 * (hb1_y1 + hb4_y1) - hb1_x1; // allpass
@@ -2542,7 +2542,7 @@ void Timbre::fxAfterBlock() {
                 high2 = scale * hb2_y1 - low2 - fb * (band2);
                 band2 = bpf1 * high2 + band2;
 
-                float outL = tanh4(band2);
+                float outL = (tanh4(band2 * 1.25f));
 
                 hb3_y1 = coef3 * (hb3_y1 + outL) - hb3_x1; // allpass 3
                 hb3_x1 = outL;
@@ -2554,7 +2554,7 @@ void Timbre::fxAfterBlock() {
 
                 if(inputIncCount >= sampleRateDivide) {
                     inputIncCount = 0;
-                    hb4_y2 = sat33(*sp);//clamp(*sp, -1, 1);
+                    hb4_y2 = (*sp);//clamp(*sp, -1, 1);
                 }
 
                 hb1_y2 = coef1 * (hb1_y2 + hb4_y2) - hb1_x2; // allpass
@@ -2573,7 +2573,7 @@ void Timbre::fxAfterBlock() {
                 high6 = scale * hb2_y2 - low6 - fb * (band6);
                 band6 = bpf2 * high6 + band6;
 
-                float outR = tanh4(band6);
+                float outR = (tanh4(band6 * 1.25f));
 
                 hb3_y2 = coef3 * (hb3_y2 + outR) - hb3_x2; // allpass 3
                 hb3_x2 = outR;
