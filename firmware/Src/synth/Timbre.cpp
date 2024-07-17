@@ -2487,9 +2487,9 @@ void Timbre::fxAfterBlock() {
 
             float *sp  = sampleBlock_;
 
-            float filterParam2 = clamp(matrixFilterParam2 + this->params_.effect2.param2, 0, 1) * (1 - param1S * 0.028f);
+            float filterParam2 = clamp(matrixFilterParam2 + this->params_.effect2.param2, 0, 1) * (1 - param1S * param1S * 0.06f);
 
-            const float fb = sqrt3(0.5f - filterParam2 * 0.485f);
+            const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
             const float finalGain = (2 - filterParam2 * filterParam2 * 0.5f);
@@ -2516,21 +2516,39 @@ void Timbre::fxAfterBlock() {
             const float sampleRateDivide = 2;
             float inputIncCount = 0;
 
+            float drift = _ly1;
+            float nexDrift = noise[7] * 0.005f;
+            float deltaD = (nexDrift - drift) * 0.000625f;
+            _ly1 = nexDrift;
+
+            // input hp coefs calc :
+            float cutoff = 0.02f;
+            float _in3_b1 = (1 - cutoff);
+            float _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
+
             for (int k = BLOCK_SIZE; k--;) {
 
                 inputIncCount++;
                 
+                float fbM = fb + drift;
+                drift += deltaD;
+
                 // Left voice
-  
+
                 if(inputIncCount >= sampleRateDivide) {
-                    hb4_y1 = (*sp);//clamp(*sp, -1, 1);
+                    float hp_in_x0 = ((*sp + *sp - hb4_y1));
+                    hp_in_y0     = _in3_a0 * (hp_in_x0 - hp_in_x1) + _in3_b1 * hp_in_y1;
+                    hp_in_y1     = hp_in_y0;
+                    hp_in_x1     = hp_in_x0;
+
+                    hb4_y1 = clamp(hp_in_y0, -1, 1);
                 }
 
                 hb1_y1 = coef1 * (hb1_y1 + hb4_y1) - hb1_x1; // allpass
                 hb1_x1 = hb4_y1;
 
                 low1 = low1 + bpf1 * band1;
-                high1 = scale * (hb1_y1) - low1 - fb * (band1);
+                high1 = scale * (hb1_y1) - low1 - fbM * (band1);
                 band1 = bpf1 * high1 + band1;
 
                 float ap1input = (band1);
@@ -2539,10 +2557,10 @@ void Timbre::fxAfterBlock() {
                 hb2_x1 = ap1input;
 
                 low2 = low2 + bpf1 * band2;
-                high2 = scale * hb2_y1 - low2 - fb * (band2);
+                high2 = scale * hb2_y1 - low2 - fbM * (band2);
                 band2 = bpf1 * high2 + band2;
 
-                float outL = (tanh4(band2 * 1.25f));
+                float outL = clamp(band2, -1, 1);
 
                 hb3_y1 = coef3 * (hb3_y1 + outL) - hb3_x1; // allpass 3
                 hb3_x1 = outL;
@@ -2554,14 +2572,20 @@ void Timbre::fxAfterBlock() {
 
                 if(inputIncCount >= sampleRateDivide) {
                     inputIncCount = 0;
-                    hb4_y2 = (*sp);//clamp(*sp, -1, 1);
+
+                    float hp_in2_x0 = ((*sp + *sp - hb4_y2));
+                    hp_in2_y0    = _in3_a0 * (hp_in2_x0 - hp_in2_x1) + _in3_b1 * hp_in2_y1;
+                    hp_in2_y1    = hp_in2_y0;
+                    hp_in2_x1    = hp_in2_x0;
+
+                    hb4_y2 = clamp(hp_in2_y0, -1, 1);
                 }
 
                 hb1_y2 = coef1 * (hb1_y2 + hb4_y2) - hb1_x2; // allpass
                 hb1_x2 = hb4_y2;
 
                 low5 = low5 + bpf2 * band5;
-                high5 = scale * (hb1_y2) - low5 - fb * (band5);
+                high5 = scale * (hb1_y2) - low5 - fbM * (band5);
                 band5 = bpf2 * high5 + band5;
 
                 float ap2input = (band5);
@@ -2570,10 +2594,10 @@ void Timbre::fxAfterBlock() {
                 hb2_x2 = ap2input;
 
                 low6 = low6 + bpf2 * band6;
-                high6 = scale * hb2_y2 - low6 - fb * (band6);
+                high6 = scale * hb2_y2 - low6 - fbM * (band6);
                 band6 = bpf2 * high6 + band6;
 
-                float outR = (tanh4(band6 * 1.25f));
+                float outR = clamp(band6, -1, 1);
 
                 hb3_y2 = coef3 * (hb3_y2 + outR) - hb3_x2; // allpass 3
                 hb3_x2 = outR;
