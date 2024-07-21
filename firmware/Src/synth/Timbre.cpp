@@ -2492,7 +2492,7 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
-            const float finalGain = (2 - filterParam2 * filterParam2 * 0.5f);
+            const float finalGain = (2 - filterParam2 * filterParam2 * 1.25f);
 
             wet *= finalGain;
             
@@ -2522,9 +2522,10 @@ void Timbre::fxAfterBlock() {
             _ly1 = nexDrift;
 
             // input hp coefs calc :
-            float cutoff = 0.02f;
-            float _in3_b1 = (1 - cutoff);
-            float _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
+            const float cutoff = 0.1f;
+            const float _in_b1 = (1 - cutoff);
+            const float _in_a0 = (1 + _in_b1 * _in_b1 * _in_b1) * 0.5f;
+            const float _in_a1 = -_in_a0;
 
             for (int k = BLOCK_SIZE; k--;) {
 
@@ -2536,16 +2537,24 @@ void Timbre::fxAfterBlock() {
                 // Left voice
 
                 if(inputIncCount >= sampleRateDivide) {
-                    float hp_in_x0 = ((*sp + *sp - hb4_y1));
-                    hp_in_y0     = _in3_a0 * (hp_in_x0 - hp_in_x1) + _in3_b1 * hp_in_y1;
-                    hp_in_y1     = hp_in_y0;
-                    hp_in_x1     = hp_in_x0;
+                    // hp input L
+                    hb5_x1     = clamp(*sp, -1, 1);
+                    hb5_y1     = _in_a0 * hb5_x1 + _in_a1 * hb5_x2 + _in_b1 * hb5_y2;
+                    hb5_y2     = hb5_y1;
+                    hb5_x2     = hb5_x1;
 
-                    hb4_y1 = clamp(hp_in_y0, -1, 1);
+                    hb6_x1     = hb5_y1;
+                    hb6_y1     = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
+                    hb6_y2     = hb6_y1;
+                    hb6_x2     = hb6_x1;
+
+                    hb6_y1     = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
+                    hb6_y2     = hb6_y1;
+                    hb6_x2     = hb6_x1;
                 }
 
-                hb1_y1 = coef1 * (hb1_y1 + hb4_y1) - hb1_x1; // allpass
-                hb1_x1 = hb4_y1;
+                hb1_y1 = coef1 * (hb1_y1 + hb6_y1) - hb1_x1; // allpass
+                hb1_x1 = hb6_y1;
 
                 low1 = low1 + bpf1 * band1;
                 high1 = scale * (hb1_y1) - low1 - fbM * (band1);
@@ -2573,16 +2582,24 @@ void Timbre::fxAfterBlock() {
                 if(inputIncCount >= sampleRateDivide) {
                     inputIncCount = 0;
 
-                    float hp_in2_x0 = ((*sp + *sp - hb4_y2));
-                    hp_in2_y0    = _in3_a0 * (hp_in2_x0 - hp_in2_x1) + _in3_b1 * hp_in2_y1;
-                    hp_in2_y1    = hp_in2_y0;
-                    hp_in2_x1    = hp_in2_x0;
+                    // hp input R
+                    hb7_x1     = clamp(*sp, -1, 1);
+                    hb7_y1     = _in_a0 * hb7_x1 + _in_a1 * hb7_x2 + _in_b1 * hb7_y2;
+                    hb7_y2     = hb7_y1;
+                    hb7_x2     = hb7_x1;
 
-                    hb4_y2 = clamp(hp_in2_y0, -1, 1);
+                    hb8_x1     = hb7_y1;
+                    hb8_y1     = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
+                    hb8_y2     = hb8_y1;
+                    hb8_x2     = hb8_x1;
+
+                    hb8_y1     = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
+                    hb8_y2     = hb8_y1;
+                    hb8_x2     = hb8_x1;
                 }
 
-                hb1_y2 = coef1 * (hb1_y2 + hb4_y2) - hb1_x2; // allpass
-                hb1_x2 = hb4_y2;
+                hb1_y2 = coef1 * (hb1_y2 + hb8_y1) - hb1_x2; // allpass
+                hb1_x2 = hb8_y1;
 
                 low5 = low5 + bpf2 * band5;
                 high5 = scale * (hb1_y2) - low5 - fbM * (band5);
