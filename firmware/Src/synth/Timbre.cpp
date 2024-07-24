@@ -2492,7 +2492,7 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
-            const float finalGain = (2 - filterParam2 * filterParam2 * 1.25f);
+            const float finalGain = 2;//(1 - filterParam2 * filterParam2 * 0.4f);
 
             wet *= finalGain;
             
@@ -2527,99 +2527,141 @@ void Timbre::fxAfterBlock() {
             const float _in_a0 = (1 + _in_b1 * _in_b1 * _in_b1) * 0.5f;
             const float _in_a1 = -_in_a0;
 
-            for (int k = BLOCK_SIZE; k--;) {
+            // limiter
+            const float threshold = 0.75f;
+            const float release = 0.05f;
+            const float releaseCoeff = expf(-1.0f / (release * PREENFM_FREQUENCY));
+            const float kneeWidth = 0.2f;
+            const float holdTime = 0.02f;
+            const int holdSampleCount = static_cast<int>(holdTime * PREENFM_FREQUENCY);
+            int holdSamples = 0;
 
-                inputIncCount++;
-                
+            for (int k = BLOCK_SIZE; k--;)
+            {
                 float fbM = fb + drift;
                 drift += deltaD;
 
-                // Left voice
+                inputIncCount++;
 
-                if(inputIncCount >= sampleRateDivide) {
+                if (inputIncCount >= sampleRateDivide)
+                {
+                    inputIncCount = 0;
+
                     // hp input L
-                    hb5_x1     = clamp(*sp, -1, 1);
-                    hb5_y1     = _in_a0 * hb5_x1 + _in_a1 * hb5_x2 + _in_b1 * hb5_y2;
-                    hb5_y2     = hb5_y1;
-                    hb5_x2     = hb5_x1;
+                    hb5_x1 = clamp(*sp, -1, 1);
+                    hb5_y1 = _in_a0 * hb5_x1 + _in_a1 * hb5_x2 + _in_b1 * hb5_y2;
+                    hb5_y2 = hb5_y1;
+                    hb5_x2 = hb5_x1;
 
-                    hb6_x1     = hb5_y1;
-                    hb6_y1     = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
-                    hb6_y2     = hb6_y1;
-                    hb6_x2     = hb6_x1;
+                    hb6_x1 = hb5_y1;
+                    hb6_y1 = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
+                    hb6_y2 = hb6_y1;
+                    hb6_x2 = hb6_x1;
 
-                    hb6_y1     = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
-                    hb6_y2     = hb6_y1;
-                    hb6_x2     = hb6_x1;
+                    hb6_y1 = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
+                    hb6_y2 = hb6_y1;
+                    hb6_x2 = hb6_x1;
+
+                    // hp input R
+                    hb7_x1 = clamp(*(sp + 1), -1, 1);
+                    hb7_y1 = _in_a0 * hb7_x1 + _in_a1 * hb7_x2 + _in_b1 * hb7_y2;
+                    hb7_y2 = hb7_y1;
+                    hb7_x2 = hb7_x1;
+
+                    hb8_x1 = hb7_y1;
+                    hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
+                    hb8_y2 = hb8_y1;
+                    hb8_x2 = hb8_x1;
+
+                    hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
+                    hb8_y2 = hb8_y1;
+                    hb8_x2 = hb8_x1;
                 }
+
+                // limiter ------------
+                float absLeft = fabsf(*sp);
+                float absRight = fabsf(*(sp + 1));
+                float absSample = absLeft > absRight ? absLeft : absRight;
+                float gain = clamp(hb4_x1, 0, 1);
+                float threshKneeP = threshold + kneeWidth * 0.5f;
+                float threshKneeM = threshold - kneeWidth * 0.5f;
+
+
+                if (absSample > threshKneeP) {
+                    gain = threshold / absSample;
+                    holdSamples = holdSampleCount;
+                } else if (absSample > threshKneeM) {
+                    // soft knee
+                    float x = absSample - threshKneeM;
+                    float y = x * x / (2 * kneeWidth);
+                    gain = (threshKneeM + y) / absSample;
+                    holdSamples = holdSampleCount;
+                } else {
+                    if (holdSamples-- < 1) {
+                        gain = gain + (1.0f - gain) * releaseCoeff;
+                    }
+                }
+                hb4_x1 = gain;
+                // ------------
+
+                // Left voice
 
                 hb1_y1 = coef1 * (hb1_y1 + hb6_y1) - hb1_x1; // allpass
                 hb1_x1 = hb6_y1;
 
                 low1 = low1 + bpf1 * band1;
-                high1 = scale * (hb1_y1) - low1 - fbM * (band1);
+                high1 = scale * (hb1_y1)-low1 - fbM * (band1);
                 band1 = bpf1 * high1 + band1;
 
-                float ap1input = (band1);
+                // limiter L ------------
+                band1 *= gain;
+                // -----------------------
 
-                hb2_y1 = coef2 * (hb2_y1 + ap1input) - hb2_x1; // allpass 2
-                hb2_x1 = ap1input;
+                hb2_y1 = coef2 * (hb2_y1 + band1) - hb2_x1; // allpass 2
+                hb2_x1 = band1;
 
                 low2 = low2 + bpf1 * band2;
                 high2 = scale * hb2_y1 - low2 - fbM * (band2);
                 band2 = bpf1 * high2 + band2;
 
-                float outL = clamp(band2, -1, 1);
+                // limiter L ------------
+                band2 *= gain;
+                // -----------------------
 
-                hb3_y1 = coef3 * (hb3_y1 + outL) - hb3_x1; // allpass 3
-                hb3_x1 = outL;
+                hb3_y1 = coef3 * (hb3_y1 + band2) - hb3_x1; // allpass 3
+                hb3_x1 = band2;
 
-                *sp = *sp * dry + (hb3_y1) * wetL;
+                *sp = *sp * dry + hb3_y1 * wetL;
                 sp++;
 
                 // Right voice
-
-                if(inputIncCount >= sampleRateDivide) {
-                    inputIncCount = 0;
-
-                    // hp input R
-                    hb7_x1     = clamp(*sp, -1, 1);
-                    hb7_y1     = _in_a0 * hb7_x1 + _in_a1 * hb7_x2 + _in_b1 * hb7_y2;
-                    hb7_y2     = hb7_y1;
-                    hb7_x2     = hb7_x1;
-
-                    hb8_x1     = hb7_y1;
-                    hb8_y1     = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
-                    hb8_y2     = hb8_y1;
-                    hb8_x2     = hb8_x1;
-
-                    hb8_y1     = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
-                    hb8_y2     = hb8_y1;
-                    hb8_x2     = hb8_x1;
-                }
 
                 hb1_y2 = coef1 * (hb1_y2 + hb8_y1) - hb1_x2; // allpass
                 hb1_x2 = hb8_y1;
 
                 low5 = low5 + bpf2 * band5;
-                high5 = scale * (hb1_y2) - low5 - fbM * (band5);
+                high5 = scale * (hb1_y2)-low5 - fbM * (band5);
                 band5 = bpf2 * high5 + band5;
 
-                float ap2input = (band5);
+                // limiter R ------------
+                band5 *= gain;
+                // -----------------------
 
-                hb2_y2 = coef2 * (hb2_y2 + ap2input) - hb2_x2; // allpass 2
-                hb2_x2 = ap2input;
+                hb2_y2 = coef2 * (hb2_y2 + band5) - hb2_x2; // allpass 2
+                hb2_x2 = band5;
 
                 low6 = low6 + bpf2 * band6;
                 high6 = scale * hb2_y2 - low6 - fbM * (band6);
                 band6 = bpf2 * high6 + band6;
 
-                float outR = clamp(band6, -1, 1);
+                hb3_y2 = coef3 * (hb3_y2 + band6) - hb3_x2; // allpass 3
+                hb3_x2 = band6;
 
-                hb3_y2 = coef3 * (hb3_y2 + outR) - hb3_x2; // allpass 3
-                hb3_x2 = outR;
+                // limiter R ------------
+                band6 *= gain;
+                // -----------------------
 
-                *sp = *sp * dry + (hb3_y2) * wetR;
+                *sp = *sp * dry + hb3_y2 * wetR;
                 sp++;
             }
         }
