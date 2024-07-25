@@ -2479,7 +2479,7 @@ void Timbre::fxAfterBlock() {
 
             param1S = 0.02f * (this->params_.effect2.param1) + .98f * param1S;
 
-            const float f = param1S * param1S * 0.85f;
+            const float f = (param1S + (param1S * param1S)) * 0.5f * 0.75f;
             const float matrixFreqAtnn = matrixFilterFrequency * 0.25f;
 
             float bpf1 = clamp(0.015f + fold((f + matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
@@ -2492,7 +2492,7 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
-            const float finalGain = 2;//(1 - filterParam2 * filterParam2 * 0.4f);
+            const float finalGain = (2.5f - filterParam2 * filterParam2 * 1.5f);
 
             wet *= finalGain;
             
@@ -2522,14 +2522,14 @@ void Timbre::fxAfterBlock() {
             _ly1 = nexDrift;
 
             // input hp coefs calc :
-            const float cutoff = 0.1f;
+            const float cutoff = 0.05f;
             const float _in_b1 = (1 - cutoff);
             const float _in_a0 = (1 + _in_b1 * _in_b1 * _in_b1) * 0.5f;
             const float _in_a1 = -_in_a0;
 
             // limiter
-            const float threshold = 0.75f;
-            const float release = 0.05f;
+            const float threshold = 0.8f;
+            const float release = 0.5f;
             const float releaseCoeff = expf(-1.0f / (release * PREENFM_FREQUENCY));
             const float kneeWidth = 0.2f;
             const float holdTime = 0.02f;
@@ -2579,8 +2579,8 @@ void Timbre::fxAfterBlock() {
                 }
 
                 // limiter ------------
-                float absLeft = fabsf(*sp);
-                float absRight = fabsf(*(sp + 1));
+                float absLeft = fabsf(hb6_y1);
+                float absRight = fabsf(hb8_y1);
                 float absSample = absLeft > absRight ? absLeft : absRight;
                 float gain = clamp(hb4_x1, 0, 1);
                 float threshKneeP = threshold + kneeWidth * 0.5f;
@@ -2606,6 +2606,10 @@ void Timbre::fxAfterBlock() {
 
                 // Left voice
 
+                // limiter L ------------
+                hb6_y1 *= gain;
+                // -----------------------
+
                 hb1_y1 = coef1 * (hb1_y1 + hb6_y1) - hb1_x1; // allpass
                 hb1_x1 = hb6_y1;
 
@@ -2613,9 +2617,6 @@ void Timbre::fxAfterBlock() {
                 high1 = scale * (hb1_y1)-low1 - fbM * (band1);
                 band1 = bpf1 * high1 + band1;
 
-                // limiter L ------------
-                band1 *= gain;
-                // -----------------------
 
                 hb2_y1 = coef2 * (hb2_y1 + band1) - hb2_x1; // allpass 2
                 hb2_x1 = band1;
@@ -2636,6 +2637,10 @@ void Timbre::fxAfterBlock() {
 
                 // Right voice
 
+                // limiter R ------------
+                hb8_y1 *= gain;
+                // -----------------------
+
                 hb1_y2 = coef1 * (hb1_y2 + hb8_y1) - hb1_x2; // allpass
                 hb1_x2 = hb8_y1;
 
@@ -2643,9 +2648,6 @@ void Timbre::fxAfterBlock() {
                 high5 = scale * (hb1_y2)-low5 - fbM * (band5);
                 band5 = bpf2 * high5 + band5;
 
-                // limiter R ------------
-                band5 *= gain;
-                // -----------------------
 
                 hb2_y2 = coef2 * (hb2_y2 + band5) - hb2_x2; // allpass 2
                 hb2_x2 = band5;
