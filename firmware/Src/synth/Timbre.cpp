@@ -2479,7 +2479,7 @@ void Timbre::fxAfterBlock() {
 
             param1S = 0.02f * (this->params_.effect2.param1) + .98f * param1S;
 
-            const float f = (param1S + (param1S * param1S)) * 0.5f * 0.75f;
+            const float f = param1S * param1S * 0.75f;
             const float matrixFreqAtnn = matrixFilterFrequency * 0.25f;
 
             float bpf1 = clamp(0.015f + fold((f + matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
@@ -2492,7 +2492,7 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
-            const float finalGain = (2.5f - filterParam2 * filterParam2 * 1.5f);
+            const float finalGain = (2.5f - filterParam2 * filterParam2 * 1.8f);
 
             wet *= finalGain;
             
@@ -2529,9 +2529,11 @@ void Timbre::fxAfterBlock() {
 
             // limiter
             const float threshold = 0.8f;
-            const float release = 0.5f;
+            const float threshKneeP = threshold + kneeWidth * 0.5f;
+            const float threshKneeM = threshold - kneeWidth * 0.5f;
+            const float release = 0.85f;
             const float releaseCoeff = expf(-1.0f / (release * PREENFM_FREQUENCY));
-            const float kneeWidth = 0.2f;
+            const float kneeWidth = 0.15f;
             const float holdTime = 0.02f;
             const int holdSampleCount = static_cast<int>(holdTime * PREENFM_FREQUENCY);
             int holdSamples = 0;
@@ -2583,9 +2585,6 @@ void Timbre::fxAfterBlock() {
                 float absRight = fabsf(hb8_y1);
                 float absSample = absLeft > absRight ? absLeft : absRight;
                 float gain = clamp(hb4_x1, 0, 1);
-                float threshKneeP = threshold + kneeWidth * 0.5f;
-                float threshKneeM = threshold - kneeWidth * 0.5f;
-
 
                 if (absSample > threshKneeP) {
                     gain = threshold / absSample;
