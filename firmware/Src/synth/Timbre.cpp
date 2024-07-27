@@ -2529,11 +2529,11 @@ void Timbre::fxAfterBlock() {
 
             // limiter
             const float threshold = 0.8f;
+            const float kneeWidth = 0.15f;
             const float threshKneeP = threshold + kneeWidth * 0.5f;
             const float threshKneeM = threshold - kneeWidth * 0.5f;
             const float release = 0.85f;
             const float releaseCoeff = expf(-1.0f / (release * PREENFM_FREQUENCY));
-            const float kneeWidth = 0.15f;
             const float holdTime = 0.02f;
             const int holdSampleCount = static_cast<int>(holdTime * PREENFM_FREQUENCY);
             int holdSamples = 0;
@@ -2578,35 +2578,35 @@ void Timbre::fxAfterBlock() {
                     hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
                     hb8_y2 = hb8_y1;
                     hb8_x2 = hb8_x1;
-                }
 
-                // limiter ------------
-                float absLeft = fabsf(hb6_y1);
-                float absRight = fabsf(hb8_y1);
-                float absSample = absLeft > absRight ? absLeft : absRight;
-                float gain = clamp(hb4_x1, 0, 1);
+                    // limiter ------------
+                    float absLeft = fabsf(hb6_y1);
+                    float absRight = fabsf(hb8_y1);
+                    float absSample = absLeft > absRight ? absLeft : absRight;
+                    float gain = clamp(hb4_x1, 0, 1);
 
-                if (absSample > threshKneeP) {
-                    gain = threshold / absSample;
-                    holdSamples = holdSampleCount;
-                } else if (absSample > threshKneeM) {
-                    // soft knee
-                    float x = absSample - threshKneeM;
-                    float y = x * x / (2 * kneeWidth);
-                    gain = (threshKneeM + y) / absSample;
-                    holdSamples = holdSampleCount;
-                } else {
-                    if (holdSamples-- < 1) {
-                        gain = gain + (1.0f - gain) * releaseCoeff;
+                    if (absSample > threshKneeP) {
+                        gain = threshold / absSample;
+                        holdSamples = holdSampleCount;
+                    } else if (absSample > threshKneeM) {
+                        // soft knee
+                        float x = absSample - threshKneeM;
+                        float y = x * x / (2 * kneeWidth);
+                        gain = (threshKneeM + y) / absSample;
+                        holdSamples = holdSampleCount;
+                    } else {
+                        if (holdSamples-- < 1) {
+                            gain = gain + (1.0f - gain) * releaseCoeff;
+                        }
                     }
+                    hb4_x1 = gain;
+                    // ------------
                 }
-                hb4_x1 = gain;
-                // ------------
 
                 // Left voice
 
                 // limiter L ------------
-                hb6_y1 *= gain;
+                hb6_y1 *= hb4_x1;
                 // -----------------------
 
                 hb1_y1 = coef1 * (hb1_y1 + hb6_y1) - hb1_x1; // allpass
@@ -2625,7 +2625,7 @@ void Timbre::fxAfterBlock() {
                 band2 = bpf1 * high2 + band2;
 
                 // limiter L ------------
-                band2 *= gain;
+                band2 *= hb4_x1;
                 // -----------------------
 
                 hb3_y1 = coef3 * (hb3_y1 + band2) - hb3_x1; // allpass 3
@@ -2637,7 +2637,7 @@ void Timbre::fxAfterBlock() {
                 // Right voice
 
                 // limiter R ------------
-                hb8_y1 *= gain;
+                hb8_y1 *= hb4_x1;
                 // -----------------------
 
                 hb1_y2 = coef1 * (hb1_y2 + hb8_y1) - hb1_x2; // allpass
@@ -2659,7 +2659,7 @@ void Timbre::fxAfterBlock() {
                 hb3_x2 = band6;
 
                 // limiter R ------------
-                band6 *= gain;
+                band6 *= hb4_x1;
                 // -----------------------
 
                 *sp = *sp * dry + hb3_y2 * wetR;
