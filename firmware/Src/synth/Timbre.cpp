@@ -225,6 +225,10 @@ float sat33(float x)
         return 0;
     return x * (1 - x * x * 0.15f);
 }
+inline 
+float max(float x1, float x2) {
+    return (x1>x2)?x1:x2;
+}
 // all pass params
 const float f1 = 0.0156f;
 const float apcoef1 = (1.0f - f1) / (1.0f + f1);
@@ -2492,6 +2496,7 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
+            const float inputGain = 1.25f;
             const float finalGain = (2.5f - filterParam2 * filterParam2 * 1.8f);
 
             wet *= finalGain;
@@ -2529,14 +2534,19 @@ void Timbre::fxAfterBlock() {
 
             // limiter
             const float threshold = 0.8f;
-            const float kneeWidth = 0.15f;
+            const float kneeWidth = 0.3f;
             const float threshKneeP = threshold + kneeWidth * 0.5f;
             const float threshKneeM = threshold - kneeWidth * 0.5f;
-            const float release = 0.85f;
+            const float attack=0.01f;
+            const float release = 0.25f;
+            const float attackCoeff = expf(-1.0f / (attack * PREENFM_FREQUENCY));
             const float releaseCoeff = expf(-1.0f / (release * PREENFM_FREQUENCY));
             const float holdTime = 0.02f;
             const int holdSampleCount = static_cast<int>(holdTime * PREENFM_FREQUENCY);
             int holdSamples = 0;
+
+            const int delaySize = 512;
+            const int delaySizeM1 = 511;
 
             for (int k = BLOCK_SIZE; k--;)
             {
@@ -2550,7 +2560,7 @@ void Timbre::fxAfterBlock() {
                     inputIncCount = 0;
 
                     // hp input L
-                    hb5_x1 = clamp(*sp, -1, 1);
+                    hb5_x1 = (*sp) * inputGain;
                     hb5_y1 = _in_a0 * hb5_x1 + _in_a1 * hb5_x2 + _in_b1 * hb5_y2;
                     hb5_y2 = hb5_y1;
                     hb5_x2 = hb5_x1;
@@ -2565,7 +2575,7 @@ void Timbre::fxAfterBlock() {
                     hb6_x2 = hb6_x1;
 
                     // hp input R
-                    hb7_x1 = clamp(*(sp + 1), -1, 1);
+                    hb7_x1 = *(sp+1) * inputGain;;
                     hb7_y1 = _in_a0 * hb7_x1 + _in_a1 * hb7_x2 + _in_b1 * hb7_y2;
                     hb7_y2 = hb7_y1;
                     hb7_x2 = hb7_x1;
@@ -2578,36 +2588,9 @@ void Timbre::fxAfterBlock() {
                     hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
                     hb8_y2 = hb8_y1;
                     hb8_x2 = hb8_x1;
-
-                    // limiter ------------
-                    float absLeft = fabsf(hb6_y1);
-                    float absRight = fabsf(hb8_y1);
-                    float absSample = absLeft > absRight ? absLeft : absRight;
-                    float gain = clamp(hb4_x1, 0, 1);
-
-                    if (absSample > threshKneeP) {
-                        gain = threshold / absSample;
-                        holdSamples = holdSampleCount;
-                    } else if (absSample > threshKneeM) {
-                        // soft knee
-                        float x = absSample - threshKneeM;
-                        float y = x * x / (2 * kneeWidth);
-                        gain = (threshKneeM + y) / absSample;
-                        holdSamples = holdSampleCount;
-                    } else {
-                        if (holdSamples-- < 1) {
-                            gain = gain + (1.0f - gain) * releaseCoeff;
-                        }
-                    }
-                    hb4_x1 = gain;
-                    // ------------
                 }
 
                 // Left voice
-
-                // limiter L ------------
-                hb6_y1 *= hb4_x1;
-                // -----------------------
 
                 hb1_y1 = coef1 * (hb1_y1 + hb6_y1) - hb1_x1; // allpass
                 hb1_x1 = hb6_y1;
@@ -2616,7 +2599,6 @@ void Timbre::fxAfterBlock() {
                 high1 = scale * (hb1_y1)-low1 - fbM * (band1);
                 band1 = bpf1 * high1 + band1;
 
-
                 hb2_y1 = coef2 * (hb2_y1 + band1) - hb2_x1; // allpass 2
                 hb2_x1 = band1;
 
@@ -2624,21 +2606,10 @@ void Timbre::fxAfterBlock() {
                 high2 = scale * hb2_y1 - low2 - fbM * (band2);
                 band2 = bpf1 * high2 + band2;
 
-                // limiter L ------------
-                band2 *= hb4_x1;
-                // -----------------------
-
                 hb3_y1 = coef3 * (hb3_y1 + band2) - hb3_x1; // allpass 3
                 hb3_x1 = band2;
 
-                *sp = *sp * dry + hb3_y1 * wetL;
-                sp++;
-
                 // Right voice
-
-                // limiter R ------------
-                hb8_y1 *= hb4_x1;
-                // -----------------------
 
                 hb1_y2 = coef1 * (hb1_y2 + hb8_y1) - hb1_x2; // allpass
                 hb1_x2 = hb8_y1;
@@ -2658,11 +2629,59 @@ void Timbre::fxAfterBlock() {
                 hb3_y2 = coef3 * (hb3_y2 + band6) - hb3_x2; // allpass 3
                 hb3_x2 = band6;
 
-                // limiter R ------------
-                band6 *= hb4_x1;
-                // -----------------------
+                // limiter ------------
 
-                *sp = *sp * dry + hb3_y2 * wetR;
+                float absLeft = fabsf(hb3_y1);
+                float absRight = fabsf(hb3_y2);
+                float absSample = absLeft > absRight ? absLeft : absRight;
+                float gain = clamp(hb4_x1, 0, 1);
+                float envelope = clamp(hb4_x2, 0, 1);
+
+                envelope = max(absSample, envelope * releaseCoeff);
+
+                float target_gain = 1.0f;
+
+                if (absSample > threshKneeP) {
+                    target_gain = threshold / envelope;
+                    holdSamples = holdSampleCount;
+                } else if (absSample > threshKneeM) {
+                    // soft knee
+                    float x = absSample - threshKneeM;
+                    float y = x * x / (2 * kneeWidth);
+                    target_gain = (threshKneeM + y) / absSample;
+                    holdSamples = holdSampleCount;
+                } else {
+                    if (holdSamples-- < 1) {
+                        gain = gain * attackCoeff + target_gain * (1.0f - attackCoeff);
+                    }
+                }
+
+
+
+
+                hb4_x1 = gain;
+                hb4_x2 = envelope;
+
+                // apply limiter
+
+                delayWritePos = (delayWritePos + 1) & delaySizeM1;
+                delayBuffer_[delayWritePos] = hb3_y1;
+                delayBuffer_[delayWritePos + delaySize] = hb3_y2;
+
+                int readpos = (delayWritePos - delaySize) & delaySizeM1;
+
+                float out1 = delayBuffer_[readpos];
+                float out2 = delayBuffer_[delaySize + readpos];
+
+                out1 *= gain;
+                out2 *= gain;
+
+                //  ------------
+
+                *sp = *sp * dry + out1 * wetL;
+                sp++;
+
+                *sp = *sp * dry + out2 * wetR;
                 sp++;
             }
         }
