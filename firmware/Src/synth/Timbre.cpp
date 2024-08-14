@@ -2533,12 +2533,12 @@ void Timbre::fxAfterBlock() {
             const float _in_a1 = -_in_a0;
 
             // limiter
-            const float threshold = 0.8f;
-            const float kneeWidth = 0.3f;
+            const float threshold = 0.4f;
+            const float kneeWidth = 0.2f;
             const float threshKneeP = threshold + kneeWidth * 0.5f;
             const float threshKneeM = threshold - kneeWidth * 0.5f;
-            const float attack=0.01f;
-            const float release = 0.25f;
+            const float attack=0.0107f;// = 10 ms = 512 samples
+            const float release = 0.5f;
             const float attackCoeff = expf(-1.0f / (attack * PREENFM_FREQUENCY));
             const float releaseCoeff = expf(-1.0f / (release * PREENFM_FREQUENCY));
             const float holdTime = 0.02f;
