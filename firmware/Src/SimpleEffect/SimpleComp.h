@@ -50,6 +50,7 @@ namespace chunkware_simple
 		// parameters
 		virtual void setThresh( float dB );
 		virtual void setRatio( float dB );
+		virtual void setMakeUpGain( float makeUpGain );
 
 		virtual float getThresh( void ) const { return threshdB_; }
 		virtual float getRatio( void )  const { return ratio_; }
@@ -72,6 +73,7 @@ namespace chunkware_simple
 		// transfer function
 		float threshdB_;		// threshold (dB)
 		float ratio_;			// ratio (compression: < 1 ; expansion: > 1)
+		float makeUpGain_;			//
 
 		// runtime variables
 		float envdB_;			// over-threshold envelope (dB)
@@ -94,6 +96,7 @@ namespace chunkware_simple
 
 		// sample rate
 		virtual void setSampleRate( float sampleRate );
+		virtual void setMakeUpGain( float setMakeUpGain );
 
 		// RMS window
 		virtual void setWindow( float ms );

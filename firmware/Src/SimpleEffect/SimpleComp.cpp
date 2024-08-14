@@ -59,6 +59,12 @@ namespace chunkware_simple
 	}
 
 	//-------------------------------------------------------------
+	void SimpleComp::setMakeUpGain( float makeUpGain )
+	{
+		makeUpGain_ = makeUpGain;
+	}
+
+	//-------------------------------------------------------------
 	void SimpleComp::initRuntime( void )
 	{
 		envdB_ = DC_OFFSET;

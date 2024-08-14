@@ -53,7 +53,7 @@ namespace chunkware_simple
             float rect2 = abs( *inStereo++ );
             maxAbsSample = std::max( maxAbsSample, std::max( rect1, rect2 )); // find the max
 	    }
-	    float gain = getGain(maxAbsSample);
+	    float gain = getGain(maxAbsSample) * makeUpGain_;
 	    // Let's slowly (linearly) reach  the new gain
 	    float incGain = (gain - previousGain_) * INV32;
         if (gain < (1.0f - DC_OFFSET)) {

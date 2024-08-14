@@ -747,6 +747,7 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setThresh(1000.0f);
                     instrumentCompressor_[timbre].setAttack(10.0);
                     instrumentCompressor_[timbre].setRelease(100.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(1);
                     break;
                 case 1:
                     // Slow2
@@ -754,6 +755,7 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setThresh(-12.0f);
                     instrumentCompressor_[timbre].setAttack(100.0);
                     instrumentCompressor_[timbre].setRelease(1000.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(1);
                     break;
                 case 2:
                     // Medium2
@@ -761,6 +763,7 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setThresh(-12.0f);
                     instrumentCompressor_[timbre].setAttack(8.0);
                     instrumentCompressor_[timbre].setRelease(200.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(1);
                     break;
                 case 3:
                     // Fast4
@@ -768,6 +771,23 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setThresh(-12.0f);
                     instrumentCompressor_[timbre].setAttack(1.0);
                     instrumentCompressor_[timbre].setRelease(50.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(1);
+                    break;
+                case 4:
+                    // Hard
+                    instrumentCompressor_[timbre].setRatio(.01f);
+                    instrumentCompressor_[timbre].setThresh(-12.0f);
+                    instrumentCompressor_[timbre].setAttack(0.1f);
+                    instrumentCompressor_[timbre].setRelease(1000.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(1.7f);
+                    break;
+                case 5:
+                    // Soft
+                    instrumentCompressor_[timbre].setRatio(.5f);
+                    instrumentCompressor_[timbre].setThresh(-24.0f);
+                    instrumentCompressor_[timbre].setAttack(1);
+                    instrumentCompressor_[timbre].setRelease(1000.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(2.5f);
                     break;
             }
             break;
