@@ -2496,8 +2496,8 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
-            const float inputGain = 1.25f;
-            const float finalGain = (2.5f - filterParam2 * filterParam2 * 1.8f);
+            const float inputGain = 2;
+            const float finalGain = (1 - filterParam2 * filterParam2 * 0.75f);
 
             wet *= finalGain;
             
@@ -2533,20 +2533,24 @@ void Timbre::fxAfterBlock() {
             const float _in_a1 = -_in_a0;
 
             // limiter
-            const float threshold = 0.4f;
-            const float kneeWidth = 0.2f;
-            const float threshKneeP = threshold + kneeWidth * 0.5f;
-            const float threshKneeM = threshold - kneeWidth * 0.5f;
-            const float attack=0.0107f;// = 10 ms = 512 samples
-            const float release = 0.5f;
-            const float attackCoeff = expf(-1.0f / (attack * PREENFM_FREQUENCY));
-            const float releaseCoeff = expf(-1.0f / (release * PREENFM_FREQUENCY));
-            const float holdTime = 0.02f;
-            const int holdSampleCount = static_cast<int>(holdTime * PREENFM_FREQUENCY);
-            int holdSamples = 0;
+            const float threshold = 0.8f;
+            //const float kneeWidth = 0.1f;
+            //const float threshKneeP = threshold + kneeWidth * 0.5f;
+            //const float threshKneeM = threshold - kneeWidth * 0.5f;
 
             const int delaySize = 512;
-            const int delaySizeM1 = 511;
+            const int delaySizeM1 = delaySize - 1;
+
+            //const float attack = 0.02138;// = 1024 samples / sampleRateDivide = 40 ms
+            const float release = 0.25f;
+            const float attackCoeff = 0.995f;//expf(-1.0f / (attack * PREENFM_FREQUENCY));
+            const float releaseCoeff = 0.999995f;//expf(-1.0f / (release * PREENFM_FREQUENCY));
+            const float holdTime = 0.02f;
+            const int holdSampleCount = 0;//static_cast<int>(holdTime * PREENFM_FREQUENCY);
+            int holdSamples = 0;
+
+            hb4_x1 = clamp(hb4_x1, 0, 1);
+            hb4_x2 = clamp(hb4_x2, 0, 1);
 
             for (int k = BLOCK_SIZE; k--;)
             {
@@ -2588,6 +2592,12 @@ void Timbre::fxAfterBlock() {
                     hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
                     hb8_y2 = hb8_y1;
                     hb8_x2 = hb8_x1;
+
+                    // limiter delay
+
+                    delayWritePos = (delayWritePos + 1) & delaySizeM1;
+                    delayBuffer_[delayWritePos] = hb3_y1;
+                    delayBuffer_[delayWritePos + delaySize] = hb3_y2;
                 }
 
                 // Left voice
@@ -2631,50 +2641,44 @@ void Timbre::fxAfterBlock() {
 
                 // limiter ------------
 
-                float absLeft = fabsf(hb3_y1);
-                float absRight = fabsf(hb3_y2);
-                float absSample = absLeft > absRight ? absLeft : absRight;
-                float gain = clamp(hb4_x1, 0, 1);
-                float envelope = clamp(hb4_x2, 0, 1);
+                float gain = hb4_x1;
+                float envelope = hb4_x2;
+
+                float absLeft = fabsf(low2 + band2 + high2);
+                float absRight = fabsf(low6 + band6 + high6);
+                float absSample = (absLeft > absRight) ? absLeft : absRight;
 
                 envelope = max(absSample, envelope * releaseCoeff);
 
                 float target_gain = 1.0f;
 
-                if (absSample > threshKneeP) {
+                if (envelope > threshold) {
                     target_gain = threshold / envelope;
                     holdSamples = holdSampleCount;
-                } else if (absSample > threshKneeM) {
+                } /*else if (envelope > threshKneeM) {
                     // soft knee
-                    float x = absSample - threshKneeM;
+                    float x = envelope - threshKneeM;
                     float y = x * x / (2 * kneeWidth);
-                    target_gain = (threshKneeM + y) / absSample;
-                    holdSamples = holdSampleCount;
-                } else {
-                    if (holdSamples-- < 1) {
-                        gain = gain * attackCoeff + target_gain * (1.0f - attackCoeff);
-                    }
+                    target_gain = (threshKneeM + y) / envelope;
+                }*/
+                
+                if (holdSamples-- < 1) {
+                    //gain = (gain - target_gain) * attackCoeff + target_gain;
+                    gain = gain * attackCoeff + target_gain * (1.0f - attackCoeff);
                 }
-
-
-
 
                 hb4_x1 = gain;
                 hb4_x2 = envelope;
 
                 // apply limiter
 
-                delayWritePos = (delayWritePos + 1) & delaySizeM1;
-                delayBuffer_[delayWritePos] = hb3_y1;
-                delayBuffer_[delayWritePos + delaySize] = hb3_y2;
-
                 int readpos = (delayWritePos - delaySize) & delaySizeM1;
 
                 float out1 = delayBuffer_[readpos];
                 float out2 = delayBuffer_[delaySize + readpos];
 
-                out1 *= gain;
-                out2 *= gain;
+                out1 *= hb4_x1;
+                out2 *= hb4_x1;
 
                 //  ------------
 
