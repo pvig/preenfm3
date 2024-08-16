@@ -2496,8 +2496,8 @@ void Timbre::fxAfterBlock() {
             const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
             const float scale = sqrt3(fb);
 
-            const float inputGain = 2;
-            const float finalGain = (1 - filterParam2 * filterParam2 * 0.75f);
+            const float inputGain = 2.5f;
+            const float finalGain = (1 - filterParam2 * filterParam2 * 0.35f);
 
             wet *= finalGain;
             
@@ -2533,20 +2533,19 @@ void Timbre::fxAfterBlock() {
             const float _in_a1 = -_in_a0;
 
             // limiter
-            const float threshold = 0.8f;
-            //const float kneeWidth = 0.1f;
-            //const float threshKneeP = threshold + kneeWidth * 0.5f;
-            //const float threshKneeM = threshold - kneeWidth * 0.5f;
+            const float threshold = 0.7f;
+            const float kneeWidth = 0.6f;
+            const float kneeWidthInv = 1 / (2 * kneeWidth);
+            const float threshKneeP = threshold + kneeWidth * 0.5f;
+            const float threshKneeM = threshold - kneeWidth * 0.5f;
 
             const int delaySize = 512;
             const int delaySizeM1 = delaySize - 1;
 
-            //const float attack = 0.02138;// = 1024 samples / sampleRateDivide = 40 ms
-            const float release = 0.25f;
-            const float attackCoeff = 0.995f;//expf(-1.0f / (attack * PREENFM_FREQUENCY));
-            const float releaseCoeff = 0.999995f;//expf(-1.0f / (release * PREENFM_FREQUENCY));
+            const float attackCoeff = 0.95f;
+            const float releaseCoeff = 0.9995f;
             const float holdTime = 0.02f;
-            const int holdSampleCount = 0;//static_cast<int>(holdTime * PREENFM_FREQUENCY);
+            const int holdSampleCount = static_cast<int>(holdTime * PREENFM_FREQUENCY);
             int holdSamples = 0;
 
             hb4_x1 = clamp(hb4_x1, 0, 1);
@@ -2652,18 +2651,17 @@ void Timbre::fxAfterBlock() {
 
                 float target_gain = 1.0f;
 
-                if (envelope > threshold) {
-                    target_gain = threshold / envelope;
+                if (envelope > threshKneeP) {
+                    target_gain = threshKneeP / envelope;
                     holdSamples = holdSampleCount;
-                } /*else if (envelope > threshKneeM) {
+                } else if (envelope > threshKneeM) {
                     // soft knee
                     float x = envelope - threshKneeM;
-                    float y = x * x / (2 * kneeWidth);
+                    float y = x * x * kneeWidthInv;
                     target_gain = (threshKneeM + y) / envelope;
-                }*/
+                }
                 
                 if (holdSamples-- < 1) {
-                    //gain = (gain - target_gain) * attackCoeff + target_gain;
                     gain = gain * attackCoeff + target_gain * (1.0f - attackCoeff);
                 }
 
@@ -2677,8 +2675,8 @@ void Timbre::fxAfterBlock() {
                 float out1 = delayBuffer_[readpos];
                 float out2 = delayBuffer_[delaySize + readpos];
 
-                out1 *= hb4_x1;
-                out2 *= hb4_x1;
+                out1 *= gain;
+                out2 *= gain;
 
                 //  ------------
 
