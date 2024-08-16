@@ -2497,7 +2497,7 @@ void Timbre::fxAfterBlock() {
             const float scale = sqrt3(fb);
 
             const float inputGain = 2.5f;
-            const float finalGain = (1 - filterParam2 * filterParam2 * 0.35f);
+            const float finalGain = (1 - filterParam2 * filterParam2 * 0.57f);
 
             wet *= finalGain;
             
@@ -2539,7 +2539,7 @@ void Timbre::fxAfterBlock() {
             const float threshKneeP = threshold + kneeWidth * 0.5f;
             const float threshKneeM = threshold - kneeWidth * 0.5f;
 
-            const int delaySize = 512;
+            const int delaySize = 256;
             const int delaySizeM1 = delaySize - 1;
 
             const float attackCoeff = 0.95f;
