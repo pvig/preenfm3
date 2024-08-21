@@ -29,7 +29,7 @@
 
 
 const char* outDisplay[] = { "1", "1-2", "  2", "3", "3-4", "  4", "5", "5-6", "  6" };
-const char* compDisplay[]= { "Off", "Slow", "Medium", "Fast", "Hard", "Soft"};
+const char* compDisplay[]= { "Off", "Slow", "Medium", "Fast", "Hard", "Soft", "Pump"};
 const char* enableNames[] = { "Off", "On" };
 const char* levelMeterWhere[] = { "Off", "Mix", "All" };
 const char* scalaMapNames[] = { "Keybrd", "Continu" };
@@ -87,7 +87,7 @@ const struct Pfm3MixerButton volumeButton = {
 
 const struct Pfm3MixerButtonState compButtonState = {
       "Compressor", MIXER_VALUE_COMPRESSOR,
-        {0, 5, 6, DISPLAY_TYPE_STRINGS, compDisplay }
+        {0, 6, 7, DISPLAY_TYPE_STRINGS, compDisplay }
 };
 
 

@@ -776,18 +776,26 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                 case 4:
                     // Hard
                     instrumentCompressor_[timbre].setRatio(.01f);
-                    instrumentCompressor_[timbre].setThresh(-12.0f);
-                    instrumentCompressor_[timbre].setAttack(0.1f);
-                    instrumentCompressor_[timbre].setRelease(1000.0);
-                    instrumentCompressor_[timbre].setMakeUpGain(1.7f);
+                    instrumentCompressor_[timbre].setThresh(-30.0f);
+                    instrumentCompressor_[timbre].setAttack(60);
+                    instrumentCompressor_[timbre].setRelease(800.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(6);
                     break;
                 case 5:
                     // Soft
-                    instrumentCompressor_[timbre].setRatio(.5f);
+                    instrumentCompressor_[timbre].setRatio(.44f);
                     instrumentCompressor_[timbre].setThresh(-24.0f);
-                    instrumentCompressor_[timbre].setAttack(1);
+                    instrumentCompressor_[timbre].setAttack(0.5f);
                     instrumentCompressor_[timbre].setRelease(1000.0);
-                    instrumentCompressor_[timbre].setMakeUpGain(2.5f);
+                    instrumentCompressor_[timbre].setMakeUpGain(2.25f);
+                    break;
+                case 6:
+                    // Pump
+                    instrumentCompressor_[timbre].setRatio(.22);
+                    instrumentCompressor_[timbre].setThresh(-36.0f);
+                    instrumentCompressor_[timbre].setAttack(20);
+                    instrumentCompressor_[timbre].setRelease(100.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(6.00f);
                     break;
             }
             break;
