@@ -2651,11 +2651,8 @@ void Timbre::fxAfterBlock() {
                 float fltOut1 = delayBuffer_[readpos];
                 float fltOut2 = delayBuffer_[delaySize + readpos];
 
-                float out1 = (*sp * dry + fltOut1 * wetL);
-                float out2 = (*sp * dry + fltOut2 * wetR);
-
-                float absLeft = fabsf(out1);
-                float absRight = fabsf(out2);
+                float absLeft = fabsf(fltOut1);
+                float absRight = fabsf(fltOut2);
                 float absSample = (absLeft > absRight) ? absLeft : absRight;
 
                 envelope = max(absSample, envelope * releaseCoeff);
@@ -2681,10 +2678,10 @@ void Timbre::fxAfterBlock() {
 
                 //  ------------
 
-                *sp = out1 * gain;
+                *sp = *sp * dry + fltOut1 * wetL * gain;
                 sp++;
 
-                *sp = out2 * gain;
+                *sp = *sp * dry + fltOut2 * wetR * gain;
                 sp++;
             }
         }
