@@ -31,6 +31,8 @@
 #ifndef __SIMPLE_ENVELOPE_H__
 #define __SIMPLE_ENVELOPE_H__
 
+#define PREENFM_FREQUENCY 47916.0f
+
 #include "SimpleHeader.h"	// common header
 
 namespace chunkware_simple
@@ -52,7 +54,7 @@ namespace chunkware_simple
 	public:
 		EnvelopeDetector(
 			  float ms = 1.0
-			, float sampleRate = 44100.0
+			, float sampleRate = PREENFM_FREQUENCY
 			);
 		virtual ~EnvelopeDetector() {}
 
@@ -87,7 +89,7 @@ namespace chunkware_simple
 		AttRelEnvelope(
 			  float att_ms = 10.0
 			, float rel_ms = 100.0
-			, float sampleRate = 44100.0
+			, float sampleRate = PREENFM_FREQUENCY
 			);
 		virtual ~AttRelEnvelope() {}
 

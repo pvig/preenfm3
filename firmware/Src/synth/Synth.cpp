@@ -777,25 +777,25 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     // Hard
                     instrumentCompressor_[timbre].setRatio(.01f);
                     instrumentCompressor_[timbre].setThresh(-30.0f);
-                    instrumentCompressor_[timbre].setAttack(60);
-                    instrumentCompressor_[timbre].setRelease(800.0);
-                    instrumentCompressor_[timbre].setMakeUpGain(6);
+                    instrumentCompressor_[timbre].setAttack(200);
+                    instrumentCompressor_[timbre].setRelease(50.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(4.5f);
                     break;
                 case 5:
                     // Soft
                     instrumentCompressor_[timbre].setRatio(.44f);
                     instrumentCompressor_[timbre].setThresh(-24.0f);
-                    instrumentCompressor_[timbre].setAttack(0.5f);
-                    instrumentCompressor_[timbre].setRelease(1000.0);
-                    instrumentCompressor_[timbre].setMakeUpGain(2.25f);
+                    instrumentCompressor_[timbre].setAttack(16);
+                    instrumentCompressor_[timbre].setRelease(150.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(2.5f);
                     break;
                 case 6:
-                    // Pump
-                    instrumentCompressor_[timbre].setRatio(.22);
+                    // Wall
+                    instrumentCompressor_[timbre].setRatio(.25);
                     instrumentCompressor_[timbre].setThresh(-36.0f);
-                    instrumentCompressor_[timbre].setAttack(20);
-                    instrumentCompressor_[timbre].setRelease(100.0);
-                    instrumentCompressor_[timbre].setMakeUpGain(6.00f);
+                    instrumentCompressor_[timbre].setAttack(0.01f);
+                    instrumentCompressor_[timbre].setRelease(250.0);
+                    instrumentCompressor_[timbre].setMakeUpGain(12.00f);
                     break;
             }
             break;

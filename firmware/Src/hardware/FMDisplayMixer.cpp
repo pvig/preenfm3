@@ -29,7 +29,7 @@
 
 
 const char* outDisplay[] = { "1", "1-2", "  2", "3", "3-4", "  4", "5", "5-6", "  6" };
-const char* compDisplay[]= { "Off", "Slow", "Medium", "Fast", "Hard", "Soft", "Pump"};
+const char* compDisplay[]= { "Off", "Slow", "Medium", "Fast", "Hard", "Soft", "Wall"};
 const char* enableNames[] = { "Off", "On" };
 const char* levelMeterWhere[] = { "Off", "Mix", "All" };
 const char* scalaMapNames[] = { "Keybrd", "Continu" };
