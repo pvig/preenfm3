@@ -29,20 +29,6 @@ Synth::Synth(void) {
 Synth::~Synth(void) {
 }
 
-inline
-float sqrt3(const float x)
-{
-  union
-  {
-    int i;
-    float x;
-  } u;
-
-  u.x = x;
-  u.i = (1 << 29) + (u.i >> 1) - (1 << 22);
-  return u.x;
-}
-
 void Synth::init(SynthState *synthState) {
     for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
         for (uint16_t k = 0; k < (sizeof(struct OneSynthParams) / sizeof(float)); k++) {
