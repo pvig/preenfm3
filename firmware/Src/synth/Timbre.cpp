@@ -2485,7 +2485,6 @@ void Timbre::fxAfterBlock() {
 
             const float f = param1S * param1S * param1S * 0.9f;
             const float matrixFreqSqrt = copysign(sqrt3(fabsf(matrixFilterFrequency)) , matrixFilterFrequency);
-            //const float matrixFreqAtnn = (matrixFilterFrequency * matrixFilterFrequency + matrixFreqSqrt) * 0.125f;
             const float matrixFreqAtnn = matrixFilterFrequency * 0.125f;
 
             float bpf1 = clamp(0.015f + fold((f + matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
