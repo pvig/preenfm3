@@ -264,6 +264,17 @@ private:
         GRAIN_VOL,
         GRAIN_PAN
     };
+    // karplus strong
+    enum KARPLUS_PARAMS {
+        KARPLUS_RAMP = 0,
+        KARPLUS_POS,
+        KARPLUS_SIZE,
+        KARPLUS_RAMP_INC,
+        KARPLUS_NEXT_SHIFT,
+        KARPLUS_INC,
+        KARPLUS_VOL,
+        KARPLUS_PAN
+    };
 
     uint8_t grainNext = 0, grainPrev = 0;
     float grainTable[3][8] = {
