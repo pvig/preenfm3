@@ -2673,7 +2673,7 @@ void Timbre::fxAfterBlock() {
             }
         }
         break;
-        case FILTER2_RESONATORS: {
+        case FILTER2_PLUCK: {
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
             float mixerGain_01 = clamp(mixerGain_, 0, 1);
             int mixerGain255 = mixerGain_01 * 255;
@@ -2687,8 +2687,7 @@ void Timbre::fxAfterBlock() {
 
             matrixFilterFrequency *= 0.5f;
             param1S = 0.05f * fabs(this->params_.effect2.param1 + matrixFilterFrequency) + .95f * param1S;
-            float tuning = clamp(param1S * 127 - 39, -63, 63);
-            
+
             float param2 = clamp( fabsf(this->params_.effect2.param2 + matrixFilterParam2), 0, 1);
             param2 *= param2;
             float damp = clamp(0.02f + param2 * 0.7f, 0.01f, 0.95f);
@@ -2697,7 +2696,8 @@ void Timbre::fxAfterBlock() {
             const float sampleRateDivideInv = 1 / sampleRateDivide;
             float inputIncCount = 0;
 
-            float feedback = 0.95f;
+            float baseFeedback = 0.996f;
+            float feedback = baseFeedback;
 
             const float filterB2    = 0.25f;
             const float filterB     = (filterB2 * filterB2 * 0.5f);
@@ -2711,12 +2711,19 @@ void Timbre::fxAfterBlock() {
             float coef2 = (1.0f - f2) / (1.0f + f2);
 
             if(newNotePlayed) {
-                int note = clamp(voices_[lastPlayedNote_]->getNote() + tuning, 0, 127);
+                float tuning = clamp(param1S * 127 - 63, -63, 63);
+            
+                int note = clamp(voices_[lastPlayedNote_]->getNote() + 24 + tuning, 0, 120);
                 float freq = mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[note];
 
-                feedback = 0.95f + (note / 128.f) * 0.05f;
+                float period = PREENFM_FREQUENCY / freq; 
+                feedback = baseFeedback + (1.0f - baseFeedback) * (period / (period + 200.0f));
 
-                grainTable[grainNext][KARPLUS_SIZE] = clamp(PREENFM_FREQUENCY / freq, 1, (delayBufferSize * 0.5f) - 1);
+                float dampClamp = clamp(param2 * 0.7f, 0, 1);
+                damp = 1.0f - dampClamp / period;
+                if (damp < 0.0f) damp = 0.0f;
+
+                grainTable[grainNext][KARPLUS_SIZE] = clamp(period, 1, (delayBufferSize * 0.5f) - 1);
                 grainTable[grainNext][KARPLUS_POS]  = 0;
                 grainTable[grainNext][KARPLUS_RAMP] = 0;
                 grainTable[grainNext][KARPLUS_RAMP_INC] = 16 / (grainTable[grainNext][KARPLUS_SIZE]);
@@ -2751,7 +2758,7 @@ void Timbre::fxAfterBlock() {
                     hp_in_y1    = hp_in_y0;
                     hp_in_x1    = hp_in_x0;
 
-                    excitation = clamp(hp_in_y0 * 2 + noise[5] * 0.25f, -1.f, 1.f);
+                    excitation = clamp(hp_in_y0 * 4 + noise[5] * 0.25f, -1.f, 1.f);
 
                     ///-------- string 1
                     delayWritePos = grainTable[0][KARPLUS_POS];
@@ -2818,6 +2825,9 @@ void Timbre::fxAfterBlock() {
                 *sp = *sp * dry + hb8_x2 * wetR;
                 sp++;
             }
+        }
+        break;
+        case FILTER2_RESONATORS: {
         }
         break;
         case FILTER2_CHEAP_FFT: {
