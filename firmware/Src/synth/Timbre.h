@@ -283,6 +283,8 @@ private:
         {1, 1, 1, 0, 0, 0, 1, 0.5f}
     };
     float lockA, lockB, loopSize = 20;
+
+    bool newNotePlayed;
     
     /** --------------end of FX conf--------------  */
 

@@ -516,6 +516,7 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
     this->midiVelocity = velocity;
     this->released = false;
     this->playing = true;
+    this->currentTimbre->newNotePlayed = true;
     this->isFullOfZero = false;
     this->pendingNote = 0;
     this->newNotePending = false;
