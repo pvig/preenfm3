@@ -2732,7 +2732,7 @@ void Timbre::fxAfterBlock() {
                 grainTable[grainNext][KARPLUS_POS]  = 0;
                 grainTable[grainNext][KARPLUS_RAMP] = 0;
                 grainTable[grainNext][KARPLUS_RAMP_INC] = 16 / (grainTable[grainNext][KARPLUS_SIZE]);
-                grainTable[grainNext][KARPLUS_PAN] = clamp(1 + (noise[6]) * 0.5f, 0, 2) * 0.5f;
+                grainTable[grainNext][KARPLUS_PAN] = clamp(1 + (noise[6]) * 0.25f, 0, 2) * 0.5f;
 
                 if(++grainNext > 1) {
                     grainNext = 0;
@@ -2791,9 +2791,7 @@ void Timbre::fxAfterBlock() {
                     string1R = string1 - string1L;
 
                     ///-------- string 2
-
-                    delayWritePos = grainTable[1][KARPLUS_POS] + delayOffset;
-
+                    delayWritePos = grainTable[1][KARPLUS_POS];
                     grainTable[1][KARPLUS_POS] = modulo(grainTable[1][KARPLUS_POS] + 1, grainTable[1][KARPLUS_SIZE]);
 
                     if (grainTable[1][KARPLUS_RAMP] < 1)
@@ -2803,16 +2801,16 @@ void Timbre::fxAfterBlock() {
                         grainTable[1][KARPLUS_RAMP] = 1;
                     }
 
-                    delayRead = delayInterpolation(grainTable[1][KARPLUS_POS] + delayHalfSize + matrixModulation, delayBuffer_, delayBufferSizeM1) * feedback;
-                    low2 = low2 + damp * (delayRead - low2);
+                    delayRead = delayInterpolation2(grainTable[1][KARPLUS_POS] + matrixModulation, delayBuffer_, delayBufStereoSizeM1, delayBufStereoSize) * feedback;
+
+                    hb2_y1 = coef2 * (hb2_y1 + delayRead) - hb2_x1; // allpass 2
+                    hb2_x1 = delayRead;
+                    low2 = low2 + damp * (hb2_y1 - low2);
 
                     env = sqrt3(grainTable[1][KARPLUS_RAMP]);
                     string2 = env * (low2) + (1 - env) * excitation;
 
-                    hb2_y1 = coef2 * (hb2_y1 + string2) - hb2_x1; // allpass 2
-                    hb2_x1 = string2;
-
-                    delayBuffer_[delayWritePos] = hb2_y1;
+                    delayBuffer_[delayOffset + delayWritePos] = string2;
 
                     string2L = string2 * grainTable[1][KARPLUS_PAN];
                     string2R = string2 - string2L;
