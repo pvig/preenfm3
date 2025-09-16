@@ -2693,7 +2693,7 @@ void Timbre::fxAfterBlock() {
             float delayHalfSize = (delayBufferSize * 0.5f) - 1;
 
             float matrixModulation = _ly1;
-            float nextMatrixModulation = clamp(matrixFilterFrequency * 0.125f * delayHalfSize, 0, delayHalfSize);
+            float nextMatrixModulation = clamp(fabsf(matrixFilterFrequency) / 256 * delayHalfSize, 0, delayHalfSize);
             float deltaM = (nextMatrixModulation - matrixModulation) * sampleRateDivide * INV_BLOCK_SIZE;
             _ly1 = nextMatrixModulation;
 
