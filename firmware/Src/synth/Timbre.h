@@ -270,9 +270,9 @@ private:
         KARPLUS_POS,
         KARPLUS_SIZE,
         KARPLUS_RAMP_INC,
-        KARPLUS_NEXT_SHIFT,
-        KARPLUS_INC,
-        KARPLUS_VOL,
+        KARPLUS_F_DAMP,
+        KARPLUS_FDBK,
+        KARPLUS_BURST_RAMP,
         KARPLUS_PAN
     };
 
