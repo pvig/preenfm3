@@ -273,14 +273,15 @@ private:
         KARPLUS_F_DAMP,
         KARPLUS_FDBK,
         KARPLUS_BURST_RAMP,
+        KARPLUS_VELO,
         KARPLUS_PAN
     };
 
     uint8_t grainNext = 0, grainPrev = 0;
-    float grainTable[3][8] = {
-        {1, 1, 1, 0, 0, 0, 1, 0.5f},
-        {1, 1, 1, 0, 0, 0, 1, 0.5f},
-        {1, 1, 1, 0, 0, 0, 1, 0.5f}
+    float grainTable[3][9] = {
+        {1, 1, 1, 0, 0, 0, 1, 0.5f, 0},
+        {1, 1, 1, 0, 0, 0, 1, 0.5f, 0},
+        {1, 1, 1, 0, 0, 0, 1, 0.5f, 0}
     };
     float lockA, lockB, loopSize = 20;
 
