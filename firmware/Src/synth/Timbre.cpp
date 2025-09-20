@@ -2736,13 +2736,12 @@ void Timbre::fxAfterBlock() {
                 damp = 1.0f - (dampClamp * 0.7f) / (PREENFM_FREQUENCY * period);
                 if (damp < 0.0f) damp = 0.0f;
 
-                grainTable[grainNext][KARPLUS_SIZE] = clamp(PREENFM_FREQUENCY / freq, 1, (delayBufferSize * 0.5f) - 1);
+                grainTable[grainNext][KARPLUS_SIZE] = clamp(PREENFM_FREQUENCY / freq, 2, (delayBufferSize * 0.5f) - 1);
                 float norm = clamp(damp, 0.05f, 1.0f);
                 float effectiveDamp = 1.0f - (0.1f / norm) - velo * 0.2f;
                 grainTable[grainNext][KARPLUS_F_DAMP] = clamp(effectiveDamp, 0.01f, 0.999f);
                 grainTable[grainNext][KARPLUS_POS]  = 0;
                 grainTable[grainNext][KARPLUS_RAMP] = 0;
-                grainTable[grainNext][KARPLUS_VELO] = velo;
                 grainTable[grainNext][KARPLUS_BURST_RAMP] = clamp(period, 0.3f, 0.8f) * velo; // 2nd burst plus fort sur les graves
                 grainTable[grainNext][KARPLUS_FDBK] = bClamp;
                 float attack_ms = (5 + sqrt3(period) * 10 ) * velo;
@@ -2751,6 +2750,15 @@ void Timbre::fxAfterBlock() {
                 float updates_for_attack = (attack_ms / 1000.0f) * updates_per_second;
                 grainTable[grainNext][KARPLUS_RAMP_INC] = 1.0f / updates_for_attack;
                 grainTable[grainNext][KARPLUS_PAN] = clamp(1 + (noise[6]) * 0.25f, 0, 2) * 0.5f;
+                // velo et phase inc hors grainTable
+                float phaseInc = freq * (delayBufferSize * 0.5f) / PREENFM_FREQUENCY;
+                if(grainNext==0) {
+                    hb7_x1 = velo;
+                    hb7_y1 = phaseInc;
+                } else {
+                    hb7_x2 = velo;
+                    hb7_y2 = phaseInc;
+                }
 
                 if(++grainNext > 1) {
                     grainNext = 0;
@@ -2789,7 +2797,7 @@ void Timbre::fxAfterBlock() {
                     ///-------- string 1
                     delayWritePos = grainTable[0][KARPLUS_POS];
                     grainTable[0][KARPLUS_POS] = modulo(grainTable[0][KARPLUS_POS] + 1.0f, grainTable[0][KARPLUS_SIZE]);
-                    delayReadPos = modulo2(grainTable[0][KARPLUS_POS] + matrixModulation + aptuning, delayBufStereoSizeM1);
+                    delayReadPos = modulo2(grainTable[0][KARPLUS_POS] + matrixModulation + hb7_y1, delayBufStereoSizeM1);
                     delayRead = delayInterpolation(delayReadPos, delayBuffer_, delayBufStereoSizeM1);
 
                     delayApInterpol1 = (delayRead * grainTable[0][KARPLUS_FDBK] + _lx1) * 0.5f;
@@ -2813,7 +2821,7 @@ void Timbre::fxAfterBlock() {
                     if (grainTable[0][KARPLUS_BURST_RAMP] < 0.0f)
                         grainTable[0][KARPLUS_BURST_RAMP] = 0.0f;
 
-                    string1 = (env) * low1 + (1.0f - env) * grainTable[0][KARPLUS_VELO] * excitation + burstExcitation;
+                    string1 = (env) * low1 + (1.0f - env) * hb7_x1 * excitation + burstExcitation;
 
                     string1L = string1 * grainTable[0][KARPLUS_PAN];
                     string1R = string1 - string1L;
@@ -2824,7 +2832,7 @@ void Timbre::fxAfterBlock() {
                     delayWritePos = grainTable[1][KARPLUS_POS];
                     grainTable[1][KARPLUS_POS] = modulo(grainTable[1][KARPLUS_POS] + 1.0f, grainTable[1][KARPLUS_SIZE]);
 
-                    delayReadPos2 = modulo2(grainTable[1][KARPLUS_POS] + matrixModulation + aptuning, delayBufStereoSizeM1);
+                    delayReadPos2 = modulo2(grainTable[1][KARPLUS_POS] + matrixModulation + hb7_y2, delayBufStereoSizeM1);
                     delayRead = delayInterpolation2(delayReadPos2, delayBuffer_, delayBufStereoSizeM1, delayBufStereoSize);
 
                     delayApInterpol2 = (delayRead * grainTable[1][KARPLUS_FDBK] + _lx2) * 0.5f; // allpass interpolation
@@ -2850,7 +2858,7 @@ void Timbre::fxAfterBlock() {
                     if (grainTable[1][KARPLUS_BURST_RAMP] < 0.0f)
                         grainTable[1][KARPLUS_BURST_RAMP] = 0.0f;
 
-                    string2 = env * (low2) + (1.0f - env) * excitation * grainTable[0][KARPLUS_VELO] + burstExcitation;
+                    string2 = env * (low2) + (1.0f - env) * excitation * hb7_x2 + burstExcitation;
 
                     string2L = string2 * grainTable[1][KARPLUS_PAN];
                     string2R = string2 - string2L;
