@@ -272,7 +272,7 @@ private:
         KARPLUS_RAMP_INC,
         KARPLUS_F_DAMP,
         KARPLUS_FDBK,
-        KARPLUS_BURST_RAMP,
+        KARPLUS_VELO,
         KARPLUS_PAN
     };
 
