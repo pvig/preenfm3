@@ -2673,26 +2673,30 @@ void Timbre::fxAfterBlock() {
             }
         }
         break;
-        case FILTER2_PLUCK:
+        case FILTER2_PLUCK: {}
         case FILTER2_PLUCK2: {
             const float isV2 = (fx2Type == FILTER2_PLUCK) ? 0 : 1;
+
+            float vol = mixerState_->instrumentState_[timbreNumber_].volume;
 
             mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
             float mixerGain_01 = clamp(mixerGain_, 0, 1);
             int mixerGain255 = mixerGain_01 * 255;
+            mixerGain255 &= 0xff;
             float dry = panTable[255 - mixerGain255];
-            float wet = panTable[mixerGain255];
+            float wet = panTable[mixerGain255] * vol;
             float extraAmp = clamp(mixerGain_ - 1, 0, 1);
             wet += extraAmp;
+            
+            float *sp  = sampleBlock_;
 
             float wetL = wet * (1 + matrixFilterPan);
             float wetR = wet * (1 - matrixFilterPan);
 
             const float sampleRateDivide = 2;
-            const float sampleRateDivideInv = 1 / sampleRateDivide;
             float inputIncCount = 0;
 
-            param1S = 0.05f * fabs(this->params_.effect2.param1) + .95f * param1S;
+            param1S = fabs(this->params_.effect2.param1);
 
             float matrixModulation = _ly1;
             float nextMatrixModulation = clamp(fabsf(matrixFilterFrequency) / 64 * delayBufStereoSizeM1, 0, delayBufStereoSizeM1) * (1 - isV2);
@@ -2717,7 +2721,7 @@ void Timbre::fxAfterBlock() {
             float aptuning = 0.8f;
 
             if(newNotePlayed) {
-                float tuning = clamp(param1S * 128 - 64, -64.f, 64.f);
+                float tuning = clamp(param1S * 128 - 63, -64.f, 64.f);
                 int note;
                 if(isV2) {
                     note = 60 + tuning + matrixFilterFrequency * 12;
@@ -2762,17 +2766,15 @@ void Timbre::fxAfterBlock() {
             float string2L, string2R;
             float env;
 
-            float stringSumR, stringSumL;
-
-            float *sp = sampleBlock_;
-
             float excitation, delayRead;
             float delayApInterpol1, delayApInterpol2;
 
+            hb8_x1 = clamp(hb8_x1, -1, 1);
+            hb8_x2 = clamp(hb8_x2, -1, 1);
+
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
-                if (++inputIncCount >= sampleRateDivide)
-                {
+                if (++inputIncCount >= sampleRateDivide) {
                     inputIncCount = 0;
 
                     // hp in
@@ -2816,7 +2818,11 @@ void Timbre::fxAfterBlock() {
                     string1R = string1 - string1L;
 
                     delayBuffer_[delayWritePos] = string1;
-                    
+
+                    /*int delayWritePosAhead = (delayWritePos - 100);
+                    delayWritePosAhead += (delayWritePosAhead < 0) ? grainTable[0][KARPLUS_SIZE] : 0;
+                    delayBuffer_[delayWritePosAhead] = 0;*/
+
                     ///-------- string 2
                     delayWritePos = grainTable[1][KARPLUS_POS];
                     grainTable[1][KARPLUS_POS] = modulo(grainTable[1][KARPLUS_POS] + 1.0f, grainTable[1][KARPLUS_SIZE]);
@@ -2853,11 +2859,8 @@ void Timbre::fxAfterBlock() {
                     delayBuffer_[delayBufStereoSize + delayWritePos] = string2;
 
                     ///-------- mix
-                    stringSumL = string1L + string2L;
-                    stringSumR = string1R + string2R;
-
-                    hb8_x1 = stringSumL;
-                    hb8_x2 = stringSumR;
+                    hb8_x1 = string1L + string2L;
+                    hb8_x2 = string1R + string2R;
 
                     matrixModulation += deltaM;
                 }
