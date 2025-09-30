@@ -215,6 +215,12 @@ inline
 float max(float x1, float x2) {
     return (x1>x2)?x1:x2;
 }
+static inline float fast_log2f(float x) {
+    union { float f; uint32_t i; } vx = { x };
+    int exp = (int)((vx.i >> 23) & 0xFF) - 127; // exposant IEEE754
+    float mant = (vx.i & 0x7FFFFF) / (float)(1 << 23); // mantisse normalisée
+    return exp + mant; // approx log2
+}
 // all pass params
 const float f1 = 0.0156f;
 const float apcoef1 = (1.0f - f1) / (1.0f + f1);
@@ -2698,10 +2704,10 @@ void Timbre::fxAfterBlock() {
 
             param1S = fabs(this->params_.effect2.param1);
 
-            float matrixModulation = _ly1;
+            float matrixModulation = hb6_y2;
             float nextMatrixModulation = clamp(fabsf(matrixFilterFrequency) / 64 * delayBufStereoSizeM1, 0, delayBufStereoSizeM1) * (1 - isV2);
             float deltaM = (nextMatrixModulation - matrixModulation) * sampleRateDivide * INV_BLOCK_SIZE;
-            _ly1 = nextMatrixModulation;
+            hb6_y2 = nextMatrixModulation;
 
             float param2 = clamp( fabsf(this->params_.effect2.param2 + matrixFilterParam2), 0, 1);
             param2 *= param2;
@@ -2718,12 +2724,14 @@ void Timbre::fxAfterBlock() {
             const float f2 = 0.21f;
             float coef2 = (1.0f - f2) / (1.0f + f2);
 
-            float aptuning = 0.8f;
             float S = 0.9f; // stretch factor
-
+            float frac = 0;
+            int loopInt = 0;
+            
             if(newNotePlayed) {
+                float velo = clamp(voices_[lastPlayedNote_]->velocity, 0, 1);
                 float tuning = clamp(param1S * 128 - 63, -64.f, 64.f);
-                int note;
+                uint8_t note;
                 if(isV2) {
                     note = 60 + tuning + matrixFilterFrequency * 12;
                 } else {
@@ -2734,25 +2742,32 @@ void Timbre::fxAfterBlock() {
                 if(freq <= 0) {
                     freq = 1;
                 }
-                float period = 1 / freq;
-                float periodNorm = PREENFM_FREQUENCY / freq;
-                float loopSize = clamp(periodNorm, 4, delayBufStereoSize - 4);
-                float periodEffective = loopSize / delayBufStereoSize;
-                float freqNorm = freq / PREENFM_FREQUENCY;
-                // keyb tracking fix
-                loopSize -= freqNorm * 2.f;
 
+                float period = 1 / freq;
+                float freqNorm = freq / PREENFM_FREQUENCY;
+
+                float dampClamp = clamp(param2, 0, 1);
+                damp = 0.90f - dampClamp * 0.10f + velo * 0.05f + 0.05f * freqNorm;
+                if (damp < 0.0f) damp = 0.0f;
+                float effectiveDamp = damp * 0.5f;
+                
+                float periodNorm = PREENFM_FREQUENCY / freq;
+                //float comp = 1.0f - (0.03f + 0.08f * (note - 60) / 12.0f);
+
+                float octaves = fast_log2f(freq / 440.0f);
+                float comp = 1.0f - (0.03f + 0.95f * octaves);
+                if (comp < 0.1f) comp = 0.1f;
+
+                float loopSize = clamp((periodNorm * comp) - 0.5f, 4, delayBufStereoSize - 4);
+                
+                float periodEffective = loopSize / delayBufStereoSize;
+                
                 for(int ii = 0; ii < loopSize; ii++) {
                     delayBuffer_[ii + delayBufStereoSize * grainNext] = 0;
                 }
 
-                float velo = clamp(voices_[lastPlayedNote_]->velocity, 0, 1);
-
-                float dampClamp = clamp(param2, 0, 1);
-                float feedback = clamp(sqrt3(sqrt3(dampClamp)) - periodEffective * periodEffective * 0.05f, 0, 1);
-                damp = 0.90f - dampClamp * 0.10f + velo * 0.05f + 0.05f * freqNorm;
-                if (damp < 0.0f) damp = 0.0f;
-                float effectiveDamp = damp * 0.5f;
+                float feedback = 0.1f + 0.86f * sqrt3(sqrt3(dampClamp)) + 0.02f * octaves;
+                feedback = clamp(feedback, 0.3f, 0.99f);
 
                 float attack_ms = 0.3f + sqrt3(periodNorm) * 0.2f * velo;
                 attack_ms = clamp(attack_ms, 1.0f, 30.0f);
@@ -2784,24 +2799,24 @@ void Timbre::fxAfterBlock() {
 
             hb8_x1 = clamp(hb8_x1, -1, 1);
             hb8_x2 = clamp(hb8_x2, -1, 1);
+            float y0, y1;
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
                 if (++inputIncCount >= sampleRateDivide) {
                     inputIncCount = 0;
 
-                    excitation = (*sp + *(sp + 1)) * 2.f + noise[k] * 0.5f;
+                    excitation = (*sp + *(sp + 1)) * 2.f + noise[k];
 
                     // hp in
                     float hp_in_x0 = excitation;
                     hp_in_y0    = _in3_a0 * (hp_in_x0 - hp_in_x1) + _in3_b1 * hp_in_y1;
                     hp_in_y1    = hp_in_y0;
                     hp_in_x1    = hp_in_x0;
-
-                    float hp_in2_x0 = hp_in_y0;
-                    hp_in2_y0    = _in3_a0 * (hp_in2_x0 - hp_in2_x1) + _in3_b1 * hp_in2_y1;
+                    // hp 2
+                    hp_in2_y0    = _in3_a0 * (hp_in_y0 - hp_in2_x1) + _in3_b1 * hp_in2_y1;
                     hp_in2_y1    = hp_in2_y0;
-                    hp_in2_x1    = hp_in2_x0;
+                    hp_in2_x1    = hp_in_y0;
                     
                     low6 = low6 + 0.2f * (hp_in2_y0 - low6);
 
@@ -2820,8 +2835,17 @@ void Timbre::fxAfterBlock() {
                     if(delayReadPos < 0) {
                         delayReadPos += grainTable[0][KARPLUS_SIZE];
                     }
-                    delayReadPos = modulo(delayReadPos + matrixModulation + aptuning, grainTable[0][KARPLUS_SIZE]);
-                    delayRead = delayInterpolation(delayReadPos, delayBuffer_, delayBufStereoSizeM1) * grainTable[0][KARPLUS_FDBK];
+
+                    delayReadPos = modulo(delayReadPos + matrixModulation, grainTable[0][KARPLUS_SIZE]);
+                    //delayRead = delayInterpolation(delayReadPos, delayBuffer_, delayBufStereoSizeM1) * grainTable[0][KARPLUS_FDBK];
+
+                    loopInt = floorf(grainTable[0][KARPLUS_SIZE]);
+                    frac = grainTable[0][KARPLUS_SIZE] - loopInt;
+
+                    y0 = delayBuffer_[ (int)delayReadPos ];
+                    delayReadPos = modulo(delayReadPos + 1, grainTable[0][KARPLUS_SIZE]);
+                    y1 = delayBuffer_[ (int)delayReadPos ];
+                    delayRead = (y0 + frac * (y1 - y0));
 
                     delayApInterpol1 = (1.0f - S) * delayRead + S * _lx1;
                     _lx1 = delayRead;
@@ -2840,7 +2864,7 @@ void Timbre::fxAfterBlock() {
 
                     grainTable[0][KARPLUS_RAMP] = clamp(grainTable[0][KARPLUS_RAMP] + grainTable[0][KARPLUS_RAMP_INC], 0, 1);
 
-                    string1 = (env) * low1 + (1 - env) * (grainTable[0][KARPLUS_VELO] * h * low6);
+                    string1 = (env) * low1 * grainTable[0][KARPLUS_FDBK] + (1 - env) * (grainTable[0][KARPLUS_VELO] * h * low6);
 
                     string1L = string1 * grainTable[0][KARPLUS_PAN];
                     string1R = string1 - string1L;
@@ -2862,9 +2886,16 @@ void Timbre::fxAfterBlock() {
                     if(delayReadPos < 0) {
                         delayReadPos += grainTable[1][KARPLUS_SIZE];
                     };
-                    delayReadPos = modulo(delayReadPos + matrixModulation + aptuning, grainTable[1][KARPLUS_SIZE]);
+                    delayReadPos = modulo(delayReadPos + matrixModulation , grainTable[1][KARPLUS_SIZE]);
 
-                    delayRead = delayInterpolation2(delayReadPos, delayBuffer_, delayBufStereoSizeM1, delayBufStereoSize) * grainTable[1][KARPLUS_FDBK];
+                    loopInt = floorf(grainTable[1][KARPLUS_SIZE]);
+                    frac = grainTable[1][KARPLUS_SIZE] - loopInt;
+
+                    //delayRead = delayInterpolation2(delayReadPos, delayBuffer_, delayBufStereoSizeM1, delayBufStereoSize) * grainTable[1][KARPLUS_FDBK];
+                    y0 = delayBuffer_[ delayBufStereoSize + (int)delayReadPos ];
+                    delayReadPos = modulo(delayReadPos + 1, grainTable[0][KARPLUS_SIZE]);
+                    y1 = delayBuffer_[ delayBufStereoSize + (int)delayReadPos ];
+                    delayRead = (y0 + frac * (y1 - y0));
 
                     delayApInterpol3 = (1.0f - S) * delayRead + S * _lx2; // allpass interpolation
                     _lx2 = delayRead;
@@ -2883,7 +2914,7 @@ void Timbre::fxAfterBlock() {
 
                     grainTable[1][KARPLUS_RAMP] = clamp(grainTable[1][KARPLUS_RAMP] + grainTable[1][KARPLUS_RAMP_INC], 0, 1);
 
-                    string2 = (env) * low2 + (1 - env) * (grainTable[1][KARPLUS_VELO] * h * low6);
+                    string2 = (env) * low2  * grainTable[1][KARPLUS_FDBK] + (1 - env) * (grainTable[1][KARPLUS_VELO] * h * low6);
 
                     string2L = string2 * grainTable[1][KARPLUS_PAN];
                     string2R = string2 - string2L;
