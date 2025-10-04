@@ -2126,7 +2126,7 @@ void Timbre::fxAfterBlock()
         param1S = fabs(this->params_.effect2.param1);
 
         float matrixModulation = hb6_y2;
-        float nextMatrixModulation = clamp(fabsf(matrixFilterFrequency) / 64 * delayBufStereoSizeM1, 0, delayBufStereoSizeM1) * (1 - isV2);
+        float nextMatrixModulation = clamp(fabsf(matrixFilterFrequency) * INV_BLOCK_SIZE * 0.5f * delayBufStereoSizeM1, 0, delayBufStereoSizeM1) * (1 - isV2);
         float deltaM = (nextMatrixModulation - matrixModulation) * sampleRateDivide * INV_BLOCK_SIZE;
         hb6_y2 = nextMatrixModulation;
 
@@ -2140,7 +2140,7 @@ void Timbre::fxAfterBlock()
         const float _in3_b1 = (1 - filterB);
         const float _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
 
-        const float f1 = 0.1f, f2 = 0.3f, f3 = 0.5f;
+        const float f1 = 0.15f, f2 = 0.17f, f3 = 0.22f;
         const float coef1 = (1.0f - f1) / (1.0f + f1);
         const float coef2 = (1.0f - f2) / (1.0f + f2);
         const float coef3 = (1.0f - f3) / (1.0f + f3);
@@ -2188,9 +2188,14 @@ void Timbre::fxAfterBlock()
 
             float loopSize = clamp((periodNorm * comp) - groupDelay, 4, delayBufStereoSize - 4);
 
-            for (int ii = 0; ii < loopSize; ii++)
+            // flags for clearing state
+            if (grainNext == 0)
             {
-                delayBuffer_[ii + delayBufStereoSize * grainNext] = 0;
+                hb5_x1 = 1;
+            }
+            else
+            {
+                hb5_x2 = 1;
             }
 
             float feedback = 0.1f * velo + sqrt3(sqrt3(dampClamp)) * (1 + 0.05f * octaves);
@@ -2257,11 +2262,19 @@ void Timbre::fxAfterBlock()
                 ///-------- string 1
                 delayWritePos = grainTable[0][KARPLUS_POS];
 
+                if (hb5_x1 > 0)
+                {
+                    // cleaning flag on
+                    delayWritePos = modulo(delayWritePos + BLOCK_SIZE, grainTable[0][KARPLUS_SIZE]);
+                    delayBuffer_[delayWritePos] = 0;
+                }
+
                 grainTable[0][KARPLUS_POS] += 1.f;
                 if (grainTable[0][KARPLUS_POS] >= grainTable[0][KARPLUS_SIZE])
                 {
                     grainTable[0][KARPLUS_POS] -= grainTable[0][KARPLUS_SIZE];
                     grainTable[0][KARPLUS_RAMP] = 1;
+                    hb5_x1 = 0;
                 }
                 else
                 {
@@ -2275,7 +2288,6 @@ void Timbre::fxAfterBlock()
                 }
 
                 delayReadPos = modulo(delayReadPos + matrixModulation, grainTable[0][KARPLUS_SIZE]);
-                // delayRead = delayInterpolation(delayReadPos, delayBuffer_, delayBufStereoSizeM1);
 
                 readposInt = (int)delayReadPos;
                 frac = delayReadPos - readposInt;
@@ -2307,11 +2319,19 @@ void Timbre::fxAfterBlock()
                 ///-------- string 2
                 delayWritePos = grainTable[1][KARPLUS_POS];
 
+                if (hb5_x2 > 0)
+                {
+                    // cleaning flag on
+                    delayWritePos = modulo(delayWritePos + BLOCK_SIZE, grainTable[1][KARPLUS_SIZE]);
+                    delayBuffer_[delayBufStereoSize + delayWritePos] = 0;
+                }
+
                 grainTable[1][KARPLUS_POS] += 1.f;
                 if (grainTable[1][KARPLUS_POS] >= grainTable[1][KARPLUS_SIZE])
                 {
                     grainTable[1][KARPLUS_POS] -= grainTable[1][KARPLUS_SIZE];
                     grainTable[1][KARPLUS_RAMP] = 1;
+                    hb5_x2 = 0;
                 }
                 else
                 {
@@ -2358,9 +2378,9 @@ void Timbre::fxAfterBlock()
                 hb8_x1 = string1L + 0.9f * string2L;
                 hb8_x2 = string1R * 0.9f + string2R;
 
-                hb2_y1 = coef1 * (hb2_y1 + hb8_x1) - hb2_x1; // allpass 2
+                hb2_y1 = coef2 * (hb2_y1 + hb8_x1) - hb2_x1; // allpass 2
                 hb2_x1 = hb8_x1;
-                hb2_y2 = coef2 * (hb2_y2 + hb8_x2) - hb2_x2; // allpass 2
+                hb2_y2 = coef3 * (hb2_y2 + hb8_x2) - hb2_x2; // allpass 2
                 hb2_x2 = hb8_x2;
 
                 matrixModulation += deltaM;
