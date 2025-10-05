@@ -1194,7 +1194,7 @@ struct FilterRowDisplay fx2RowDisplay[FILTER2_LAST] = {
         "Deca",
         "Mix " },
     {
-        "Tune",
+        "Morp",
         "Damp",
         "Mix " },
     {

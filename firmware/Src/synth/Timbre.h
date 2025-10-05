@@ -182,10 +182,12 @@ private:
 
     /** --------------FX conf--------------  */
     void fxAfterBlock();
+    void initFx();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
     float hermiteInterpolation(float frac, float xm1, float x0, float x1, float x2);
-    float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2) ;
+    float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2);
+    float modalResonator(float in, float a1, float *x1, float *x2, float *y1, float *y2);
 
     int prevFx2Type         = 0;
 
@@ -239,6 +241,12 @@ private:
     float hb6_x1 = 0, hb6_x2 = 0, hb6_y1 = 0, hb6_y2 = 0;
     float hb7_x1 = 0, hb7_x2 = 0, hb7_y1 = 0, hb7_y2 = 0;
     float hb8_x1 = 0, hb8_x2 = 0, hb8_y1 = 0, hb8_y2 = 0;
+
+    float* hb_x1[8] = {&hb1_x1, &hb2_x1, &hb3_x1, &hb4_x1, &hb5_x1, &hb6_x1, &hb7_x1, &hb8_x1};
+    float* hb_x2[8] = {&hb1_x2, &hb2_x2, &hb3_x2, &hb4_x2, &hb5_x2, &hb6_x2, &hb7_x2, &hb8_x2};
+    float* hb_y1[8] = {&hb1_y1, &hb2_y1, &hb3_y1, &hb4_y1, &hb5_y1, &hb6_y1, &hb7_y1, &hb8_y1};
+    float* hb_y2[8] = {&hb1_y2, &hb2_y2, &hb3_y2, &hb4_y2, &hb5_y2, &hb6_y2, &hb7_y2, &hb8_y2};
+
     float phase1 = 0;
     float samplen1 = 0;
 

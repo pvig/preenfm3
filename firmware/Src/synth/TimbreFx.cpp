@@ -77,6 +77,23 @@ static inline float fast_log2f(float x)
     float mant = (vx.i & 0x7FFFFF) / (float)(1 << 23); // mantisse normalisée
     return exp + mant;                                 // approx log2
 }
+inline float fast_expf(float x)
+{
+    // Approximation rapide de exp(x) pour x proche de 0
+    // max erreur ~0.01 pour x in [-1,0]
+    union
+    {
+        float f;
+        int32_t i;
+    } u;
+    u.i = (int32_t)(12102203.0f * x + 127 * (1 << 23));
+    return u.f;
+}
+inline float fastExpNeg(float x)
+{
+    // x > 0
+    return fast_expf(-x);
+}
 // all pass params
 const float f1 = 0.0156f;
 const float apcoef1 = (1.0f - f1) / (1.0f + f1);
@@ -86,6 +103,23 @@ const float f3 = (0.17f + f2);
 const float apcoef3 = (1.0f - f3) / (1.0f + f3);
 const float f4 = (0.17f + f3);
 const float apcoef4 = (1.0f - f4) / (1.0f + f4);
+
+#define N_MODES 4
+typedef struct
+{
+    float ratios[N_MODES];
+    float gains[N_MODES];
+} ModalPreset;
+
+// --- Bell ---
+const ModalPreset bellPreset = {
+    {1.0, 2.0, 3.5, 5.5},
+    {1.0, 2.0, 3.5, 5.5}};
+
+// --- Tube ---
+const ModalPreset tubePreset = {
+    {1.0, 2.0, 3.0, 4.0},
+    {1.0, 0.8, 0.6, 0.4}};
 
 // delay sizes
 const float delayBufferSizeF = delayBufferSize;
@@ -98,6 +132,45 @@ const int delayBufStereoSize = delayBufferSize * 0.5f;
 const int delayBufStereoSizeM1 = delayBufStereoSize - 1;
 const float delayBufStereoDiv4 = delayBufStereoSize * 0.25f;
 const float delayBufStereoSizeInv = 1.0f / delayBufStereoSize;
+
+void Timbre::initFx()
+{
+    hb_x1[0] = &hb1_x1;
+    hb_x1[1] = &hb2_x1;
+    hb_x1[2] = &hb3_x1;
+    hb_x1[3] = &hb4_x1;
+    hb_x1[4] = &hb5_x1;
+    hb_x1[5] = &hb6_x1;
+    hb_x1[6] = &hb7_x1;
+    hb_x1[7] = &hb8_x1;
+
+    hb_x2[0] = &hb1_x2;
+    hb_x2[1] = &hb2_x2;
+    hb_x2[2] = &hb3_x2;
+    hb_x2[3] = &hb4_x2;
+    hb_x2[4] = &hb5_x2;
+    hb_x2[5] = &hb6_x2;
+    hb_x2[6] = &hb7_x2;
+    hb_x2[7] = &hb8_x2;
+
+    hb_y1[0] = &hb1_y1;
+    hb_y1[1] = &hb2_y1;
+    hb_y1[2] = &hb3_y1;
+    hb_y1[3] = &hb4_y1;
+    hb_y1[4] = &hb5_y1;
+    hb_y1[5] = &hb6_y1;
+    hb_y1[6] = &hb7_y1;
+    hb_y1[7] = &hb8_y1;
+
+    hb_y2[0] = &hb1_y2;
+    hb_y2[1] = &hb2_y2;
+    hb_y2[2] = &hb3_y2;
+    hb_y2[3] = &hb4_y2;
+    hb_y2[4] = &hb5_y2;
+    hb_y2[5] = &hb6_y2;
+    hb_y2[6] = &hb7_y2;
+    hb_y2[7] = &hb8_y2;
+}
 
 void Timbre::fxAfterBlock()
 {
@@ -2098,8 +2171,6 @@ void Timbre::fxAfterBlock()
     }
     break;
     case FILTER2_PLUCK:
-    {
-    }
     case FILTER2_PLUCK2:
     {
         const float isV2 = (fx2Type == FILTER2_PLUCK) ? 0 : 1;
@@ -2151,11 +2222,21 @@ void Timbre::fxAfterBlock()
         float frac = 0;
         int readposInt = 0;
 
-        if (newNotePlayed)
+        bool extraNote = false;
+        uint8_t note;
+        if (isV2)
+        {
+            // newNotePlayed = false;
+            /*float targetNote = floorf(matrixFilterFrequency * 12);
+            extraNote = targetNote != hb6_x1;
+            hb6_x1 = targetNote;*/
+        }
+
+        if (newNotePlayed || extraNote)
         {
             float velo = clamp(voices_[lastPlayedNote_]->velocity, 0, 1);
             float tuning = clamp(param1S * 128 - 64, -64.f, 64.f);
-            uint8_t note;
+
             if (isV2)
             {
                 note = 60 + tuning + matrixFilterFrequency * 12;
@@ -2172,16 +2253,16 @@ void Timbre::fxAfterBlock()
             }
 
             float freqNorm = freq / PREENFM_FREQUENCY;
+            float octaves = fast_log2f(freq / 440.0f);
 
             float dampClamp = clamp(param2, 0, 1);
-            damp = 0.90f - dampClamp * 0.10f + velo * 0.05f + 0.05f * freqNorm;
+            damp = 0.90f - dampClamp * 0.10f + velo * 0.05f + 0.05f * octaves;
             if (damp < 0.0f)
                 damp = 0.0f;
             float effectiveDamp = damp * 0.5f;
 
             float periodNorm = PREENFM_FREQUENCY / freq;
 
-            float octaves = fast_log2f(freq / 440.0f);
             float comp = 1.0f - (0.005f + 0.005f * octaves);
             if (comp < 0)
                 comp = 0;
@@ -2192,14 +2273,16 @@ void Timbre::fxAfterBlock()
             if (grainNext == 0)
             {
                 hb5_x1 = 1;
+                hb5_y1 = clamp(octaves, 0, 1) * 0.25f;
             }
             else
             {
                 hb5_x2 = 1;
+                hb5_y2 = clamp(octaves, 0, 1) * 0.25f;
             }
 
-            float feedback = 0.1f * velo + sqrt3(sqrt3(dampClamp)) * (1 + 0.05f * octaves);
-            feedback = clamp(feedback, 0.3f, 0.99f);
+            float feedback = sqrt3(sqrt3(dampClamp)) * (1 + 0.025f * octaves + 0.05f * velo);
+            feedback = clamp(feedback, 0.02f, 0.999f);
 
             float attack_ms = 0.2f + 5.0f + sqrtf(periodNorm) * 0.5f * velo;
             attack_ms = clamp(attack_ms, 1.0f, 30.0f);
@@ -2227,13 +2310,14 @@ void Timbre::fxAfterBlock()
         float env;
 
         float excitation, delayRead;
-        float delayApInterpol1, delayApInterpol2;
 
         hb8_x1 = clamp(hb8_x1, -1, 1);
         hb8_x2 = clamp(hb8_x2, -1, 1);
         float xm1, x0, x1, x2;
 
         float dispSignal;
+        int clearingPos;
+        float impulseWindow;
 
         for (int k = 0; k < BLOCK_SIZE; k++)
         {
@@ -2265,8 +2349,8 @@ void Timbre::fxAfterBlock()
                 if (hb5_x1 > 0)
                 {
                     // cleaning flag on
-                    delayWritePos = modulo(delayWritePos + BLOCK_SIZE, grainTable[0][KARPLUS_SIZE]);
-                    delayBuffer_[delayWritePos] = 0;
+                    clearingPos = modulo(delayWritePos + BLOCK_SIZE, grainTable[0][KARPLUS_SIZE]);
+                    delayBuffer_[clearingPos] = low6 * hb5_y1;
                 }
 
                 grainTable[0][KARPLUS_POS] += 1.f;
@@ -2301,12 +2385,12 @@ void Timbre::fxAfterBlock()
 
                 low1 = low1 + grainTable[0][KARPLUS_F_DAMP] * (delayRead - low1);
 
-                env = sqrt3(grainTable[0][KARPLUS_RAMP]);
-                float h = hann(env) * 1.5f;
+                env = grainTable[0][KARPLUS_RAMP];
+                impulseWindow = hann(env);
 
                 grainTable[0][KARPLUS_RAMP] = clamp(grainTable[0][KARPLUS_RAMP] + grainTable[0][KARPLUS_RAMP_INC], 0, 1);
 
-                string1 = (env)*low1 + (1 - env) * (grainTable[0][KARPLUS_VELO] * h * low6);
+                string1 = env * low1 + (1 - env) * (grainTable[0][KARPLUS_VELO] * impulseWindow * low6);
 
                 dispSignal = -dispersion * string1 + hb4_x1 + dispersion * hb4_x1;
                 hb4_x1 = string1;
@@ -2322,8 +2406,8 @@ void Timbre::fxAfterBlock()
                 if (hb5_x2 > 0)
                 {
                     // cleaning flag on
-                    delayWritePos = modulo(delayWritePos + BLOCK_SIZE, grainTable[1][KARPLUS_SIZE]);
-                    delayBuffer_[delayBufStereoSize + delayWritePos] = 0;
+                    clearingPos = modulo(delayWritePos + BLOCK_SIZE, grainTable[1][KARPLUS_SIZE]);
+                    delayBuffer_[delayBufStereoSize + clearingPos] = low6 * hb5_y2;
                 }
 
                 grainTable[1][KARPLUS_POS] += 1.f;
@@ -2358,12 +2442,12 @@ void Timbre::fxAfterBlock()
 
                 low2 = low2 + grainTable[1][KARPLUS_F_DAMP] * (delayRead - low2);
 
-                env = sqrt3(grainTable[1][KARPLUS_RAMP]);
-                h = hann(env) * 1.5f;
+                env = grainTable[1][KARPLUS_RAMP];
+                impulseWindow = hann(env);
 
                 grainTable[1][KARPLUS_RAMP] = clamp(grainTable[1][KARPLUS_RAMP] + grainTable[1][KARPLUS_RAMP_INC], 0, 1);
 
-                string2 = (env)*low2 + (1 - env) * (grainTable[1][KARPLUS_VELO] * h * low6);
+                string2 = env * low2 + (1 - env) * (grainTable[1][KARPLUS_VELO] * impulseWindow * low6);
 
                 dispSignal = -dispersion * string2 + hb4_x2 + dispersion * hb4_x2;
                 hb4_x2 = string2;
@@ -2395,6 +2479,80 @@ void Timbre::fxAfterBlock()
     break;
     case FILTER2_RESONATORS:
     {
+        mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
+        float mixerGain_01 = clamp(mixerGain_, 0, 1);
+        int mixerGain255 = mixerGain_01 * 255;
+        mixerGain255 &= 0xff;
+        float dry = panTable[255 - mixerGain255];
+        float wet = panTable[mixerGain255];
+        float extraAmp = clamp(mixerGain_ - 1, 0, 1);
+        wet += extraAmp;
+
+        float *sp = sampleBlock_;
+
+        float wetL = wet * (1 + matrixFilterPan) * 0.5f;
+        float wetR = wet * (1 - matrixFilterPan) * 0.5f;
+
+        float param2 = clamp(fabsf(this->params_.effect2.param2 + matrixFilterParam2), 0, 1);
+        param2 *= param2;
+        param1S = 0.05f * fabs(this->params_.effect2.param1 + matrixFilterFrequency) + .95f * param1S;
+
+        // Paramètres UI
+        float morph = clamp(fabsf(param1S + matrixFilterFrequency * 0.125f), 0, 1);
+        float damp = clamp(fabsf(param2 + matrixFilterParam2), 0, 1);
+
+        const float baseFreq = 440.0f;
+
+        const ModalPreset *presetA = &bellPreset;
+        const ModalPreset *presetB = &tubePreset;
+
+        // Pré-calcul des ratios et gains par bloc
+        float ratios[4], gains[4];
+        for (int i = 0; i < 4; i++)
+        {
+            ratios[i] = (1 - morph) * bellPreset.ratios[i] + morph * tubePreset.ratios[i];
+            gains[i] = (1 - morph) * bellPreset.gains[i] + morph * tubePreset.gains[i];
+        }
+
+        // Pré-calcul des coefficients IIR
+        float a1[4];
+        for (int i = 0; i < 4; i++)
+        {
+            float f = baseFreq * ratios[i];
+            float r = fastExpNeg(damp * f * PREENFM_FREQUENCY_INVERSED);
+            r = fminf(r, 0.9999f); // sécurité
+            a1[i] = 2.0f * r * fastSin(f * PREENFM_FREQUENCY_INVERSED);
+        }
+
+        // hp
+        const float filterB2 = 0.4f;
+        const float filterB = (filterB2 * filterB2 * 0.5f);
+        const float _in2_b1 = (1 - filterB);
+        const float _in2_a0 = (1 + _in2_b1 * _in2_b1 * _in2_b1) * 0.5f;
+
+        for (int k = 0; k < BLOCK_SIZE; k++)
+        {
+            // Entrée mono
+            float in = 0.5f * ((*sp) + (*(sp + 1)));
+            float out = 0.0f;
+
+            // --- Résonateurs ---
+            for (int i = 0; i < 4; i++)
+            {
+                float hp_in_x0 = gains[i] * modalResonator(in, a1[i], hb_x1[i], hb_x2[i], hb_y1[i], hb_y2[i]);
+                hp_in_y0 = _in2_a0 * (hp_in_x0 - hp_in_x1) + _in2_b1 * hp_in_y1;
+                hp_in_y1 = hp_in_y0;
+                hp_in_x1 = hp_in_x0;
+
+                out += hp_in_y0;
+            }
+
+            // --- Sortie Wet/Dry ---
+            *sp = *sp * dry + out * wetL;
+            sp++;
+            *sp = *sp * dry + out * wetR;
+            sp++;
+        }
     }
     break;
     case FILTER2_CHEAP_FFT:
@@ -2409,7 +2567,7 @@ void Timbre::fxAfterBlock()
     this->newNotePlayed = false;
 }
 
-float Timbre::iirFilter(float x, float a1, float *xn1, float *xn2, float *yn1, float *yn2)
+inline float Timbre::iirFilter(float x, float a1, float *xn1, float *xn2, float *yn1, float *yn2)
 {
     // https://dsp.stackexchange.com/a/59157
     // 𝑦[𝑘] = 𝑐( 𝑥[𝑘] + 𝑦[𝑘−2] ) − 𝑥[𝑘−2]
@@ -2422,7 +2580,7 @@ float Timbre::iirFilter(float x, float a1, float *xn1, float *xn2, float *yn1, f
     return y;
 }
 
-float Timbre::delayInterpolation(float readPos, float buffer[], int bufferLenM1)
+inline float Timbre::delayInterpolation(float readPos, float buffer[], int bufferLenM1)
 {
     int readPosInt = readPos;
     float y1 = buffer[readPosInt];
@@ -2431,7 +2589,7 @@ float Timbre::delayInterpolation(float readPos, float buffer[], int bufferLenM1)
     return (y0 - y1) * x + y1;
 }
 
-float Timbre::delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset)
+inline float Timbre::delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset)
 {
     int readPosInt = readPos;
     float y1 = buffer[offset + readPosInt];
@@ -2440,7 +2598,7 @@ float Timbre::delayInterpolation2(float readPos, float buffer[], int bufferLenM1
     return (y0 - y1) * x + y1;
 }
 
-float Timbre::hermiteInterpolation(float frac, float xm1, float x0, float x1, float x2)
+inline float Timbre::hermiteInterpolation(float frac, float xm1, float x0, float x1, float x2)
 {
     float c0 = x0;
     float c1 = 0.5f * (x1 - xm1);
@@ -2448,4 +2606,14 @@ float Timbre::hermiteInterpolation(float frac, float xm1, float x0, float x1, fl
     float c3 = 0.5f * (x2 - xm1) + 1.5f * (x0 - x1);
 
     return ((c3 * frac + c2) * frac + c1) * frac + c0;
+}
+
+inline float Timbre::modalResonator(float in, float a1, float *x1, float *x2, float *y1, float *y2)
+{
+    float y = a1 * (in + *y2) - *x2;
+    *y2 = *y1;
+    *y1 = y;
+    *x2 = *x1;
+    *x1 = in;
+    return y;
 }

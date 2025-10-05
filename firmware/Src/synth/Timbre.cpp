@@ -150,6 +150,8 @@ float panTable[]  = {
 
 Timbre::Timbre() {
 
+    initFx();
+    
     recomputeNext_ = true;
     currentGate_ = 0;
     sbMax_ = &sampleBlock_[64];
