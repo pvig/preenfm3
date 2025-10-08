@@ -94,7 +94,8 @@ inline float fastExpNeg(float x)
     // x > 0
     return fast_expf(-x);
 }
-inline float fast_cos_2pi(float x) {
+inline float fast_cos_2pi(float x)
+{
     // x entre 0 et 0.5 environ (fréquence normalisée)
     float x2 = x * x;
     return 1.0f - 19.7392088f * x2 + 64.3776844f * x2 * x2;
@@ -2485,18 +2486,12 @@ void Timbre::fxAfterBlock()
         param1S = 0.05f * fabs(this->params_.effect2.param1 + matrixFilterFrequency) + .95f * param1S;
 
         // Paramètres UI
-        float morph = clamp(fabsf(param1S + matrixFilterFrequency * 0.125f), 0, 1);
-        float damp = clamp(fabsf(param2), 0, 1);
+        float morph = clamp(fabsf(param2), 0, 1);
+        float damp = clamp(fabsf(param1S + matrixFilterFrequency * 0.125f), 0, 1);
 
         float freq = 440.0f * powf(1400.0f / 440.0f, damp);
 
         prepareResonatorModes(freq, morph);
-        for (int i = 0; i < 4; i++) {
-            float f = modes[i].freq * PREENFM_FREQUENCY_INVERSED;
-            float r = fast_expf(-modes[i].damping);
-            modes[i].a1 = -2.0f * r * fast_cos_2pi(f);  // version rapide
-            modes[i].a2 = r * r;
-        }
 
         for (int k = 0; k < BLOCK_SIZE; k++)
         {
@@ -2507,8 +2502,7 @@ void Timbre::fxAfterBlock()
             // --- Résonateurs ---
             for (int i = 0; i < 4; i++)
             {
-                out += modalResonator(in, modes[i].gain, 0, 0, modes[i].a1, modes[i].a2,
-                    &modes[i].x1, &modes[i].x2) * 0.1f;
+                out += modalResonator(in, modes[i].gain, 0, 0, modes[i].a1, modes[i].a2, &modes[i].x1, &modes[i].x2) * 0.1f;
             }
 
             // --- Sortie Wet/Dry ---
@@ -2589,28 +2583,43 @@ inline float Timbre::modalResonator(float in, float b0, float b1, float b2, floa
 
 void Timbre::prepareResonatorModes(float baseFreq, float morph)
 {
-    // clamp du morph entre 0 (bell) et 1 (tube)
     if (morph < 0.0f)
         morph = 0.0f;
     if (morph > 1.0f)
         morph = 1.0f;
 
-    const float fs = PREENFM_FREQUENCY; // fréquence d’échantillonnage
+    const float fs = PREENFM_FREQUENCY;
     float sumGains = 0.0f;
 
-    float morphBell = powf(1.0f - morph, 0.7f);
-    float morphTube = powf(morph, 1.4f);
-
-    // Compensation globale pour éviter la saturation
-    float globalGain = 0.5f + 0.5f * (1.0f - morphBell); // tube un peu plus fort
+    float morph0 = clamp(morph * 2.0f, 0.0f, 1.0f);
+    float morph1 = clamp((morph - 0.5f) * 2.0f, 0.0f, 1.0f);
+    
+    float w0 = (1.0f - morph0) * (1.0f - morph1); // coin 0
+    float w1 = morph0 * (1.0f - morph1);          // coin 1
+    float w2 = morph1;                            // coin 2
 
     for (int i = 0; i < 4; i++)
     {
-        // Interpolation entre bell et tube
-        float ratio = bellPreset.ratios[i] * morphBell + tubePreset.ratios[i] * morphTube;
-        float gain = (bellPreset.gains[i] * morphBell + tubePreset.gains[i] * morphTube) * globalGain;
-        float damping = bellPreset.damping[i] * morphBell + tubePreset.damping[i] * morphTube;
-        float dispersion = bellPreset.dispersion[i] * morphBell + tubePreset.dispersion[i] * morphTube;
+        // Interpolation
+        float ratio =
+            stringPreset.ratios[i] * w0 +
+            dorjePreset.ratios[i] * w1 +
+            gongPreset.ratios[i] * w2;
+
+        float gain =
+            stringPreset.gains[i] * w0 +
+            dorjePreset.gains[i] * w1 +
+            gongPreset.gains[i] * w2;
+
+        float damping =
+            stringPreset.damping[i] * w0 +
+            dorjePreset.damping[i] * w1 +
+            gongPreset.damping[i] * w2;
+
+        float dispersion =
+            stringPreset.dispersion[i] * w0 +
+            dorjePreset.dispersion[i] * w1 +
+            gongPreset.dispersion[i] * w2;
 
         // Fréquence absolue du mode
         float freq = baseFreq * ratio;
@@ -2630,6 +2639,12 @@ void Timbre::prepareResonatorModes(float baseFreq, float morph)
         modes[i].gain *= freqFactor;
 
         sumGains += modes[i].gain;
+
+        // precalc a1 a2
+        float f = modes[i].freq * PREENFM_FREQUENCY_INVERSED;
+        float r = fast_expf(-modes[i].damping);
+        modes[i].a1 = -2.0f * r * fast_cos_2pi(f);
+        modes[i].a2 = r * r;
     }
 
     if (sumGains > 1.0f)
