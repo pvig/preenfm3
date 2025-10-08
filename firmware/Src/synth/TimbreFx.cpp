@@ -94,6 +94,11 @@ inline float fastExpNeg(float x)
     // x > 0
     return fast_expf(-x);
 }
+inline float fast_cos_2pi(float x) {
+    // x entre 0 et 0.5 environ (fréquence normalisée)
+    float x2 = x * x;
+    return 1.0f - 19.7392088f * x2 + 64.3776844f * x2 * x2;
+}
 // all pass params
 const float f1 = 0.0156f;
 const float apcoef1 = (1.0f - f1) / (1.0f + f1);
@@ -103,23 +108,6 @@ const float f3 = (0.17f + f2);
 const float apcoef3 = (1.0f - f3) / (1.0f + f3);
 const float f4 = (0.17f + f3);
 const float apcoef4 = (1.0f - f4) / (1.0f + f4);
-
-#define N_MODES 4
-typedef struct
-{
-    float ratios[N_MODES];
-    float gains[N_MODES];
-} ModalPreset;
-
-// --- Bell ---
-const ModalPreset bellPreset = {
-    {1.0, 2.0, 3.5, 5.5},
-    {1.0, 2.0, 3.5, 5.5}};
-
-// --- Tube ---
-const ModalPreset tubePreset = {
-    {1.0, 2.0, 3.0, 4.0},
-    {1.0, 0.8, 0.6, 0.4}};
 
 // delay sizes
 const float delayBufferSizeF = delayBufferSize;
@@ -2490,45 +2478,25 @@ void Timbre::fxAfterBlock()
 
         float *sp = sampleBlock_;
 
-        float wetL = wet * (1 + matrixFilterPan) * 0.5f;
-        float wetR = wet * (1 - matrixFilterPan) * 0.5f;
+        float wetL = wet * (1 + matrixFilterPan) * 0.25f;
+        float wetR = wet * (1 - matrixFilterPan) * 0.25f;
 
         float param2 = clamp(fabsf(this->params_.effect2.param2 + matrixFilterParam2), 0, 1);
-        param2 *= param2;
         param1S = 0.05f * fabs(this->params_.effect2.param1 + matrixFilterFrequency) + .95f * param1S;
 
         // Paramètres UI
         float morph = clamp(fabsf(param1S + matrixFilterFrequency * 0.125f), 0, 1);
-        float damp = clamp(fabsf(param2 + matrixFilterParam2), 0, 1);
+        float damp = clamp(fabsf(param2), 0, 1);
 
-        const float baseFreq = 440.0f;
+        float freq = 440.0f * powf(1400.0f / 440.0f, damp);
 
-        const ModalPreset *presetA = &bellPreset;
-        const ModalPreset *presetB = &tubePreset;
-
-        // Pré-calcul des ratios et gains par bloc
-        float ratios[4], gains[4];
-        for (int i = 0; i < 4; i++)
-        {
-            ratios[i] = (1 - morph) * bellPreset.ratios[i] + morph * tubePreset.ratios[i];
-            gains[i] = (1 - morph) * bellPreset.gains[i] + morph * tubePreset.gains[i];
+        prepareResonatorModes(freq, morph);
+        for (int i = 0; i < 4; i++) {
+            float f = modes[i].freq * PREENFM_FREQUENCY_INVERSED;
+            float r = fast_expf(-modes[i].damping);
+            modes[i].a1 = -2.0f * r * fast_cos_2pi(f);  // version rapide
+            modes[i].a2 = r * r;
         }
-
-        // Pré-calcul des coefficients IIR
-        float a1[4];
-        for (int i = 0; i < 4; i++)
-        {
-            float f = baseFreq * ratios[i];
-            float r = fastExpNeg(damp * f * PREENFM_FREQUENCY_INVERSED);
-            r = fminf(r, 0.9999f); // sécurité
-            a1[i] = 2.0f * r * fastSin(f * PREENFM_FREQUENCY_INVERSED);
-        }
-
-        // hp
-        const float filterB2 = 0.4f;
-        const float filterB = (filterB2 * filterB2 * 0.5f);
-        const float _in2_b1 = (1 - filterB);
-        const float _in2_a0 = (1 + _in2_b1 * _in2_b1 * _in2_b1) * 0.5f;
 
         for (int k = 0; k < BLOCK_SIZE; k++)
         {
@@ -2539,12 +2507,8 @@ void Timbre::fxAfterBlock()
             // --- Résonateurs ---
             for (int i = 0; i < 4; i++)
             {
-                float hp_in_x0 = gains[i] * modalResonator(in, a1[i], hb_x1[i], hb_x2[i], hb_y1[i], hb_y2[i]);
-                hp_in_y0 = _in2_a0 * (hp_in_x0 - hp_in_x1) + _in2_b1 * hp_in_y1;
-                hp_in_y1 = hp_in_y0;
-                hp_in_x1 = hp_in_x0;
-
-                out += hp_in_y0;
+                out += modalResonator(in, modes[i].gain, 0, 0, modes[i].a1, modes[i].a2,
+                    &modes[i].x1, &modes[i].x2) * 0.1f;
             }
 
             // --- Sortie Wet/Dry ---
@@ -2608,12 +2572,72 @@ inline float Timbre::hermiteInterpolation(float frac, float xm1, float x0, float
     return ((c3 * frac + c2) * frac + c1) * frac + c0;
 }
 
-inline float Timbre::modalResonator(float in, float a1, float *x1, float *x2, float *y1, float *y2)
+inline float Timbre::modalResonator(float in, float b0, float b1, float b2, float a1, float a2, float *s1, float *s2)
 {
-    float y = a1 * (in + *y2) - *x2;
-    *y2 = *y1;
-    *y1 = y;
-    *x2 = *x1;
-    *x1 = in;
+    // Biquad Direct Form II Transposed (DF2T)
+    // C'est la structure la plus stable pour la virgule flottante (f32)
+    // 1. Calcul de la sortie y[n] et de l'état temporaire
+    float y = in * b0 + *s1;
+    // 2. Mise à jour de l'état s1
+    // s1[n] = b1*x[n] + s2[n] - a1*y[n]
+    *s1 = in * b1 + *s2 - y * a1;
+    // 3. Mise à jour de l'état s2
+    // s2[n] = b2*x[n] - a2*y[n]
+    *s2 = in * b2 - y * a2;
     return y;
+}
+
+void Timbre::prepareResonatorModes(float baseFreq, float morph)
+{
+    // clamp du morph entre 0 (bell) et 1 (tube)
+    if (morph < 0.0f)
+        morph = 0.0f;
+    if (morph > 1.0f)
+        morph = 1.0f;
+
+    const float fs = PREENFM_FREQUENCY; // fréquence d’échantillonnage
+    float sumGains = 0.0f;
+
+    float morphBell = powf(1.0f - morph, 0.7f);
+    float morphTube = powf(morph, 1.4f);
+
+    // Compensation globale pour éviter la saturation
+    float globalGain = 0.5f + 0.5f * (1.0f - morphBell); // tube un peu plus fort
+
+    for (int i = 0; i < 4; i++)
+    {
+        // Interpolation entre bell et tube
+        float ratio = bellPreset.ratios[i] * morphBell + tubePreset.ratios[i] * morphTube;
+        float gain = (bellPreset.gains[i] * morphBell + tubePreset.gains[i] * morphTube) * globalGain;
+        float damping = bellPreset.damping[i] * morphBell + tubePreset.damping[i] * morphTube;
+        float dispersion = bellPreset.dispersion[i] * morphBell + tubePreset.dispersion[i] * morphTube;
+
+        // Fréquence absolue du mode
+        float freq = baseFreq * ratio;
+
+        // Limiter à la bande audio
+        if (freq > fs * 0.49f)
+            freq = fs * 0.49f;
+
+        // Calcul des coefficients internes (pour biquad)
+        modes[i].freq = freq;
+        modes[i].gain = gain;
+        modes[i].damping = damping;
+        modes[i].dispersion = dispersion;
+
+        //
+        float freqFactor = clamp(baseFreq / 440.0f, 0.2f, 1.0f);
+        modes[i].gain *= freqFactor;
+
+        sumGains += modes[i].gain;
+    }
+
+    if (sumGains > 1.0f)
+    {
+        float scale = 1.0f / sumGains;
+        for (int i = 0; i < 4; i++)
+        {
+            modes[i].gain *= scale;
+        }
+    }
 }

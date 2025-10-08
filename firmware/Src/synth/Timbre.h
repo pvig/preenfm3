@@ -181,13 +181,47 @@ private:
     void SendNote(uint8_t note, uint8_t velocity);
 
     /** --------------FX conf--------------  */
+    // --- Structure d’un mode résonant ---
+    struct ModeState {
+        float freq;        // fréquence du mode
+        float gain;        // amplitude relative
+        float damping;     // facteur de perte
+        float dispersion;  // pour un effet métallique ou tubulaire
+        float a1, a2;      // coefficients du biquad (pré-calculés)
+        float x1, x2;      // états internes du biquad
+        float y1, y2;      // états internes du biquad
+    };
+    struct ResonatorPreset {
+        float ratios[4];
+        float gains[4];
+        float damping[4];
+        float dispersion[4];
+    };
+
+    const ResonatorPreset bellPreset = {
+        {1.00f, 2.71f, 5.40f, 8.93f},   // ratios
+        {1.00f, 0.7f, 0.3f, 0.15f},     // gains
+        {0.03f, 0.04f, 0.05f, 0.07f},   // damping
+        {0.00f, 0.15f, 0.20f, 0.25f}    // dispersion
+    };
+    
+    const ResonatorPreset tubePreset = {
+        {1.00f, 3.93f, 7.09f, 10.24f},
+        {1.00f, 0.9f, 0.7f, 0.5f},
+        {0.01f, 0.02f, 0.03f, 0.04f},
+        {0.10f, 0.25f, 0.35f, 0.45f}
+    };
+
+    ModeState modes[8];
+
     void fxAfterBlock();
     void initFx();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
     float hermiteInterpolation(float frac, float xm1, float x0, float x1, float x2);
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2);
-    float modalResonator(float in, float a1, float *x1, float *x2, float *y1, float *y2);
+    float modalResonator(float in, float b0, float b1, float b2, float a1, float a2, float *s1, float *s2) ;
+    void prepareResonatorModes(float baseFreq, float morph);
 
     int prevFx2Type         = 0;
 
@@ -208,7 +242,7 @@ private:
     float delayReadPos2       = 0;
     float delayReadFrac       = 0;
     float delayReadFrac2      = 0;
-     
+    
     float low1 = 0, band1 = 0;
     float low2 = 0, band2 = 0;
     float low3 = 0, band3 = 0;
