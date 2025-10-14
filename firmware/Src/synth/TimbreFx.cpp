@@ -79,8 +79,6 @@ static inline float fast_log2f(float x)
 }
 inline float fast_expf(float x)
 {
-    // Approximation rapide de exp(x) pour x proche de 0
-    // max erreur ~0.01 pour x in [-1,0]
     union
     {
         float f;
@@ -88,6 +86,17 @@ inline float fast_expf(float x)
     } u;
     u.i = (int32_t)(12102203.0f * x + 127 * (1 << 23));
     return u.f;
+}
+inline float fast_pow2(float p)
+{
+    // approx 2^p
+    union
+    {
+        uint32_t i;
+        float f;
+    } v;
+    v.i = (uint32_t)((1 << 23) * (p + 126.94269504f));
+    return v.f;
 }
 inline float fastExpNeg(float x)
 {
@@ -2486,35 +2495,77 @@ void Timbre::fxAfterBlock()
         param1S = 0.05f * fabs(this->params_.effect2.param1 + matrixFilterFrequency) + .95f * param1S;
 
         // Paramètres UI
+        float freqParam = clamp(fabsf(param1S + matrixFilterFrequency * 0.125f), 0, 1);
         float morph = clamp(fabsf(param2), 0, 1);
-        float damp = clamp(fabsf(param1S + matrixFilterFrequency * 0.125f), 0, 1);
 
-        float freq = 440.0f * powf(1400.0f / 440.0f, damp);
+        const float sampleRateDivide = 2;
+        const float sampleRateDivideInv = 1 / sampleRateDivide;
+        float inputIncCount = 0;
+
+        float currentDelaySize1 = clamp(delaySize1, 0, delayBufStereoSize);
+        delaySize1 = 1.f + 511 * clamp(matrixFilterFrequencyS * 0.0625f, 0.f, 1.f);
+        float delaySizeInc1 = (delaySize1 - currentDelaySize1) * sampleRateDivideInv * INV_BLOCK_SIZE;
+
+        //float freq = 440.0f * powf(1200.0f / 440.0f, freqParam);
+        float freq = 40.0f * powf(40.0f, freqParam);
+
+        float resonance = 0.01f + freqParam * 0.06f;
 
         prepareResonatorModes(freq, morph);
 
+        const float f1 = 0.15f, f2 = 0.7f, f3 = 0.73f;
+        const float coef1 = (1.0f - f1) / (1.0f + f1);
+        const float coef2 = (1.0f - f2) / (1.0f + f2);
+        const float coef3 = (1.0f - f3) / (1.0f + f3);
+
+        const float k = fast_expf(-2.0f * M_PI * 0.002f);
+        const float a0 = (1.0f + k) * 0.5f;
+        const float b1 = -k;
+
         for (int k = 0; k < BLOCK_SIZE; k++)
         {
-            // Entrée mono
-            float in = 0.5f * ((*sp) + (*(sp + 1)));
+            delayWritePos = (delayWritePos + 1) & delayBufferSizeM1;
+            delayReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufferSize);
+            currentDelaySize1 += delaySizeInc1;
+
+            float feedback = delayBuffer_[(int)delayReadPos];
+
+            float in = (*sp + *(sp + 1)) * 0.5f + feedback * resonance;
+
+            // hp
+            float hp = a0 * (in - hp_in_x1) - b1 * hp_in_y1;
+            hp_in_x1 = in;
+            hp_in_y1 = hp;
+
+            float hp2 = a0 * (hp - hp_in2_x1) - b1 * hp_in2_y1;
+            hp_in2_x1 = hp;
+            hp_in2_y1 = hp2;
+
             float out = 0.0f;
 
             // --- Résonateurs ---
             for (int i = 0; i < 4; i++)
             {
-                out += modalResonator(in, modes[i].gain, 0, 0, modes[i].a1, modes[i].a2, &modes[i].x1, &modes[i].x2) * 0.1f;
+                out += modalResonator(hp2, modes[i].gain, 0, 0, modes[i].a1, modes[i].a2, &modes[i].x1, &modes[i].x2);
             }
 
+            // headroom for Tanh
+            out *= -0.001f;
+            out = tanh4(out) * 120.0f;
+
+            delayBuffer_[delayWritePos] = out;
+
+            hb2_y1 = coef2 * (hb2_y1 + out) - hb2_x1; // allpass 2
+            hb2_x1 = out;
+            hb2_y2 = coef3 * (hb2_y2 + out) - hb2_x2; // allpass 2
+            hb2_x2 = out;
+
             // --- Sortie Wet/Dry ---
-            *sp = *sp * dry + out * wetL;
+            *sp = *sp * dry + hb2_y1 * wetL;
             sp++;
-            *sp = *sp * dry + out * wetR;
+            *sp = *sp * dry + hb2_y2 * wetR;
             sp++;
         }
-    }
-    break;
-    case FILTER2_CHEAP_FFT:
-    {
     }
     break;
     default:
@@ -2568,15 +2619,8 @@ inline float Timbre::hermiteInterpolation(float frac, float xm1, float x0, float
 
 inline float Timbre::modalResonator(float in, float b0, float b1, float b2, float a1, float a2, float *s1, float *s2)
 {
-    // Biquad Direct Form II Transposed (DF2T)
-    // C'est la structure la plus stable pour la virgule flottante (f32)
-    // 1. Calcul de la sortie y[n] et de l'état temporaire
     float y = in * b0 + *s1;
-    // 2. Mise à jour de l'état s1
-    // s1[n] = b1*x[n] + s2[n] - a1*y[n]
     *s1 = in * b1 + *s2 - y * a1;
-    // 3. Mise à jour de l'état s2
-    // s2[n] = b2*x[n] - a2*y[n]
     *s2 = in * b2 - y * a2;
     return y;
 }
@@ -2589,40 +2633,43 @@ void Timbre::prepareResonatorModes(float baseFreq, float morph)
         morph = 1.0f;
 
     const float fs = PREENFM_FREQUENCY;
-    float sumGains = 0.0f;
 
-    float morph0 = clamp(morph * 2.0f, 0.0f, 1.0f);
-    float morph1 = clamp((morph - 0.5f) * 2.0f, 0.0f, 1.0f);
-    
-    float w0 = (1.0f - morph0) * (1.0f - morph1); // coin 0
-    float w1 = morph0 * (1.0f - morph1);          // coin 1
-    float w2 = morph1;                            // coin 2
+    // Détermine le segment de morph
+    const ResonatorPreset* presetA;
+    const ResonatorPreset* presetB;
+    float localMorph;
+
+    if (morph < 0.33f) {
+        presetA = &stringPreset;
+        presetB = &woodPreset;
+        localMorph = morph * 3;
+    } else if (morph < 0.66f) {
+        presetA = &woodPreset;
+        presetB = &gongPreset;
+        localMorph = (morph - 0.33f) * 3;
+    } else {
+        presetA = &gongPreset;
+        presetB = &cymbalPreset;
+        localMorph = (morph - 0.66f) * 3;
+    }
+
+    localMorph *= localMorph;
 
     for (int i = 0; i < 4; i++)
     {
-        // Interpolation
-        float ratio =
-            stringPreset.ratios[i] * w0 +
-            dorjePreset.ratios[i] * w1 +
-            gongPreset.ratios[i] * w2;
+        float ratio = (1.0f - localMorph) * presetA->ratios[i] + localMorph * presetB->ratios[i];
+        float gain  = (1.0f - localMorph) * presetA->gains[i]  + localMorph * presetB->gains[i];
+        float damping = (1.0f - localMorph) * presetA->damping[i] + localMorph * presetB->damping[i];
+        float dispersion = (1.0f - localMorph) * presetA->dispersion[i] + localMorph * presetB->dispersion[i];
 
-        float gain =
-            stringPreset.gains[i] * w0 +
-            dorjePreset.gains[i] * w1 +
-            gongPreset.gains[i] * w2;
+        // Atténuation des modes graves pour éviter la saturation
+        float modeFactor = 0.25f + 0.75f * (float)i / 3.0f;
+        float freqFactor = baseFreq / (baseFreq + 300.0f);
+        const float log08 = log2f(0.8f); 
+        gain *= modeFactor * fast_pow2(freqFactor * log08); // adoucit les basses
 
-        float damping =
-            stringPreset.damping[i] * w0 +
-            dorjePreset.damping[i] * w1 +
-            gongPreset.damping[i] * w2;
-
-        float dispersion =
-            stringPreset.dispersion[i] * w0 +
-            dorjePreset.dispersion[i] * w1 +
-            gongPreset.dispersion[i] * w2;
-
-        // Fréquence absolue du mode
-        float freq = baseFreq * ratio;
+        // Calcul des fréquences modales
+        float freq = baseFreq * ratio * (1.0f + dispersion * ratio * 0.05f);
 
         // Limiter à la bande audio
         if (freq > fs * 0.49f)
@@ -2634,25 +2681,11 @@ void Timbre::prepareResonatorModes(float baseFreq, float morph)
         modes[i].damping = damping;
         modes[i].dispersion = dispersion;
 
-        //
-        float freqFactor = clamp(baseFreq / 440.0f, 0.2f, 1.0f);
-        modes[i].gain *= freqFactor;
-
-        sumGains += modes[i].gain;
-
         // precalc a1 a2
         float f = modes[i].freq * PREENFM_FREQUENCY_INVERSED;
         float r = fast_expf(-modes[i].damping);
+        r = fminf(r, 0.9995f);
         modes[i].a1 = -2.0f * r * fast_cos_2pi(f);
         modes[i].a2 = r * r;
-    }
-
-    if (sumGains > 1.0f)
-    {
-        float scale = 1.0f / sumGains;
-        for (int i = 0; i < 4; i++)
-        {
-            modes[i].gain *= scale;
-        }
     }
 }

@@ -198,34 +198,35 @@ private:
         float dispersion[4];
     };
 
-    const ResonatorPreset gongPreset = {
-        {1.00f, 1.47f, 2.10f, 2.90f},
-        {1.00f, 0.85f, 0.7f, 0.5f},
-        {0.02f, 0.025f, 0.035f, 0.05f},
-        {0.10f, 0.25f, 0.4f, 0.55f}
+    const ResonatorPreset cymbalPreset = {
+        {0.50f, 1.40f, 2.80f, 4.90f},
+        {0.20f, 0.65f, 0.85f, 0.30f},
+        {0.01f, 0.02f, 0.03f, 0.05f},
+        {0.35f, 0.45f, 0.65f, 0.75f}
     };
 
     const ResonatorPreset stringPreset = {
         {1.00f, 2.00f, 3.00f, 4.00f},
-        {1.00f, 0.8f, 0.5f, 0.3f},
+        {1.00f, 0.85f, 0.60f, 0.40f},
         {0.05f, 0.07f, 0.09f, 0.12f},
         {0.00f, 0.02f, 0.03f, 0.04f}
     };
 
-    const ResonatorPreset stringPreset2 = {
-        {1.00f, 2.10f, 3.95f, 7.85f},   // ratios : quasi harmoniques, légèrement décalés
-        {1.00f, 0.85f, 0.65f, 0.45f},   // gains : décroissance naturelle, un peu plus homogène
-        {0.04f, 0.05f, 0.06f, 0.08f},   // damping : légèrement plus amorti qu’une corde classique
-        {0.05f, 0.10f, 0.15f, 0.20f}    // dispersion : un peu plus brillant, corde “acier”
+    const ResonatorPreset woodPreset = {
+        {1.00f, 1.59f, 2.14f, 2.30f},   // rapports typiques d’une peau circulaire
+        {1.00f, 0.75f, 0.55f, 0.40f},
+        {0.03f, 0.05f, 0.07f, 0.09f},
+        {0.01f, 0.05f, 0.10f, 0.15f}
     };
 
-    const ResonatorPreset dorjePreset = {
-        {1.00f, 2.35f, 4.70f, 9.20f},   // ratios : plus étendus pour des harmoniques longues
-        {1.00f, 0.85f, 0.65f, 0.50f},   // gains : décroissance modérée
-        {0.01f, 0.015f, 0.02f, 0.025f}, // damping : très faible
-        {0.12f, 0.20f, 0.28f, 0.35f}    // dispersion : métallique, complexe
+    const ResonatorPreset gongPreset = {
+        {1.00f, 2.50f, 4.80f, 7.90f},
+        {0.90f, 0.60f, 0.50f, 0.35f},
+        {0.02f, 0.03f, 0.04f, 0.06f},
+        {0.05f, 0.20f, 0.30f, 0.40f}
     };
-    
+
+
     ModeState modes[8];
 
     void fxAfterBlock();
