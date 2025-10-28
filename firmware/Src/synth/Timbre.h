@@ -204,16 +204,23 @@ private:
         {0.01f, 0.02f, 0.03f, 0.05f},
         {0.35f, 0.45f, 0.65f, 0.75f}
     };
+    
+    const ResonatorPreset glassPreset = {
+        {1.00f, 3.10f, 6.50f, 10.50f},
+        {1.00f, 0.9f, 0.7f, 0.5f},
+        {0.01f, 0.015f, 0.025f, 0.03f},
+        {0.15f, 0.30f, 0.45f, 0.55f}
+    };
 
     const ResonatorPreset stringPreset = {
-        {1.00f, 2.00f, 3.00f, 4.00f},
+        {1.00f, 2.01f, 3.02f, 4.03f},
         {1.00f, 0.85f, 0.60f, 0.40f},
         {0.05f, 0.07f, 0.09f, 0.12f},
         {0.00f, 0.02f, 0.03f, 0.04f}
     };
 
     const ResonatorPreset woodPreset = {
-        {1.00f, 1.59f, 2.14f, 2.30f},   // rapports typiques d’une peau circulaire
+        {1.00f, 1.59f, 2.14f, 2.30f},
         {1.00f, 0.75f, 0.55f, 0.40f},
         {0.03f, 0.05f, 0.07f, 0.09f},
         {0.01f, 0.05f, 0.10f, 0.15f}

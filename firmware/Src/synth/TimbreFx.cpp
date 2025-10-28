@@ -2480,7 +2480,6 @@ void Timbre::fxAfterBlock()
         mixerGain_ = 0.02f * gainTmp + .98f * mixerGain_;
         float mixerGain_01 = clamp(mixerGain_, 0, 1);
         int mixerGain255 = mixerGain_01 * 255;
-        mixerGain255 &= 0xff;
         float dry = panTable[255 - mixerGain255];
         float wet = panTable[mixerGain255];
         float extraAmp = clamp(mixerGain_ - 1, 0, 1);
@@ -2506,15 +2505,14 @@ void Timbre::fxAfterBlock()
         delaySize1 = 1.f + 511 * clamp(matrixFilterFrequencyS * 0.0625f, 0.f, 1.f);
         float delaySizeInc1 = (delaySize1 - currentDelaySize1) * sampleRateDivideInv * INV_BLOCK_SIZE;
 
-        //float freq = 440.0f * powf(1200.0f / 440.0f, freqParam);
-        float freq = 40.0f * powf(40.0f, freqParam);
+        constexpr float LOG2_40 = 5.3219281f;
+        float freq = 40.0f * fast_pow2(freqParam * LOG2_40);
 
         float resonance = 0.01f + freqParam * 0.06f;
 
         prepareResonatorModes(freq, morph);
 
         const float f1 = 0.15f, f2 = 0.7f, f3 = 0.73f;
-        const float coef1 = (1.0f - f1) / (1.0f + f1);
         const float coef2 = (1.0f - f2) / (1.0f + f2);
         const float coef3 = (1.0f - f3) / (1.0f + f3);
 
@@ -2551,7 +2549,7 @@ void Timbre::fxAfterBlock()
 
             // headroom for Tanh
             out *= -0.001f;
-            out = tanh4(out) * 120.0f;
+            out = tanh4(out) * 25.0f;
 
             delayBuffer_[delayWritePos] = out;
 
@@ -2635,21 +2633,26 @@ void Timbre::prepareResonatorModes(float baseFreq, float morph)
     const float fs = PREENFM_FREQUENCY;
 
     // Détermine le segment de morph
-    const ResonatorPreset* presetA;
-    const ResonatorPreset* presetB;
+    const ResonatorPreset *presetA;
+    const ResonatorPreset *presetB;
     float localMorph;
 
-    if (morph < 0.33f) {
+    if (morph < 0.33f)
+    {
         presetA = &stringPreset;
         presetB = &woodPreset;
         localMorph = morph * 3;
-    } else if (morph < 0.66f) {
+    }
+    else if (morph < 0.66f)
+    {
         presetA = &woodPreset;
         presetB = &gongPreset;
         localMorph = (morph - 0.33f) * 3;
-    } else {
+    }
+    else
+    {
         presetA = &gongPreset;
-        presetB = &cymbalPreset;
+        presetB = &glassPreset;
         localMorph = (morph - 0.66f) * 3;
     }
 
@@ -2658,24 +2661,25 @@ void Timbre::prepareResonatorModes(float baseFreq, float morph)
     for (int i = 0; i < 4; i++)
     {
         float ratio = (1.0f - localMorph) * presetA->ratios[i] + localMorph * presetB->ratios[i];
-        float gain  = (1.0f - localMorph) * presetA->gains[i]  + localMorph * presetB->gains[i];
+        float gain = (1.0f - localMorph) * presetA->gains[i] + localMorph * presetB->gains[i];
         float damping = (1.0f - localMorph) * presetA->damping[i] + localMorph * presetB->damping[i];
         float dispersion = (1.0f - localMorph) * presetA->dispersion[i] + localMorph * presetB->dispersion[i];
-
-        // Atténuation des modes graves pour éviter la saturation
-        float modeFactor = 0.25f + 0.75f * (float)i / 3.0f;
-        float freqFactor = baseFreq / (baseFreq + 300.0f);
-        const float log08 = log2f(0.8f); 
-        gain *= modeFactor * fast_pow2(freqFactor * log08); // adoucit les basses
 
         // Calcul des fréquences modales
         float freq = baseFreq * ratio * (1.0f + dispersion * ratio * 0.05f);
 
-        // Limiter à la bande audio
-        if (freq > fs * 0.49f)
-            freq = fs * 0.49f;
+        // attenuation des basses
+        float freqFactor = 2 * freq * PREENFM_FREQUENCY_INVERSED;
+        freqFactor = clamp(freqFactor * 50, 0, 8.f);
 
-        // Calcul des coefficients internes (pour biquad)
+        gain *= freqFactor;
+
+        // alias aware foldback
+        if (freq > fs * 0.5f) {
+            freq = fs - freq;
+            gain = - gain * 0.3f;
+        }
+
         modes[i].freq = freq;
         modes[i].gain = gain;
         modes[i].damping = damping;
