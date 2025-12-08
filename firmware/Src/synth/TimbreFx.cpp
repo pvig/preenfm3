@@ -109,6 +109,27 @@ inline float fast_cos_2pi(float x)
     float x2 = x * x;
     return 1.0f - 19.7392088f * x2 + 64.3776844f * x2 * x2;
 }
+static inline float soft_clip(float x) {
+    return x / (1.0f + fabsf(x));
+}
+static inline float blend_screen_smooth(float x1, float x2) {
+    float a = 0.5f * (x1 + 1.0f);
+    float b = 0.5f * (x2 + 1.0f);
+    float y = a + b - a * b; // smooth polynomial, no branches
+    return 2.0f * y - 1.0f;
+}
+static inline float blend_softlight(float x1, float x2) {
+    float a = 0.5f * (x1 + 1.0f);
+    float b = 0.5f * (x2 + 1.0f);
+    float y = a - (1.0f - 2.0f * b) * a * (1.0f - a); // continuous polynomial
+    return 2.0f * y - 1.0f;
+}
+static inline float mix_soft(float x1, float x2, float drive) {
+    float m = 0.5f * (x1 + x2);
+    float d = 0.5f * (x1 - x2);
+    float y = m + d * (1.0f - drive * fabsf(m));
+    return soft_clip(y);
+};
 // all pass params
 const float f1 = 0.0156f;
 const float apcoef1 = (1.0f - f1) / (1.0f + f1);
@@ -2468,9 +2489,25 @@ void Timbre::fxAfterBlock()
                 matrixModulation += deltaM;
             }
 
-            *sp = *sp * dry + hb2_y1 * wetL;
+            //float fm = *sp * 40;
+            //float mixed = hb2_y1 - fm * hb2_y1; // ringmod
+
+            float fm = clamp(*sp, -1, 1);
+            float pluck = clamp(hb2_y1, -1, 1);
+            float mixed = blend_screen_smooth(fm, pluck);
+            //float mixed = mix_soft(fm, pluck, 1);
+
+            *sp = *sp * dry + mixed * wetL;
             sp++;
-            *sp = *sp * dry + hb2_y2 * wetR;
+            
+            //mixed = hb2_y2 - fm * hb2_y2; // ringmod
+
+            fm = clamp(*sp, -1, 1);
+            pluck = clamp(hb2_y2, -1, 1);
+            mixed = blend_screen_smooth(fm, pluck);
+            //mixed = mix_soft(fm, pluck, 1);
+
+            *sp = *sp * dry + mixed * wetR;
             sp++;
         }
     }
@@ -2559,9 +2596,14 @@ void Timbre::fxAfterBlock()
             hb2_x2 = out;
 
             // --- Sortie Wet/Dry ---
-            *sp = *sp * dry + hb2_y1 * wetL;
+            float mixed = 2 * blend_screen_smooth(*sp, hb2_y1);
+
+            *sp = *sp * dry + mixed * wetL;
             sp++;
-            *sp = *sp * dry + hb2_y2 * wetR;
+
+            mixed = 2 * blend_screen_smooth(*sp, hb2_y2);
+
+            *sp = *sp * dry + mixed * wetR;
             sp++;
         }
     }
