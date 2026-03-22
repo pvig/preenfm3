@@ -307,8 +307,8 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     fsu_->copyFloat((float*) &params->engine1, (float*) &flashMemory->engine1, 4);
     fsu_->copyFloat((float*) &params->engine2, (float*) &flashMemory->engine2, 4);
 
-    // VERSION : 1.0
-    flashMemory->engine2.pfm3Version = 1.0f;
+    // SET VERSION
+    flashMemory->engine2.pfm3Version = PFM3_PATCH_VERSION;
 
 
     if (saveArp) {
@@ -577,6 +577,9 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
             params->engine2.glideType = GLIDE_TYPE_OFF;
         }
     }
+
+    params->engine2.pfm3Version = PFM3_PATCH_VERSION; // fix done, patch is now fm3 compatible
+
 }
 
 int PreenFMFileType::bankBaseLength(const char *bankName) {

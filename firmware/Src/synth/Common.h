@@ -81,6 +81,14 @@
 #define BUTTON_ENCODER_5 16
 #define BUTTON_ENCODER_6 17
 
+#ifndef PFM3_VERSIONS_H_
+#define PFM3_VERSIONS_H_
+
+// Patch/preset format version
+#define PFM3_PATCH_VERSION 1.1f
+
+#endif /* PFM3_VERSIONS_H_ */
+
 
 struct RowEncoder {
     uint8_t row;
@@ -222,7 +230,7 @@ enum {
 };
 
 #define NUMBER_OF_ROWS (ROW_EFFECT2+1)
-#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_ENGINE2+1)
+#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_EFFECT2+1)
 
 
 enum {
