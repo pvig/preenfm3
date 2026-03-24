@@ -273,6 +273,7 @@ public:
         newState(env);
     }
 
+    void setSegmentCurve(int segment, float value);
 
     bool isDead(struct EnvData* env)  __attribute__((always_inline))  {
         return env->envState == ENV_STATE_DEAD;

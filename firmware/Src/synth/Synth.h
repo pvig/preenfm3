@@ -120,6 +120,7 @@ public:
     }
 
     void setNewValueFromMidi(int timbre, int row, int encoder, float newValue);
+    void setEnvelopeCurvePointFromMidi(int timbre, int envNum, int pointNum, float value);
     void setNewMixerValueFromMidi(int timbre, int mixerValue, float newValue);
     void setNewSeqValueFromMidi(uint8_t timbre, uint8_t seqValue, uint8_t newValue);
     void setNewStepValueFromMidi(int timbre, int whichStepSeq, int step, int value);

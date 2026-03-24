@@ -913,35 +913,46 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre) {
 }
 
 void MidiDecoder::decodeNrpn(int timbre) {
-    if (this->currentNrpn[timbre].paramMSB < 2) {
-        float value = (this->currentNrpn[timbre].valueMSB << 7) + this->currentNrpn[timbre].valueLSB;
-        int index = (this->currentNrpn[timbre].paramMSB << 7) + this->currentNrpn[timbre].paramLSB;
+    float value = (this->currentNrpn[timbre].valueMSB << 7) + this->currentNrpn[timbre].valueLSB;
+    int index = (this->currentNrpn[timbre].paramMSB << 7) + this->currentNrpn[timbre].paramLSB;
+
+    // Nom de patch : 228-239
+    if (index >= 228 && index < 240) {
+        this->synth->setNewSymbolInPresetName(timbre, index - 228, (char)value);
+        if (index == 239) {
+            this->synthState_->propagateNewPresetName(timbre);
+        }
+    }
+    // Courbes d'enveloppe : 300-323 (6 enveloppes × 4 segments)
+    else if (index >= 300 && index < 324) {
+        int envIndex = index - 300;
+        int envNum = envIndex / 4; // 0: env1, 1: env2, ...
+        int pointNum = envIndex % 4; // 0:attack, 1:decay, 2:sustain, 3:release
+        this->synth->setEnvelopeCurvePointFromMidi(timbre, envNum, pointNum, value);
+    }
+    // Paramètres classiques
+    else if (this->currentNrpn[timbre].paramMSB < 2) {
         int memoryIndex = getMemoryIndexFromMidi(index);
         int row = memoryIndex >> 2;
         int encoder = memoryIndex % 4;
-
         struct ParameterDisplay* param = &(allParameterRows.row[row]->params[encoder]);
-
         if (row < NUMBER_OF_ROWS_FOR_EDITOR) {
             if (param->displayType == DISPLAY_TYPE_FLOAT || param->displayType == DISPLAY_TYPE_FLOAT_OSC_FREQUENCY
                     || param->displayType == DISPLAY_TYPE_FLOAT_LFO_FREQUENCY || param->displayType == DISPLAY_TYPE_LFO_KSYN) {
                 value = value * .01f + param->minValue;
             }
-
             this->synth->setNewValueFromMidi(timbre, row, encoder, value);
-        } else if (index >= 228 && index < 240) {
-            this->synth->setNewSymbolInPresetName(timbre, index - 228, (char)value);
-            if (index == 239) {
-                this->synthState_->propagateNewPresetName(timbre);
-            }
         }
-    } else if (this->currentNrpn[timbre].paramMSB < 4) {
+    }
+    // Step sequencer : 2xx
+    else if (this->currentNrpn[timbre].paramMSB < 4) {
         unsigned int whichStepSeq = this->currentNrpn[timbre].paramMSB - 2;
         unsigned int step = this->currentNrpn[timbre].paramLSB;
-        unsigned int value = this->currentNrpn[timbre].valueLSB;
-
-        this->synth->setNewStepValueFromMidi(timbre, whichStepSeq, step, value);
-    } else if (this->currentNrpn[timbre].paramMSB == 127 && this->currentNrpn[timbre].paramLSB == 127) {
+        unsigned int v = this->currentNrpn[timbre].valueLSB;
+        this->synth->setNewStepValueFromMidi(timbre, whichStepSeq, step, v);
+    }
+    // Commande spéciale : dump patch
+    else if (this->currentNrpn[timbre].paramMSB == 127 && this->currentNrpn[timbre].paramLSB == 127) {
         AsyncAction asyncAction;
         asyncAction.fullBytes = 0l;
         asyncAction.action.actionType = SEND_PATCH_AS_NRPN;

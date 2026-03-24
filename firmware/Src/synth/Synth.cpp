@@ -877,3 +877,43 @@ void Synth::setCurrentInstrument(int value) {
         this->synthState_->setCurrentInstrument(value);
     }
 }
+
+void Synth::setEnvelopeCurvePointFromMidi(int timbre, int envNum, int pointNum, float value) {
+    // Pour chaque enveloppe du timbre, applique la modification sur le segment concerné
+    // envNum : 0=env1, 1=env2, ... 5=env6
+    // pointNum : 0=attack, 1=decay, 2=sustain, 3=release
+    float newValue = value;
+    int row = -1;
+    int encoder = -1;
+    // Applique la modification et prépare le row/encoder pour l'UI
+    switch (envNum) {
+        case 0:
+            timbres_[timbre].env1_.setSegmentCurve(pointNum, value);
+            row = ROW_ENV1_CURVE;
+            break;
+        case 1:
+            timbres_[timbre].env2_.setSegmentCurve(pointNum, value);
+            row = ROW_ENV2_CURVE;
+            break;
+        case 2:
+            timbres_[timbre].env3_.setSegmentCurve(pointNum, value);
+            row = ROW_ENV3_CURVE;
+            break;
+        case 3:
+            timbres_[timbre].env4_.setSegmentCurve(pointNum, value);
+            row = ROW_ENV4_CURVE;
+            break;
+        case 4:
+            timbres_[timbre].env5_.setSegmentCurve(pointNum, value);
+            row = ROW_ENV5_CURVE;
+            break;
+        case 5:
+            timbres_[timbre].env6_.setSegmentCurve(pointNum, value);
+            row = ROW_ENV6_CURVE;
+            break;
+    }
+    encoder = ENCODER_ENV_A_CURVE + pointNum; // Utilise l'index du point (A, D, S, R)
+    if (this->synthState_ != nullptr && row != -1) {
+        this->synthState_->propagateNewParamValueFromExternal(timbre, row, encoder, nullptr, newValue, newValue);
+    }
+}

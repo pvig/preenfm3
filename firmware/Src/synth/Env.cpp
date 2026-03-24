@@ -84,3 +84,24 @@ void Env::init(struct EnvelopeTimeMemory *envParamTime, struct EnvelopeLevelMemo
 
 	applyCurves();
 }
+
+void Env::setSegmentCurve(int segment, float value) {
+	if (!this->envCurve) return;
+	switch (segment) {
+		case 0:
+			this->envCurve->attackCurve = value;
+			break;
+		case 1:
+			this->envCurve->decayCurve = value;
+			break;
+		case 2:
+			this->envCurve->sustainCurve = value;
+			break;
+		case 3:
+			this->envCurve->releaseCurve = value;
+			break;
+		default:
+			return;
+	}
+	this->applyCurves();
+}
