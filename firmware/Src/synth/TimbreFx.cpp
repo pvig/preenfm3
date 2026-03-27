@@ -968,7 +968,7 @@ void Timbre::fxAfterBlock()
             // Frequency shifter
 
             //     Phase reference path
-            iirFilter1 = iirFilter(samplen1, 0.48645677879491144857f, &hb1_x1, &hb1_x2, &hb1_y1, &hb1_y2);
+            iirFilter1 = iirFilter(low4, 0.48645677879491144857f, &hb1_x1, &hb1_x2, &hb1_y1, &hb1_y2);
             iirFilter2 = iirFilter(iirFilter1, 0.88068726735639790704f, &hb2_x1, &hb2_x2, &hb2_y1, &hb2_y2);
             iirFilter3 = iirFilter(iirFilter2, 0.97790456293916316888f, &hb3_x1, &hb3_x2, &hb3_y1, &hb3_y2);
             iirFilter4 = iirFilter(iirFilter3, 0.99767037906310385154f, &hb4_x1, &hb4_x2, &hb4_y1, &hb4_y2);
@@ -978,8 +978,6 @@ void Timbre::fxAfterBlock()
             iirFilter6 = iirFilter(iirFilter5, 0.73969068299070206418f, &hb6_x1, &hb6_x2, &hb6_y1, &hb6_y2);
             iirFilter7 = iirFilter(iirFilter6, 0.94788883423814862539f, &hb7_x1, &hb7_x2, &hb7_y1, &hb7_y2);
             iirFilter8 = iirFilter(iirFilter7, 0.99119752093109647628f, &hb8_x1, &hb8_x2, &hb8_y1, &hb8_y2);
-
-            samplen1 = low4;
 
             //     sin
             phase1 = phase1 + currentShift;
