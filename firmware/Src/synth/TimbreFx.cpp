@@ -2006,8 +2006,8 @@ void Timbre::fxAfterBlock()
         const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
         const float scale = sqrt3(fb);
 
-        const float inputGain = 2.5f;
-        const float finalGain = (1 - filterParam2 * filterParam2 * 0.5f);
+        const float inputGain = 0.7f;
+        const float finalGain =  3 * (1 - filterParam2 * filterParam2 * 0.5f);
 
         wet *= finalGain;
 
@@ -2016,16 +2016,17 @@ void Timbre::fxAfterBlock()
 
         float high1 = 0;
         float high2 = 0;
+        float high3 = 0;
+        float high4 = 0;
         float high5 = 0;
         float high6 = 0;
 
-        float fAttn = f * 0.33f;
+        const float f1 = clamp(0.15f + f * 0.5f, 0.01f, 0.99f);
+        const float f2 = 0.07f; 
+        const float f3 = clamp(0.70f + f * 0.2f, 0.1f, 0.98f);
 
-        const float f1 = clamp(0.10f + fAttn, 0.01f, 0.99f);
         float coef1 = (1.0f - f1) / (1.0f + f1);
-        const float f2 = clamp(0.25f + fAttn, 0.01f, 0.99f);
         float coef2 = (1.0f - f2) / (1.0f + f2);
-        const float f3 = clamp(0.23f + fAttn, 0.01f, 0.99f);
         float coef3 = (1.0f - f3) / (1.0f + f3);
 
         const float sampleRateDivide = 2;
@@ -2036,6 +2037,13 @@ void Timbre::fxAfterBlock()
         float deltaD = (nexDrift - drift) * 0.000625f;
         _ly1 = nexDrift;
 
+        shift = shift * 0.9f + noise[4] * 0.005f;
+        float spread = 0.03f + shift;
+        float bpf1_a = bpf1 * (1.0f - spread);
+        float bpf1_b = bpf1 * (1.0f + spread);
+        float bpf2_a = bpf2 * (1.0f - spread);
+        float bpf2_b = bpf2 * (1.0f + spread);
+
         // input hp coefs calc :
         const float cutoff = 0.05f;
         const float _in_b1 = (1 - cutoff);
@@ -2044,18 +2052,18 @@ void Timbre::fxAfterBlock()
 
         // limiter
         const float threshold = 0.7f;
-        const float kneeWidth = 0.3f;
+        const float kneeWidth = 0.2f;
         const float kneeWidthInv = 1 / (2 * kneeWidth);
         const float threshKneeP = threshold + kneeWidth * 0.5f;
         const float threshKneeM = threshold - kneeWidth * 0.5f;
-        const float makeup = 0.3f + 1 / threshold;
+        const float makeup = 1 / threshold;
 
-        const int delaySize = 256;
+        const int delaySize = 128;
         const int delaySizeM1 = delaySize - 1;
 
         const float attackCoeff = 0.5f;
         const float releaseCoeff = 0.996f;
-        const float holdTime = 0.02f;
+        const float holdTime = 0.03f;
         const int holdSampleCount = static_cast<int>(holdTime * PREENFM_FREQUENCY);
         int holdSamples = 0;
 
@@ -2118,9 +2126,9 @@ void Timbre::fxAfterBlock()
             hb1_y1 = coef1 * (hb1_y1 + hb6_y1) - hb1_x1; // allpass
             hb1_x1 = hb6_y1;
 
-            low1 = low1 + bpf1 * band1;
-            high1 = scale * hb1_y1 - low1 - fbM * (band1);
-            band1 = bpf1 * high1 + band1;
+            low1 = low1 + bpf1_a * band1;
+            high1 = scale * (hb1_y1 - low3 * 0.01f) - low1 - fbM * (band1);
+            band1 = bpf1_a * high1 + band1;
 
             hb2_y1 = coef2 * (hb2_y1 + band1) - hb2_x1; // allpass 2
             hb2_x1 = band1;
@@ -2128,6 +2136,10 @@ void Timbre::fxAfterBlock()
             low2 = low2 + bpf1 * band2;
             high2 = scale * hb2_y1 - low2 - fbM * (band2);
             band2 = bpf1 * high2 + band2;
+
+            low3 = low3 + bpf1_b * band3;
+            high3 = scale * band2 - low3 - fbM * (band3);
+            band3 = bpf1_b * high3 + band3;
 
             hb3_y1 = coef3 * (hb3_y1 + band2) - hb3_x1; // allpass 3
             hb3_x1 = band2;
@@ -2137,16 +2149,20 @@ void Timbre::fxAfterBlock()
             hb1_y2 = coef1 * (hb1_y2 + hb8_y1) - hb1_x2; // allpass
             hb1_x2 = hb8_y1;
 
+            low4 = low4 + bpf2_a * band4;
+            high4 = scale * (hb1_y2 - low6 * 0.01f) - low4 - fbM * (band4);
+            band4 = bpf2_a * high4 + band4;
+
+            hb2_y2 = coef2 * (hb2_y2 + band4) - hb2_x2; // allpass 2
+            hb2_x2 = band4;
+
             low5 = low5 + bpf2 * band5;
-            high5 = scale * hb1_y2 - low5 - fbM * (band5);
+            high5 = scale * hb2_y2 - low5 - fbM * (band5);
             band5 = bpf2 * high5 + band5;
 
-            hb2_y2 = coef2 * (hb2_y2 + band5) - hb2_x2; // allpass 2
-            hb2_x2 = band5;
-
-            low6 = low6 + bpf2 * band6;
-            high6 = scale * hb2_y2 - low6 - fbM * (band6);
-            band6 = bpf2 * high6 + band6;
+            low6 = low6 + bpf2_b * band6;
+            high6 = scale * band5 - low6 - fbM * (band6);
+            band6 = bpf2_b * high6 + band6;
 
             hb3_y2 = coef3 * (hb3_y2 + band6) - hb3_x2; // allpass 3
             hb3_x2 = band6;
