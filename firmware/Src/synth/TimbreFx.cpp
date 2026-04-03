@@ -2001,8 +2001,10 @@ void Timbre::fxAfterBlock()
 
         float filterParam2 = clamp(matrixFilterParam2 + this->params_.effect2.param2, 0, 1) * (1 - param1S * param1S * 0.06f);
 
-        const float fb = sqrt3(0.5f - filterParam2 * 0.495f);
+        const float fb = sqrt3(0.5f - filterParam2 * 0.497f);
         const float scale = sqrt3(fb);
+        const float fb2 = fb * 0.982f;
+        const float scale2 = sqrt3(fb2);
 
         const float inputGain = 0.7f;
         const float finalGain =  3 * (1 - filterParam2 * filterParam2 * 0.5f);
@@ -2035,12 +2037,20 @@ void Timbre::fxAfterBlock()
         float deltaD = (nexDrift - drift) * 0.000625f;
         _ly1 = nexDrift;
 
-        shift = shift * 0.9f + noise[4] * 0.005f;
-        float spread = 0.03f + shift;
-        float bpf1_a = bpf1 * (1.0f - spread);
-        float bpf1_b = bpf1 * (1.0f + spread);
-        float bpf2_a = bpf2 * (1.0f - spread);
-        float bpf2_b = bpf2 * (1.0f + spread);
+        shift = shift * 0.999f + noise[4] * 0.0001f;
+
+        float x = 1.0f - f; 
+        float p = (x > 1.0f) ? 1.0f : ((x < 0.0f) ? 0.0f : x); 
+        float lowBoost = fast_pow2(p) * 0.125f; // lowBoost sera entre 0.125 et 0.25
+
+        float dynamicSpread = (0.12f + (shift * 0.1f)) * (1.0f + lowBoost);
+
+        if (dynamicSpread > 0.95f) dynamicSpread = 0.95f;
+
+        float bpf1_a = bpf1 * (1.0f - dynamicSpread);
+        float bpf1_b = bpf1 * (1.0f + dynamicSpread);
+        float bpf2_a = bpf2 * (1.0f - dynamicSpread);
+        float bpf2_b = bpf2 * (1.0f + dynamicSpread);
 
         // input hp coefs calc :
         const float cutoff = 0.05f;
@@ -2125,7 +2135,7 @@ void Timbre::fxAfterBlock()
             hb1_x1 = hb6_y1;
 
             low1 = low1 + bpf1_a * band1;
-            high1 = scale * (hb1_y1 - low3 * 0.01f) - low1 - fbM * (band1);
+            high1 = scale2 * (hb1_y1 - low3 * 0.01f) - low1 - fb2 * (band1);
             band1 = bpf1_a * high1 + band1;
 
             hb2_y1 = coef2 * (hb2_y1 + band1) - hb2_x1; // allpass 2
@@ -2136,7 +2146,7 @@ void Timbre::fxAfterBlock()
             band2 = bpf1 * high2 + band2;
 
             low3 = low3 + bpf1_b * band3;
-            high3 = scale * band2 - low3 - fbM * (band3);
+            high3 = scale2 * band2 - low3 - fb2 * (band3);
             band3 = bpf1_b * high3 + band3;
 
             hb3_y1 = coef3 * (hb3_y1 + band2) - hb3_x1; // allpass 3
@@ -2148,7 +2158,7 @@ void Timbre::fxAfterBlock()
             hb1_x2 = hb8_y1;
 
             low4 = low4 + bpf2_a * band4;
-            high4 = scale * (hb1_y2 - low6 * 0.01f) - low4 - fbM * (band4);
+            high4 = scale2 * (hb1_y2 - low6 * 0.01f) - low4 - fb2 * (band4);
             band4 = bpf2_a * high4 + band4;
 
             hb2_y2 = coef2 * (hb2_y2 + band4) - hb2_x2; // allpass 2
@@ -2159,7 +2169,7 @@ void Timbre::fxAfterBlock()
             band5 = bpf2 * high5 + band5;
 
             low6 = low6 + bpf2_b * band6;
-            high6 = scale * band5 - low6 - fbM * (band6);
+            high6 = scale2 * band5 - low6 - fb2 * (band6);
             band6 = bpf2_b * high6 + band6;
 
             hb3_y2 = coef3 * (hb3_y2 + band6) - hb3_x2; // allpass 3
