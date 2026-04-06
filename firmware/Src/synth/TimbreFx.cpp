@@ -1994,8 +1994,8 @@ void Timbre::fxAfterBlock()
         const float f = param1S * param1S * param1S * 0.9f;
         const float matrixFreqAtnn = matrixFilterFrequency * 0.125f;
 
-        float bpf1 = clamp(0.015f + fold((f + matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
-        float bpf2 = clamp(0.015f + fold((f - matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 1.23f);
+        float bpf1 = clamp(0.015f + fold((f + matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 0.9f);
+        float bpf2 = clamp(0.015f + fold((f - matrixFreqAtnn) * 0.25f) * 3.8f, 0.01f, 0.9f);
 
         float *sp = sampleBlock_;
 
@@ -2006,7 +2006,7 @@ void Timbre::fxAfterBlock()
         const float fb2 = fb * 0.982f;
         const float scale2 = sqrt3(fb2);
 
-        const float inputGain = 0.7f;
+        const float inputGain = 1.0f;
         const float finalGain =  3 * (1 - filterParam2 * filterParam2 * 0.5f);
 
         wet *= finalGain;
@@ -2029,7 +2029,7 @@ void Timbre::fxAfterBlock()
         float coef2 = (1.0f - f2) / (1.0f + f2);
         float coef3 = (1.0f - f3) / (1.0f + f3);
 
-        const float sampleRateDivide = 2;
+        const float sampleRateDivide = 1;
         float inputIncCount = 0;
 
         float drift = _ly1;
@@ -2039,18 +2039,17 @@ void Timbre::fxAfterBlock()
 
         shift = shift * 0.999f + noise[4] * 0.0001f;
 
-        float x = 1.0f - f; 
-        float p = (x > 1.0f) ? 1.0f : ((x < 0.0f) ? 0.0f : x); 
-        float lowBoost = fast_pow2(p) * 0.125f; // lowBoost sera entre 0.125 et 0.25
+        float x = 1.0f - f;
+        float p = x * 1.5f;
+        float naturalScaling = fast_pow2(p); // Entre 1.0 (aigu) et ~2.8 (basse)
 
-        float dynamicSpread = (0.12f + (shift * 0.1f)) * (1.0f + lowBoost);
+        // 0.09f : largeur de référence dans les aigus.
+        float dynamicWidth = 0.09f * (1.0f + shift * 2.0f) * naturalScaling;
 
-        if (dynamicSpread > 0.95f) dynamicSpread = 0.95f;
-
-        float bpf1_a = bpf1 * (1.0f - dynamicSpread);
-        float bpf1_b = bpf1 * (1.0f + dynamicSpread);
-        float bpf2_a = bpf2 * (1.0f - dynamicSpread);
-        float bpf2_b = bpf2 * (1.0f + dynamicSpread);
+        float bpf1_a = bpf1 * (1.0f - dynamicWidth);
+        float bpf1_b = bpf1 * (1.0f + dynamicWidth);
+        float bpf2_a = bpf2 * (1.0f - dynamicWidth);
+        float bpf2_b = bpf2 * (1.0f + dynamicWidth);
 
         // input hp coefs calc :
         const float cutoff = 0.05f;
@@ -2066,7 +2065,7 @@ void Timbre::fxAfterBlock()
         const float threshKneeM = threshold - kneeWidth * 0.5f;
         const float makeup = 1 / threshold;
 
-        const int delaySize = 128;
+        const int delaySize = 256;
         const int delaySizeM1 = delaySize - 1;
 
         const float attackCoeff = 0.5f;
@@ -2078,6 +2077,8 @@ void Timbre::fxAfterBlock()
         hb4_x1 = clamp(hb4_x1, 0, 1);
         hb4_x2 = clamp(hb4_x2, 0, 1);
 
+        const float lpCoef = 0.7f;
+
         float target_gain = 1.0f;
 
         for (int k = BLOCK_SIZE; k--;)
@@ -2085,49 +2086,35 @@ void Timbre::fxAfterBlock()
             float fbM = fb + drift;
             drift += deltaD;
 
-            inputIncCount++;
+            // hp input L
+            hb5_x1 = (*sp) * inputGain;
+            hb5_y1 = _in_a0 * hb5_x1 + _in_a1 * hb5_x2 + _in_b1 * hb5_y2;
+            hb5_y2 = hb5_y1;
+            hb5_x2 = hb5_x1;
 
-            if (inputIncCount >= sampleRateDivide)
-            {
-                inputIncCount = 0;
+            hb6_x1 = hb5_y1;
+            hb6_y1 = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
+            hb6_y2 = hb6_y1;
+            hb6_x2 = hb6_x1;
 
-                // hp input L
-                hb5_x1 = (*sp) * inputGain;
-                hb5_y1 = _in_a0 * hb5_x1 + _in_a1 * hb5_x2 + _in_b1 * hb5_y2;
-                hb5_y2 = hb5_y1;
-                hb5_x2 = hb5_x1;
+            hb6_y1 = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
+            hb6_y2 = hb6_y1;
+            hb6_x2 = hb6_x1;
 
-                hb6_x1 = hb5_y1;
-                hb6_y1 = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
-                hb6_y2 = hb6_y1;
-                hb6_x2 = hb6_x1;
+            // hp input R
+            hb7_x1 = *(sp + 1) * inputGain;
+            hb7_y1 = _in_a0 * hb7_x1 + _in_a1 * hb7_x2 + _in_b1 * hb7_y2;
+            hb7_y2 = hb7_y1;
+            hb7_x2 = hb7_x1;
 
-                hb6_y1 = _in_a0 * hb6_x1 + _in_a1 * hb6_x2 + _in_b1 * hb6_y2;
-                hb6_y2 = hb6_y1;
-                hb6_x2 = hb6_x1;
+            hb8_x1 = hb7_y1;
+            hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
+            hb8_y2 = hb8_y1;
+            hb8_x2 = hb8_x1;
 
-                // hp input R
-                hb7_x1 = *(sp + 1) * inputGain;
-                hb7_y1 = _in_a0 * hb7_x1 + _in_a1 * hb7_x2 + _in_b1 * hb7_y2;
-                hb7_y2 = hb7_y1;
-                hb7_x2 = hb7_x1;
-
-                hb8_x1 = hb7_y1;
-                hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
-                hb8_y2 = hb8_y1;
-                hb8_x2 = hb8_x1;
-
-                hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
-                hb8_y2 = hb8_y1;
-                hb8_x2 = hb8_x1;
-
-                // limiter delay
-
-                delayWritePos = (delayWritePos + 1) & delaySizeM1;
-
-                delayBuffer_[delayWritePos] = hb3_y1;
-                delayBuffer_[delayWritePos + delaySize] = hb3_y2;
-            }
+            hb8_y1 = _in_a0 * hb8_x1 + _in_a1 * hb8_x2 + _in_b1 * hb8_y2;
+            hb8_y2 = hb8_y1;
+            hb8_x2 = hb8_x1;
 
             // Left voice
 
@@ -2175,7 +2162,17 @@ void Timbre::fxAfterBlock()
             hb3_y2 = coef3 * (hb3_y2 + band6) - hb3_x2; // allpass 3
             hb3_x2 = band6;
 
-            // limiter ------------
+            // limiter delay — written after SVF so hb3_y1/y2 are current-sample values
+
+            delayWritePos = (delayWritePos + 1) & delaySizeM1;
+
+            _lx1 = _lx1 * lpCoef + tanh4(hb3_y1) * (1.0f - lpCoef);
+            _lx2 = _lx2 * lpCoef + tanh4(hb3_y2) * (1.0f - lpCoef);
+
+            delayBuffer_[delayWritePos] = _lx1;
+            delayBuffer_[delayWritePos + delaySize] = _lx2;
+
+            // limiter — detect on _lx1/_lx2 so envelope matches what is in the delay buffer
 
             float gain = hb4_x1;
             float envelope = hb4_x2;
@@ -2185,8 +2182,8 @@ void Timbre::fxAfterBlock()
             float fltOut1 = delayBuffer_[readpos];
             float fltOut2 = delayBuffer_[delaySize + readpos];
 
-            float absLeft = fabsf(hb3_y1);
-            float absRight = fabsf(hb3_y2);
+            float absLeft = fabsf(_lx1);
+            float absRight = fabsf(_lx2);
             float absSample = (absLeft > absRight) ? absLeft : absRight;
 
             envelope = max(absSample, envelope * releaseCoeff);
