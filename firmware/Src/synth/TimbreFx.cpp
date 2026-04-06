@@ -259,7 +259,8 @@ void Timbre::fxAfterBlock()
             hb8_y1 = 1;
         }
 
-        float fxParamTmp = foldAbs(hb8_x1 + matrixFilterFrequency) * 0.5f;
+        float lfoRaw = foldAbs(hb8_x1 + matrixFilterFrequency) * 0.5f;
+        float fxParamTmp = sigmoidPos(lfoRaw); 
         delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
 
         float currentDelaySize1 = delaySize1;
@@ -283,6 +284,7 @@ void Timbre::fxAfterBlock()
         const float f = 0.8f;
         const float f2 = 0.85f;
         const float fnotch = 1.03f;
+        const float drift = fabsf(noise[6]) * 0.8f;
 
         for (int k = 0; k < BLOCK_SIZE; k++)
         {
@@ -312,12 +314,12 @@ void Timbre::fxAfterBlock()
             hb4_x2 = _ly2;
 
             // audio in hp
-            float hp_in_x0 = ((low3 + low3 - hb4_y1));
+            float hp_in_x0 = tanh4(low3 + low3 - hb4_y1);
             hp_in_y0 = _in3_a0 * (hp_in_x0 - hp_in_x1) + _in3_b1 * hp_in_y1;
             hp_in_y1 = hp_in_y0;
             hp_in_x1 = hp_in_x0;
 
-            float hp_in2_x0 = ((low4 + low4 - hb4_y2));
+            float hp_in2_x0 = tanh4(low4 + low4 - hb4_y2);
             hp_in2_y0 = _in3_a0 * (hp_in2_x0 - hp_in2_x1) + _in3_b1 * hp_in2_y1;
             hp_in2_y1 = hp_in2_y0;
             hp_in2_x1 = hp_in2_x0;
@@ -327,7 +329,7 @@ void Timbre::fxAfterBlock()
             delayBuffer_[delayWritePos + delayBufStereoSize] = hp_in2_y0;
 
             delayReadPos = modulo2(delayWritePos - currentDelaySize1, delayBufStereoSize);
-            delayReadPos90 = modulo2(delayReadPos - 37.f, delayBufStereoSize);
+            delayReadPos90 = modulo2(delayReadPos - 37.f - drift, delayBufStereoSize);
 
             low5 = delayInterpolation(delayReadPos, delayBuffer_, delayBufStereoSizeM1);
             low6 = delayInterpolation2(delayReadPos90, delayBuffer_, delayBufStereoSizeM1, delayBufStereoSize);
