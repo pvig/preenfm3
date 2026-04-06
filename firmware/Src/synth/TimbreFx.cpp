@@ -1468,11 +1468,19 @@ void Timbre::fxAfterBlock()
         float diff1Out = 0, diff2Out = 0, diff3Out = 0, diff4Out = 0, diff5Out = 0;
 
         float sizeParamInpt = 0.2f + param1S * 0.2f;
-        float inputBuffer1ReadLen = inputBufferLen1 * sizeParamInpt;
-        float inputBuffer2ReadLen = inputBufferLen2 * sizeParamInpt;
-        float inputBuffer3ReadLen = inputBufferLen3 * sizeParamInpt;
-        float inputBuffer4ReadLen = inputBufferLen4 * sizeParamInpt;
-        float inputBuffer5ReadLen = inputBufferLen5 * sizeParamInpt;
+
+        // Modulation lente et indépendante de chaque allpass — brise les résonances métalliques.
+        // shift/shift2 : marcheurs aléatoires bornés (± ~2 samples à SR/4), signes alternés
+        // pour éviter un pitch-shift global uniforme.
+        shift  = shift  * 0.9985f + noise[4] * 0.04f;
+        shift2 = shift2 * 0.9990f + noise[5] * 0.03f;
+        const float modAmt = 4.5f;
+
+        float inputBuffer1ReadLen = inputBufferLen1 * sizeParamInpt + shift  * modAmt;
+        float inputBuffer2ReadLen = inputBufferLen2 * sizeParamInpt - shift2 * modAmt;
+        float inputBuffer3ReadLen = inputBufferLen3 * sizeParamInpt + shift2 * modAmt * 0.7f;
+        float inputBuffer4ReadLen = inputBufferLen4 * sizeParamInpt - shift  * modAmt * 0.5f;
+        float inputBuffer5ReadLen = inputBufferLen5 * sizeParamInpt + (shift - shift2) * modAmt * 0.4f;
 
         float *sp = sampleBlock_;
         float delayOut1, delayOut2;
@@ -2020,14 +2028,11 @@ void Timbre::fxAfterBlock()
         float high4 = 0;
         float high5 = 0;
         float high6 = 0;
+        float high7 = 0;
+        float high8 = 0;
 
         const float f1 = clamp(0.15f + f * 0.5f, 0.01f, 0.99f);
-        const float f2 = 0.07f; 
-        const float f3 = clamp(0.70f + f * 0.2f, 0.1f, 0.98f);
-
         float coef1 = (1.0f - f1) / (1.0f + f1);
-        float coef2 = (1.0f - f2) / (1.0f + f2);
-        float coef3 = (1.0f - f3) / (1.0f + f3);
 
         const float sampleRateDivide = 1;
         float inputIncCount = 0;
@@ -2039,17 +2044,19 @@ void Timbre::fxAfterBlock()
 
         shift = shift * 0.999f + noise[4] * 0.0001f;
 
-        float x = 1.0f - f;
-        float p = x * 1.5f;
-        float naturalScaling = fast_pow2(p); // Entre 1.0 (aigu) et ~2.8 (basse)
-
-        // 0.09f : largeur de référence dans les aigus.
-        float dynamicWidth = 0.09f * (1.0f + shift * 2.0f) * naturalScaling;
-
-        float bpf1_a = bpf1 * (1.0f - dynamicWidth);
-        float bpf1_b = bpf1 * (1.0f + dynamicWidth);
-        float bpf2_a = bpf2 * (1.0f - dynamicWidth);
-        float bpf2_b = bpf2 * (1.0f + dynamicWidth);
+        //   h1 = fondamentale, feedback tanh (résonance non-linéaire, singing quality)
+        //   h2 = fondamentale légèrement décalée (~1.5%, drift analogique)
+        //   h3 = octave  (×2), excité par la sortie de h1
+        //   h4 = tierce  (×3), excité par la sortie de h1
+        float jitter   = shift * 0.004f;
+        float bpf_h1   = bpf1 * (1.0f + jitter);
+        float bpf_h2   = bpf1 * (1.015f - jitter * 0.5f);
+        float bpf_h3   = clamp(bpf1 * 2.0f * (1.0f + jitter * 0.3f), 0.01f, 0.92f);
+        float bpf_h1_r = bpf2 * (1.0f + jitter);
+        float bpf_h2_r = bpf2 * (1.015f - jitter * 0.5f);
+        float bpf_h3_r = clamp(bpf2 * 2.0f * (1.0f + jitter * 0.3f), 0.01f, 0.92f);
+        float bpf_h4   = clamp(bpf1 * 3.0f * (1.0f - jitter * 0.2f), 0.01f, 0.92f);
+        float bpf_h4_r = clamp(bpf2 * 3.0f * (1.0f - jitter * 0.2f), 0.01f, 0.92f);
 
         // input hp coefs calc :
         const float cutoff = 0.05f;
@@ -2118,51 +2125,63 @@ void Timbre::fxAfterBlock()
 
             // Left voice
 
-            hb1_y1 = coef1 * (hb1_y1 + hb6_y1) - hb1_x1; // allpass
+            hb1_y1 = coef1 * (hb1_y1 + hb6_y1) - hb1_x1; // allpass (shared phase smear)
             hb1_x1 = hb6_y1;
 
-            low1 = low1 + bpf1_a * band1;
-            high1 = scale2 * (hb1_y1 - low3 * 0.01f) - low1 - fb2 * (band1);
-            band1 = bpf1_a * high1 + band1;
+            // h1 — fondamentale, feedback non-linéaire (transistor ladder)
+            low1 = low1 + bpf_h1 * band1;
+            high1 = scale2 * hb1_y1 - low1 - fb2 * tanh4(band1);
+            band1 = bpf_h1 * high1 + band1;
 
-            hb2_y1 = coef2 * (hb2_y1 + band1) - hb2_x1; // allpass 2
-            hb2_x1 = band1;
+            // h2 — fondamentale légèrement décalée (drift analogique)
+            low2 = low2 + bpf_h2 * band2;
+            high2 = scale * hb1_y1 - low2 - fbM * band2;
+            band2 = bpf_h2 * high2 + band2;
 
-            low2 = low2 + bpf1 * band2;
-            high2 = scale * hb2_y1 - low2 - fbM * (band2);
-            band2 = bpf1 * high2 + band2;
+            // h3 — 2e harmonique (octave), en cascade de h1
+            low3 = low3 + bpf_h3 * band3;
+            high3 = scale2 * band1 * 0.7f - low3 - fb2 * band3;
+            band3 = bpf_h3 * high3 + band3;
 
-            low3 = low3 + bpf1_b * band3;
-            high3 = scale2 * band2 - low3 - fb2 * (band3);
-            band3 = bpf1_b * high3 + band3;
+            // h4 — 3e harmonique (3f), en cascade de h1
+            hb2_x1 = hb2_x1 + bpf_h4 * hb2_x2;
+            high7 = scale2 * band1 * 0.5f - hb2_x1 - fb2 * hb2_x2;
+            hb2_x2 = bpf_h4 * high7 + hb2_x2;
 
-            hb3_y1 = coef3 * (hb3_y1 + band2) - hb3_x1; // allpass 3
-            hb3_x1 = band2;
+            float outL = band1 + band2 * 0.5f + band3 * 0.7f + hb2_x2 * 0.5f;
+            // LP post-SVF tracking BP center
+            hb3_y1 += bpf_h1 * (outL - hb3_y1);
 
             // Right voice
 
-            hb1_y2 = coef1 * (hb1_y2 + hb8_y1) - hb1_x2; // allpass
+            hb1_y2 = coef1 * (hb1_y2 + hb8_y1) - hb1_x2; // allpass (shared phase smear)
             hb1_x2 = hb8_y1;
 
-            low4 = low4 + bpf2_a * band4;
-            high4 = scale2 * (hb1_y2 - low6 * 0.01f) - low4 - fb2 * (band4);
-            band4 = bpf2_a * high4 + band4;
+            // h1 — fondamentale, feedback non-linéaire (transistor ladder)
+            low4 = low4 + bpf_h1_r * band4;
+            high4 = scale2 * hb1_y2 - low4 - fb2 * tanh4(band4);
+            band4 = bpf_h1_r * high4 + band4;
 
-            hb2_y2 = coef2 * (hb2_y2 + band4) - hb2_x2; // allpass 2
-            hb2_x2 = band4;
+            // h2 — fondamentale légèrement décalée (drift analogique)
+            low5 = low5 + bpf_h2_r * band5;
+            high5 = scale * hb1_y2 - low5 - fbM * band5;
+            band5 = bpf_h2_r * high5 + band5;
 
-            low5 = low5 + bpf2 * band5;
-            high5 = scale * hb2_y2 - low5 - fbM * (band5);
-            band5 = bpf2 * high5 + band5;
+            // h3 — 2e harmonique (octave), en cascade de h1
+            low6 = low6 + bpf_h3_r * band6;
+            high6 = scale2 * band4 * 0.7f - low6 - fb2 * band6;
+            band6 = bpf_h3_r * high6 + band6;
 
-            low6 = low6 + bpf2_b * band6;
-            high6 = scale2 * band5 - low6 - fb2 * (band6);
-            band6 = bpf2_b * high6 + band6;
+            // h4 — 3e harmonique (3f), en cascade de h1
+            hb2_y1 = hb2_y1 + bpf_h4_r * hb2_y2;
+            high8 = scale2 * band4 * 0.5f - hb2_y1 - fb2 * hb2_y2;
+            hb2_y2 = bpf_h4_r * high8 + hb2_y2;
 
-            hb3_y2 = coef3 * (hb3_y2 + band6) - hb3_x2; // allpass 3
-            hb3_x2 = band6;
+            float outR = band4 + band5 * 0.5f + band6 * 0.7f + hb2_y2 * 0.5f;
+            // LP post-SVF tracking BP center
+            hb3_y2 += bpf_h1 * (outR - hb3_y2);
 
-            // limiter delay — written after SVF so hb3_y1/y2 are current-sample values
+            // limiter delay
 
             delayWritePos = (delayWritePos + 1) & delaySizeM1;
 
