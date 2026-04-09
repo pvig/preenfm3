@@ -847,7 +847,7 @@ void Timbre::fxAfterBlock()
         float mixerGain_01 = clamp(mixerGain_, 0, 1);
         int mixerGain255 = mixerGain_01 * 255;
         float dry = panTable[255 - mixerGain255];
-        float wet = panTable[mixerGain255] * 0.66f;
+        float wet = panTable[mixerGain255] * 0.766f;
         float extraAmp = clamp(mixerGain_ - 1, 0, 1);
         wet += extraAmp;
 
@@ -1018,9 +1018,9 @@ void Timbre::fxAfterBlock()
             low5 += f3 * band5;
             band5 += f3 * (shifterOutMix - low5 - band5);
 
-            *sp = (*sp * dry) - (shifterOutMix + low5) * wetL;
+            *sp = (*sp * dry) - tanh4((shifterOutMix + low5) * 1.5f) * wetL;
             sp++;
-            *sp = (*sp * dry) - (shifterOutMix2 + low5) * wetR;
+            *sp = (*sp * dry) - tanh4((shifterOutMix2 + low5) * 1.5f) * wetR;
             sp++;
 
             currentFeedback += feedbackInc;
