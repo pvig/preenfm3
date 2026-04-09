@@ -525,15 +525,21 @@ void Timbre::fxAfterBlock()
             hb8_y1 = 1;
         }
 
+        float lfo2Inc = clamp(hb8_y2 * speed * 0.0097f, -1, 1); // ~3% plus lent
+        hb8_x2 += lfo2Inc;
+        if (hb8_x2 >= 1) { hb8_x2 = 1; hb8_y2 = -1; }
+        if (hb8_x2 <= 0) { hb8_x2 = 0; hb8_y2 = 1; }
+        
         float lfo = hb8_x1 * 0.5f;
+        float lfo2 = hb8_x2 * 0.5f;
 
         param1S = 0.02f * matrixFilterFrequency + .98f * param1S;
 
         matrixFilterFrequency *= 0.5f;
 
         float fxParamTmp = sigmoidPos(foldAbs(0.25f + (0.125f * ((lfo + param1S)))));
-        delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
-        float fxParamTmp2 = sigmoidPos(foldAbs(0.25f + (0.125f * (0.55f - (lfo + param1S)))));
+        delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change       
+        float fxParamTmp2 = sigmoidPos(foldAbs(0.25f + (0.125f * (lfo2 + param1S))));
         delayReadFrac2 = (fxParamTmp2 + 99 * delayReadFrac2) * 0.01f; // smooth change
 
         float currentDelaySize1 = clamp(delaySize1, 0, delayBufStereoSizeM1);
@@ -591,8 +597,8 @@ void Timbre::fxAfterBlock()
 
             delayWritePos = (delayWritePos + 1) & delayBufStereoSizeM1;
 
-            delayBuffer_[delayWritePos] = hp_in_y0;
-            delayBuffer_[delayWritePos + delayBufStereoSize] = hp_in2_y0;
+            delayBuffer_[delayWritePos] = hp_in_y0 + hp_in2_y0 * 0.05f; // cross feed for more dimension
+            delayBuffer_[delayWritePos + delayBufStereoSize] = hp_in2_y0 + hp_in_y0 * 0.05f;
 
             delayWritePosF = (float)delayWritePos;
 
