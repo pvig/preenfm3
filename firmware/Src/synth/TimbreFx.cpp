@@ -2041,9 +2041,6 @@ void Timbre::fxAfterBlock()
         const float f1 = clamp(0.15f + f * 0.5f, 0.01f, 0.99f);
         float coef1 = (1.0f - f1) / (1.0f + f1);
 
-        const float sampleRateDivide = 1;
-        float inputIncCount = 0;
-
         float drift = _ly1;
         float nexDrift = noise[7] * 0.005f;
         float deltaD = (nexDrift - drift) * 0.000625f;
