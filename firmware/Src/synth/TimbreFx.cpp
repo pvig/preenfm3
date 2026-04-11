@@ -847,7 +847,7 @@ void Timbre::fxAfterBlock()
         float mixerGain_01 = clamp(mixerGain_, 0, 1);
         int mixerGain255 = mixerGain_01 * 255;
         float dry = panTable[255 - mixerGain255];
-        float wet = panTable[mixerGain255] * 0.766f;
+        float wet = panTable[mixerGain255] * 0.5f;
         float extraAmp = clamp(mixerGain_ - 1, 0, 1);
         wet += extraAmp;
 
@@ -1643,9 +1643,8 @@ void Timbre::fxAfterBlock()
         lockA = lockA * 0.98f + lock * 0.02f;
         lockB = (1 - lockA);
 
-        matrixFilterFrequency *= matrixFilterFrequency;
-        matrixFilterFrequency *= 0.125f;
-        param1S = 0.05f * fabs(this->params_.effect2.param1 + matrixFilterFrequency) + .95f * param1S;
+        matrixFilterFrequencyS = 0.02f * (matrixFilterFrequency * matrixFilterFrequency * 0.125f) + 0.98f * matrixFilterFrequencyS;
+        param1S = 0.02f * fabs(this->params_.effect2.param1 + matrixFilterFrequencyS) + .98f * param1S;
 
         if (lockA >= 0.9999f)
         {
@@ -1824,9 +1823,9 @@ void Timbre::fxAfterBlock()
 
         float param2 = clamp(fabsf(this->params_.effect2.param2 + matrixFilterParam2), 0, 1);
         param2 *= param2;
-        matrixFilterFrequency *= 0.125f;
-        param1S = 0.05f * fabs(this->params_.effect2.param1 + matrixFilterFrequency) + .95f * param1S;
-
+        matrixFilterFrequencyS = 0.02f * (matrixFilterFrequency * matrixFilterFrequency * 0.125f) + 0.98f * matrixFilterFrequencyS;
+        param1S = 0.02f * fabs(this->params_.effect2.param1 + matrixFilterFrequencyS) + .98f * param1S;
+   
         float lock = ((param2 > 0.99f) ? 0.f : 1.f);
         lockA = lockA * 0.98f + lock * 0.02f;
         lockB = (1 - lockA);
