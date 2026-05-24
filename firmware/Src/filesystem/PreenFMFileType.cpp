@@ -45,6 +45,8 @@ const char* PreenFMFileType::getFileName(FILE_ENUM file) {
             return PROPERTIES_NAME;
         case MIDI_CONTROLLER_STATE:
             return MIDI_CONTROLLER_STATE_NAME;
+        default:
+            return "";
     }
 }
 
@@ -67,7 +69,7 @@ const char* PreenFMFileType::getFullName(const char *fileName) {
 }
 
 int PreenFMFileType::remove(FILE_ENUM file) {
-    f_unlink(getFileName(file));
+    return f_unlink(getFileName(file));
 }
 
 int PreenFMFileType::load(FILE_ENUM file, int seek, void *bytes, int size) {
@@ -90,7 +92,7 @@ int PreenFMFileType::load(const char *fileName, int seek, void *bytes, int size)
         if (fatFSResult == FR_OK) {
             UINT byteRead;
             fatFSResult = f_read(&file, bytes, size, &byteRead);
-            if (fatFSResult == FR_OK && byteRead == size) {
+            if (fatFSResult == FR_OK && byteRead == (UINT)size) {
                 toReturn = byteRead;
             }
         }
@@ -122,7 +124,7 @@ int PreenFMFileType::saveData(FIL &file, void *bytes, uint32_t size) {
     int toReturn = 0;
     UINT byteWritten;
     FRESULT fatFSResult = f_write(&file, bytes, size, &byteWritten);
-    if (fatFSResult == FR_OK && byteWritten == size) {
+    if (fatFSResult == FR_OK && byteWritten == (UINT)size) {
         toReturn = byteWritten;
     }
     return toReturn;
@@ -144,7 +146,7 @@ int PreenFMFileType::save(const char *fileName, int seek, void *bytes, int size)
         if (fatFSResult == FR_OK) {
             UINT byteWritten;
             fatFSResult = f_write(&file, bytes, size, &byteWritten);
-            if (fatFSResult == FR_OK && byteWritten == size) {
+            if (fatFSResult == FR_OK && byteWritten == (UINT)size) {
                 toReturn = byteWritten;
             }
         }
@@ -322,7 +324,7 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
         flashMemory->engineArp2.division = 12;
         flashMemory->engineArp2.duration = 14;
         flashMemory->engineArp2.latche = 0;
-        for (int p = 0; p < ARRAY_SIZE(flashMemory->engineArpUserPatterns.patterns); ++p)
+        for (int p = 0; p < (int)ARRAY_SIZE(flashMemory->engineArpUserPatterns.patterns); ++p)
             flashMemory->engineArpUserPatterns.patterns[p] = 0;
     }
 

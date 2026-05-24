@@ -27,6 +27,8 @@ class LfoOsc: public Lfo {
 public:
     virtual ~LfoOsc() {};
 
+    using Lfo::init;
+
 	void init(struct LfoParams *lfoParams, float* lfoPhase, Matrix* matrix, SourceEnum source, DestinationEnum dest);
 
 	void valueChanged(int encoder) {

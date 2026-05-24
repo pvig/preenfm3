@@ -59,6 +59,7 @@ extern uint8_t midiControllerMode;
 /* USER CODE BEGIN PFP */
 void preenfm3Tic();
 void preenfm3MidiControllerTic();
+void preenfm3_USART1_IRQHandler();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/

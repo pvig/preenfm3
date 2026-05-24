@@ -16,6 +16,11 @@
  */
 
 #include "stm32h7xx_hal.h"
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wsequence-point"
+#endif
+
 #include "Synth.h"
 #include "Menu.h"
 #include "Sequencer.h"
@@ -99,13 +104,13 @@ void Synth::noteOff(int timbre, char note) {
 }
 
 void Synth::noteOnFromSequencer(uint8_t timbre, int16_t note, uint8_t velocity) {
-    if (likely(note > 0 & note < 127)) {
+    if (likely(note > 0 && note < 127)) {
         timbres_[timbre].noteOn(note, velocity);
     }
 }
 
 void Synth::noteOffFromSequencer(uint8_t timbre, int16_t note) {
-    if (likely(note > 0 & note < 127)) {
+    if (likely(note > 0 && note < 127)) {
         timbres_[timbre].noteOff(note);
     }
 }

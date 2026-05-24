@@ -87,6 +87,8 @@ void FMDisplay3::refreshAllScreenByStep() {
         case SYNTH_MODE_SEQUENCER:
             displaySequencer_->refreshSequencerByStep(currentTimbre_, refreshStatus_, endRefreshStatus_);
             break;
+        default:
+            break;
     }
 
     if (refreshStatus_ > 0) {
@@ -188,6 +190,8 @@ void FMDisplay3::newSynthMode(FullState *fullState) {
             refreshStatus_ = 21;
             displaySequencer_->cleanCurrentState();
             break;
+        default:
+            break;
     }
 }
 
@@ -244,6 +248,8 @@ void FMDisplay3::midiClock(bool show) {
         case SYNTH_MODE_SEQUENCER:
             tft_->setCharBackgroundColor(COLOR_DARK_YELLOW);
             break;
+        default:
+            break;
     }
     tft_->setCharColor(COLOR_WHITE);
     if (show) {
@@ -276,6 +282,8 @@ void FMDisplay3::noteOn(int timbre, bool show) {
             break;
         case SYNTH_MODE_SEQUENCER:
             tft_->setCharBackgroundColor(COLOR_DARK_YELLOW);
+            break;
+        default:
             break;
     }
     tft_->setCharColor(COLOR_WHITE);

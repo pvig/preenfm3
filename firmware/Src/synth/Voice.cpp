@@ -17,6 +17,13 @@
 
 #include <math.h>
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wsequence-point"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
+
 #include "Voice.h"
 #include "Timbre.h"
 
@@ -5785,7 +5792,7 @@ void Voice::fxAfterBlock() {
                     localv0L = (*sp) - pos * (localv0L + pos * (*sp));
                     digitsA = FLOAT2SHORT * (*sp);
                     digitsB = FLOAT2SHORT * localv0L;
-                    localv0L = SHORT2FLOAT * roundf(digitsA ^ digitsB & 0xfff);
+                    localv0L = SHORT2FLOAT * roundf(digitsA ^ (digitsB & 0xfff));
                 } else {
                     localv0L = *sp;
                 }
@@ -5802,7 +5809,7 @@ void Voice::fxAfterBlock() {
                     localv0R = (*sp) - pos * (localv0R + pos * (*sp));
                     digitsA = FLOAT2SHORT * (*sp);
                     digitsB = FLOAT2SHORT * localv0R;
-                    localv0R = SHORT2FLOAT * roundf(digitsA ^ digitsB & 0xfff);
+                    localv0R = SHORT2FLOAT * roundf(digitsA ^ (digitsB & 0xfff));
                 } else {
                     localv0R = *sp;
                 }

@@ -22,6 +22,7 @@
 void bootloaderLoop();
 void bootloaderInit();
 void bootloaderTftTic();
+void bootloader_systick();
 uint32_t getButtonPressed();
 void mustJumpToApplication();
 void dependencyInjection();

@@ -132,7 +132,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
 
 
 void LfoOsc::nextValueInMatrix() {
-    float lfoValue;
+    float lfoValue = 0.0f;
 
     ticks ++;
 

@@ -26,7 +26,9 @@
 extern const char* lfoSeqMidiClock[];
 extern const char* lfoOscMidiClock[];
 
+#ifndef MIN
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#endif
 #define CUSTOM_CHAR_NOTE (char)7
 
 

@@ -29,7 +29,7 @@ void NoteStack::NoteOn(uint8_t note, uint8_t velocity) {
     // In case of saturation, remove the least recently played note from the
     // stack.
     if (size_ == kNoteStackSize) {
-        uint8_t least_recent_note;
+        uint8_t least_recent_note = note;
         for (uint8_t i = 1; i <= kNoteStackSize; ++i) {
             if (pool_[i].next_ptr == 0) {
                 least_recent_note = pool_[i].note;
@@ -39,7 +39,7 @@ void NoteStack::NoteOn(uint8_t note, uint8_t velocity) {
         NoteOff(least_recent_note);
     }
     // Now we are ready to insert the new note. Find a free slot to insert it.
-    uint8_t free_slot;
+    uint8_t free_slot = 1;
     for (uint8_t i = 1; i <= kNoteStackSize; ++i) {
         if (pool_[i].note == kFreeSlot) {
             free_slot = i;

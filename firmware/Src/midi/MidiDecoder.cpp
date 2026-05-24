@@ -151,6 +151,8 @@ void MidiDecoder::newByte(unsigned char byte) {
                 currentEventState.index = 0;
             }
             break;
+        default:
+            break;
         }
     }
 }
@@ -199,6 +201,8 @@ void MidiDecoder::newMessageType(unsigned char byte) {
             }
             currentEventState.numberOfBytes = 2;
             currentEventState.eventState = MIDI_EVENT_IN_PROGRESS;
+            break;
+        default:
             break;
         }
         break;
@@ -343,6 +347,8 @@ void MidiDecoder::midiEventReceived(MidiEvent& midiEvent) {
         this->songPosition = ((int) midiEvent.value[1] << 7) + midiEvent.value[0];
         this->synth->midiClockSetSongPosition(this->songPosition, true);
         break;
+    default:
+        break;
     }
 }
 
@@ -369,6 +375,8 @@ void MidiDecoder::midiEventForInstrument1MPE(MidiEvent& midiEvent) {
 	        this->synth->getTimbre(0)->setMatrixSource(MATRIX_SOURCE_AFTERTOUCH, INV127 * midiEvent.value[0]);
 	        break;
 	    }
+        default:
+            break;
 		}
 		return;
 	}
@@ -410,9 +418,12 @@ void MidiDecoder::midiEventForInstrument1MPE(MidiEvent& midiEvent) {
 			this->synth->getTimbre(0)->setMatrixSourceMPE(midiEvent.channel, MATRIX_SOURCE_MPESLIDE, INV127 * midiEvent.value[1]);
 		}
         break;
-    case MIDI_PITCH_BEND:
-		int pb = ((int) midiEvent.value[1] << 7) + (int) midiEvent.value[0] - 8192;
-		this->synth->getTimbre(0)->setMatrixSourceMPE(midiEvent.channel, MATRIX_SOURCE_PITCHBEND_MPE, (float) pb * .00012207031250000000f);
+    case MIDI_PITCH_BEND: {
+        int pb = ((int) midiEvent.value[1] << 7) + (int) midiEvent.value[0] - 8192;
+        this->synth->getTimbre(0)->setMatrixSourceMPE(midiEvent.channel, MATRIX_SOURCE_PITCHBEND_MPE, (float) pb * .00012207031250000000f);
+        break;
+    }
+    default:
         break;
 	}
 }

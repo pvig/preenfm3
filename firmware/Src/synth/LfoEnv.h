@@ -26,6 +26,8 @@ class LfoEnv: public Lfo {
 public:
     LfoEnv();
 
+    using Lfo::init;
+
 	void init(struct EnvelopeLfoParams * envParams, Matrix* matrix, SourceEnum source, DestinationEnum dest);
 
 	void valueChanged(int encoder) {

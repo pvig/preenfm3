@@ -163,11 +163,11 @@ __weak HAL_StatusTypeDef MX_SPI_Init(SPI_HandleTypeDef *phspi, uint32_t baudrate
   * @param  Length data length
   * @retval BSP status
   */
-int32_t BSP_SPI_Send(uint8_t *pTxData, uint32_t Legnth)
+int32_t BSP_SPI_Send(const uint8_t *pTxData, uint32_t Legnth)
 {
   int32_t ret = BSP_ERROR_NONE;
   
-  if(HAL_SPI_Transmit(&sd_spi2, pTxData, (uint16_t)Legnth, BUS_SPI_TIMEOUT_MAX) != HAL_OK)
+  if(HAL_SPI_Transmit(&sd_spi2, (uint8_t *)pTxData, (uint16_t)Legnth, BUS_SPI_TIMEOUT_MAX) != HAL_OK)
   {
     ret = BSP_ERROR_BUS_FAILURE;
   }
@@ -200,11 +200,11 @@ int32_t BSP_SPI_Recv(uint8_t *pRxData, uint32_t Legnth)
   * @param  Length data length
   * @retval BSP status
   */
-int32_t BSP_SPI_SendRecv(uint8_t *pTxData, uint8_t *pRxData, uint32_t Legnth)
+int32_t BSP_SPI_SendRecv(const uint8_t *pTxData, uint8_t *pRxData, uint32_t Legnth)
 {
   int32_t ret = BSP_ERROR_NONE;
   
-  if(HAL_SPI_TransmitReceive(&sd_spi2, pTxData, pRxData, (uint16_t)Legnth, BUS_SPI_TIMEOUT_MAX) != HAL_OK)
+  if(HAL_SPI_TransmitReceive(&sd_spi2, (uint8_t *)pTxData, pRxData, (uint16_t)Legnth, BUS_SPI_TIMEOUT_MAX) != HAL_OK)
   {
     ret = BSP_ERROR_BUS_FAILURE;
   }
@@ -212,13 +212,13 @@ int32_t BSP_SPI_SendRecv(uint8_t *pTxData, uint8_t *pRxData, uint32_t Legnth)
   return ret;
 }
 
-HAL_StatusTypeDef BSP_SPI_SendRecv_DMA(uint8_t *pTxData, uint8_t *pRxData, uint32_t Legnth)
+HAL_StatusTypeDef BSP_SPI_SendRecv_DMA(const uint8_t *pTxData, uint8_t *pRxData, uint32_t Legnth)
 {
   if (sd_spi2.Lock == HAL_LOCKED) {
       return HAL_BUSY;
   }
   //HAL_SPI_TransmitReceive_IT(&sd_spi2, pTxData, pRxData, (uint16_t)Legnth);
-  return HAL_SPI_TransmitReceive_DMA(&sd_spi2, pTxData, pRxData, (uint16_t)Legnth);
+  return HAL_SPI_TransmitReceive_DMA(&sd_spi2, (uint8_t *)pTxData, pRxData, (uint16_t)Legnth);
 }
 
 /**

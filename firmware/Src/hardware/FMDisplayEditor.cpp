@@ -3796,6 +3796,8 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
         }
     }
         break;
+    default:
+        break;
     }
 
     tft_->setCharColor(COLOR_WHITE);
@@ -4169,7 +4171,7 @@ void FMDisplayEditor::buttonPressed(int button) {
 }
 
 
-void FMDisplayEditor::displayPopup(TFT_COLOR color, char* text, uint8_t length) {
+void FMDisplayEditor::displayPopup(TFT_COLOR color, const char* text, uint8_t length) {
     tft_->fillArea(60, 66, 120, 36, color);
     tft_->fillArea(62, 68, 116, 32, COLOR_BLACK);
     tft_->setCharBackgroundColor(COLOR_BLACK);

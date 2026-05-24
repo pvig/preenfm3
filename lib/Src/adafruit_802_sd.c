@@ -1,6 +1,6 @@
 /* ===============================================================================================
  * September 5th 2020
-/* ===============================================================================================
+ * ===============================================================================================
  * Xavier's note for the preenfm3
  * Thanks for this post :
  * https://community.st.com/s/question/0D50X00009XkgXzSAJ/bug-in-stm32adafruitsdc-spi-sd-card
@@ -706,7 +706,6 @@ static int32_t SD_IO_Init(void)
 {
   int32_t ret = BSP_ERROR_NONE;
   uint8_t counter = 0, tmp;
-  GPIO_InitTypeDef  GPIO_InitStruct;
 
   /*------------Put SD in SPI mode--------------*/
   /* SD SPI Config */
@@ -745,7 +744,6 @@ static int32_t SD_IO_Init(void)
   */
 static void SD_IO_DeInit(void)
 {
-  GPIO_InitTypeDef  GPIO_InitStruct;
   /* SD chip select low */
   ADAFRUIT_802_SD_CS_LOW();
 }

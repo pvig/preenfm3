@@ -309,7 +309,7 @@ float Hexter::getRounded(float r) {
  */
 void Hexter::voiceSetData(struct OneSynthParams *params, uint8_t *patch)
 {
-    for (int k=0; k<sizeof(struct OneSynthParams)/sizeof(float); k++) {
+	for (int k = 0; k < (int)(sizeof(struct OneSynthParams) / sizeof(float)); k++) {
         int row = k >> 2;
         if (row == ROW_ARPEGGIATOR1 || row == ROW_ARPEGGIATOR2 || row == ROW_ENGINE) {
             // Don't override the arpeggiator neither the ENGINE

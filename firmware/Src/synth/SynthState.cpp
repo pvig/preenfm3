@@ -361,6 +361,8 @@ void SynthState::encoderTurned(int encoder, int ticks) {
         displaySequencer->encoderTurned(currentTimbre, encoder, ticks);
         break;
     }
+    default:
+        break;
     }
 }
 
@@ -460,6 +462,8 @@ void SynthState::buttonLongPressed(int button) {
             break;
         case SYNTH_MODE_EDIT_PFM3:
             displayEditor->buttonLongPressed(currentTimbre, button);
+            break;
+        default:
             break;
     }
 }

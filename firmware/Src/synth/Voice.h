@@ -28,12 +28,14 @@
  \param [in]    sat  Bit position to saturate to (0..31)
  \return             Saturated value
  */
+#ifndef __USAT
 #define __USAT(ARG1,ARG2) \
 ({                          \
   uint32_t __RES, __ARG1 = (ARG1); \
   asm ("usat %0, %1, %2" : "=r" (__RES) :  "I" (ARG2), "r" (__ARG1) ); \
   __RES; \
  })
+#endif
 
 class Timbre;
 

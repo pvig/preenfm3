@@ -149,9 +149,9 @@ void Encoders::checkStatus(uint8_t encoderType, uint8_t encoderPush) {
 
         if (unlikely(actionEnc[encoderState_[k]] == 1 && lastMove_[k] != LAST_MOVE_DEC)) {
             if (firstButtonDown_ == -1) {
-                actions_.insert((EncoderAction){ ENCODER_TURNED, k, tickSpeed_[k] * inversedEnc, 0, 0});
+                actions_.insert((EncoderAction){ ENCODER_TURNED, k, (int8_t)(tickSpeed_[k] * inversedEnc), 0, 0});
             } else {
-                actions_.insert((EncoderAction){ ENCODER_TURNED_WHILE_BUTTON_PRESSED, k, tickSpeed_[k] * inversedEnc, firstButtonDown_, 0});
+                actions_.insert((EncoderAction){ ENCODER_TURNED_WHILE_BUTTON_PRESSED, k, (int8_t)(tickSpeed_[k] * inversedEnc), (uint8_t)firstButtonDown_, 0});
                 buttonUsedFromSomethingElse_[firstButtonDown_] = true;
             }
 
@@ -160,9 +160,9 @@ void Encoders::checkStatus(uint8_t encoderType, uint8_t encoderPush) {
             timerAction_[k] = 60;
         } else if (unlikely(actionEnc[encoderState_[k]] == 2 && lastMove_[k] != LAST_MOVE_INC)) {
             if (firstButtonDown_ == -1) {
-                actions_.insert((EncoderAction){ ENCODER_TURNED, k, - tickSpeed_[k] * inversedEnc, 0, 0});
+                actions_.insert((EncoderAction){ ENCODER_TURNED, k, (int8_t)(-tickSpeed_[k] * inversedEnc), 0, 0});
             } else {
-                actions_.insert((EncoderAction){ ENCODER_TURNED_WHILE_BUTTON_PRESSED, k, -tickSpeed_[k] * inversedEnc, firstButtonDown_, 0});
+                actions_.insert((EncoderAction){ ENCODER_TURNED_WHILE_BUTTON_PRESSED, k, (int8_t)(-tickSpeed_[k] * inversedEnc), (uint8_t)firstButtonDown_, 0});
                 buttonUsedFromSomethingElse_[firstButtonDown_] = true;
             }
             tickSpeed_[k] += 3;
@@ -197,7 +197,7 @@ void Encoders::checkStatus(uint8_t encoderType, uint8_t encoderPush) {
                     firstButtonDown_ = k;
                     buttonUsedFromSomethingElse_[k] = false;
                 } else {
-                    actions_.insert((EncoderAction){ ENCODER_TWO_BUTTON_PRESSED, 0, 0, firstButtonDown_, k});
+                    actions_.insert((EncoderAction){ ENCODER_TWO_BUTTON_PRESSED, 0, 0, (uint8_t)firstButtonDown_, k});
                     buttonUsedFromSomethingElse_[firstButtonDown_] = true;
                     buttonUsedFromSomethingElse_[k] = true;
                 }
@@ -251,13 +251,13 @@ void Encoders::checkStatusUpDown(uint8_t encoderType, uint8_t encoderPush) {
         }
 
         if (unlikely(actionEnc[encoderState_[k]] == 1 && lastMove_[k] != LAST_MOVE_DEC)) {
-            actions_.insert((EncoderAction){ ENCODER_TURNED, k, tickSpeed_[k] * inversedEnc, 0, 0});
+            actions_.insert((EncoderAction){ ENCODER_TURNED, k, (int8_t)(tickSpeed_[k] * inversedEnc), 0, 0});
 
             tickSpeed_[k] += 3;
             lastMove_[k] = LAST_MOVE_INC;
             timerAction_[k] = 40;
         } else if (unlikely(actionEnc[encoderState_[k]] == 2 && lastMove_[k] != LAST_MOVE_INC)) {
-            actions_.insert((EncoderAction){ ENCODER_TURNED, k, - tickSpeed_[k] * inversedEnc, 0, 0});
+            actions_.insert((EncoderAction){ ENCODER_TURNED, k, (int8_t)(-tickSpeed_[k] * inversedEnc), 0, 0});
             tickSpeed_[k] += 3;
             lastMove_[k] = LAST_MOVE_DEC;
             timerAction_[k] = 40;
