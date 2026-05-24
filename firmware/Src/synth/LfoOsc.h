@@ -33,14 +33,16 @@ public:
 
 	void valueChanged(int encoder) {
 	    switch (encoder) {
-	    case ENCODER_LFO_KSYNC:
-            this->rampInv = 50 * invTab[(int)(lfo->keybRamp * 50.0f)];
+        case ENCODER_LFO_KSYNC: {
+            float keybRampAbs = lfo->keybRamp < 0.0f ? -lfo->keybRamp : lfo->keybRamp;
+            this->rampInv = 50 * invTab[(int)(keybRampAbs * 50.0f)];
             this->ramp = lfo->keybRamp;
             if (this->ramp < 0 ) {
                 // resync all LFO
                 phase = 0;
             }
             break;
+        }
 	    case ENCODER_LFO_FREQ:
 	        isNotMidiSynchronized = ((lfo->freq * 10.0f) < LFO_MIDICLOCK_MC_DIV_16);
 	        break;

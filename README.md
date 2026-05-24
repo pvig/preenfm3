@@ -6,7 +6,7 @@ Binaries can be found in the [Release section](https://github.com/Ixox/preenfm3/
 
 For the documentation, go to [the Wiki](https://github.com/Ixox/preenfm3/wiki).
 
-## Build In VS Code (STM32CubeIDE Headless CLI)
+## Build in VS Code (STM32CubeIDE Headless CLI)
 
 This repository can be compiled from the VS Code terminal by using STM32CubeIDE in headless mode.
 

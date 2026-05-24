@@ -388,7 +388,10 @@ void SynthState::loadDx7Patch(int timbre, PFM3File const *bank, int patchNumber,
     storeTestNote();
     propagateNoteOff();
     propagateBeforeNewParamsLoad(timbre);
-    hexter->loadHexterPatch(storage->getDX7SysexFile()->dx7LoadPatch(bank, patchNumber), params);
+    uint8_t* packedPatch = storage->getDX7SysexFile()->dx7LoadPatch(bank, patchNumber);
+    if (packedPatch != 0) {
+        hexter->loadHexterPatch(packedPatch, params);
+    }
     propagateAfterNewParamsLoad(timbre);
     restoreTestNote();
 }

@@ -31,6 +31,7 @@ public:
 protected:
 	const char* getFolderName();
 	bool isCorrectFile(char *name, int size);
+	bool validateBankData(const uint8_t* bytes, int size);
 	struct PFM3File *dx7Bank;
 
 };
