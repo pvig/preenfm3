@@ -385,6 +385,8 @@ public:
 private:
     // private function for BP filter
     void recomputeBPValues(float q, float fSquare);
+    // Reinitialize all operator oscillators with per-operator phase offsets.
+    void applyOperatorStartPhases(float mainFrequency);
 
     // voice status
     bool released;

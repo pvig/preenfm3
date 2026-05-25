@@ -429,6 +429,7 @@ void Voice::noteOnWithoutPop(short newNote, float newNoteFrequency, short veloci
     this->index = index;
     // We can glide in mono and unison
     if (!this->released &&  currentTimbre->params_.engine1.playMode != PLAY_MODE_POLY && currentTimbre->params_.engine2.glideType != GLIDE_TYPE_OFF) {
+        // Keep phase continuity on overlap glide: only pitch glides to the new note.
         glideToNote(newNote, newNoteFrequency);
         this->holdedByPedal = false;
         newGlide=false;
@@ -498,6 +499,32 @@ static inline float phaseDegreeToNormalized(float phaseDegree) {
     return phaseDegree * (1.0f / 360.0f);
 }
 
+void Voice::applyOperatorStartPhases(float mainFrequency) {
+    float oscPhase1 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp1.phase);
+    float oscPhase2 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp2.phase);
+    float oscPhase3 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp3.phase);
+    float oscPhase4 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp4.phase);
+    float oscPhase5 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp5.phase);
+    float oscPhase6 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp6.phase);
+
+    // Preserve legacy unison behavior for negative detune.
+    if (unlikely(currentTimbre->params_.engine2.unisonDetune < 0.0f)) {
+        oscPhase1 = 0.25f;
+        oscPhase2 = 0.25f;
+        oscPhase3 = 0.25f;
+        oscPhase4 = 0.25f;
+        oscPhase5 = 0.25f;
+        oscPhase6 = 0.25f;
+    }
+
+    currentTimbre->osc1_.newNote(&oscState1_, mainFrequency, oscPhase1);
+    currentTimbre->osc2_.newNote(&oscState2_, mainFrequency, oscPhase2);
+    currentTimbre->osc3_.newNote(&oscState3_, mainFrequency, oscPhase3);
+    currentTimbre->osc4_.newNote(&oscState4_, mainFrequency, oscPhase4);
+    currentTimbre->osc5_.newNote(&oscState5_, mainFrequency, oscPhase5);
+    currentTimbre->osc6_.newNote(&oscState6_, mainFrequency, oscPhase6);
+}
+
 void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32_t index, float phase) {
 
     (void)phase;
@@ -511,6 +538,7 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
         } else {
             this->noteFrequency = newNoteFrequency;
         }
+        // Keep phase continuity in glide-always mode: glide changes pitch only.
         glideToNote(newNote, newNoteFrequency);
         newGlide=true;
         this->note = newNote;
@@ -518,31 +546,8 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
     } else {
         this->note = newNote;
         this->noteFrequency = newNoteFrequency;
-
         // Absolute per-operator start phase at note-on.
-        float oscPhase1 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp1.phase);
-        float oscPhase2 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp2.phase);
-        float oscPhase3 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp3.phase);
-        float oscPhase4 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp4.phase);
-        float oscPhase5 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp5.phase);
-        float oscPhase6 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp6.phase);
-
-        if (unlikely(currentTimbre->params_.engine2.unisonDetune < 0.0f)) {
-            oscPhase1 = 0.25f;
-            oscPhase2 = 0.25f;
-            oscPhase3 = 0.25f;
-            oscPhase4 = 0.25f;
-            oscPhase5 = 0.25f;
-            oscPhase6 = 0.25f;
-        }
-
-        currentTimbre->osc1_.newNote(&oscState1_, newNoteFrequency, oscPhase1);
-        currentTimbre->osc1_.newNote(&oscState1_, newNoteFrequency, oscPhase1);
-        currentTimbre->osc2_.newNote(&oscState2_, newNoteFrequency, oscPhase2);
-        currentTimbre->osc3_.newNote(&oscState3_, newNoteFrequency, oscPhase3);
-        currentTimbre->osc4_.newNote(&oscState4_, newNoteFrequency, oscPhase4);
-        currentTimbre->osc5_.newNote(&oscState5_, newNoteFrequency, oscPhase5);
-        currentTimbre->osc6_.newNote(&oscState6_, newNoteFrequency, oscPhase6);
+        applyOperatorStartPhases(newNoteFrequency);
     }
 
     this->midiVelocity = velocity;

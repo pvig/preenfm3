@@ -39,6 +39,7 @@ FirmwareTftDisplay::FirmwareTftDisplay() : TftDisplay() {
    envInQueue = 0;
    lfoInQueue = 0;
    operatorInQueue = 0;
+    operatorPhaseNormalized = 0.0f;
 }
 
 FirmwareTftDisplay::~FirmwareTftDisplay() {
@@ -130,6 +131,28 @@ void FirmwareTftDisplay::oscilloBgDrawOperatorShape(float* waveForm, int size) {
         } else {
             bgOscillo[indexMiddle + x + oscilloYValue[x] * 160] = oscilloColor;
         }
+    }
+
+    // Subtle phase marker: dotted vertical line + small dot on waveform crossing.
+    int markerX = (int)(operatorPhaseNormalized * 159.0f + 0.5f);
+    if (markerX < 1) {
+        markerX = 1;
+    } else if (markerX > 158) {
+        markerX = 158;
+    }
+
+    uint16_t markerColor = tftPalette565[COLOR_LIGHT_GRAY];
+    for (int y = 2; y <= 95; y += 2) {
+        bgOscillo[markerX + y * 160] = markerColor;
+    }
+
+    int markerY = oscilloYValue[markerX];
+    if (markerY > -48 && markerY < 48) {
+        uint16_t dotColor = tftPalette565[COLOR_CYAN];
+        int dotIndex = indexMiddle + markerX + markerY * 160;
+        bgOscillo[dotIndex] = dotColor;
+        bgOscillo[dotIndex - 1] = dotColor;
+        bgOscillo[dotIndex + 1] = dotColor;
     }
 }
 
@@ -249,6 +272,15 @@ void FirmwareTftDisplay::oscilloBgSetLfo(float shape, float freq, float kSyn, fl
     oscilParams1[3] = bias;
     oscilParams1[4] = phase;
 
+}
+
+void FirmwareTftDisplay::oscilloBgSetOperatorPhase(float phaseDegrees) {
+    if (phaseDegrees < 0.0f) {
+        phaseDegrees = 0.0f;
+    } else if (phaseDegrees > 360.0f) {
+        phaseDegrees = 360.0f;
+    }
+    operatorPhaseNormalized = phaseDegrees * (1.0f / 360.0f);
 }
 
 

@@ -181,6 +181,9 @@ void FMDisplay3::newSynthMode(FullState *fullState) {
             break;
         case SYNTH_MODE_EDIT_PFM3:
             refreshStatus_ = 21;
+            // Force immediate oscilloscope refresh on EDIT entry so phase marker is visible
+            // before any parameter change occurs.
+            this->refreshOscilloBG();
             break;
         case SYNTH_MODE_MENU:
             displayMenu_->setPreviousSynthMode(fullState->synthModeBeforeMenu);

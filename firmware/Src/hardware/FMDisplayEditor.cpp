@@ -2347,43 +2347,20 @@ const struct Pfm3OneButtonState pfm3ButtonOPShapeState = {
             ROW_OSC1,
             ENCODER_OSC_FTUNE },
         {
-            ROW_NONE,
-            ENCODER_NONE },
-        {
-            ROW_NONE,
-            ENCODER_NONE } } };
-
-const struct Pfm3OneButtonState pfm3ButtonOPPhaseState = {
-    // Alternate state of the Operator Osc page to edit per-operator start phase.
-    "Phase",
-    {
-        {
+            // Show phase directly on the first Osc page as encoder 5.
             ROW_OP_PHASE1,
             ENCODER_OSC_PHASE },
-        {
-            ROW_NONE,
-            ENCODER_NONE },
-        {
-            ROW_NONE,
-            ENCODER_NONE },
-        {
-            ROW_NONE,
-            ENCODER_NONE },
-        {
-            ROW_NONE,
-            ENCODER_NONE },
         {
             ROW_NONE,
             ENCODER_NONE } } };
 
 const struct Pfm3OneButton pfm3ButtonOPShape = {
     "Osc",
-    // Dedicated button state id prevents sharing state with unrelated one-state pages.
+    // Keep a dedicated button id for operator osc page state storage.
     BUTTONID_OP_OSC,
-    2,
+    1,
     {
-        &pfm3ButtonOPShapeState,
-        &pfm3ButtonOPPhaseState } };
+        &pfm3ButtonOPShapeState } };
 
 const struct Pfm3OneButtonState pfm3ButtonNoPage = {
     "",
@@ -3128,6 +3105,19 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
             case ROW_OSC6:
                 rowToTest = ROW_OSC1;
                 break;
+            case ROW_OP_PHASE2:
+            case ROW_OP_PHASE3:
+            case ROW_OP_PHASE4:
+            case ROW_OP_PHASE5:
+            case ROW_OP_PHASE6: {
+                int op = currentRow - ROW_OP_PHASE1;
+                // Ignore updates coming from MENU+encoder on a different operator.
+                if (op != synthState_->fullState.operatorNumber) {
+                    return;
+                }
+                rowToTest = ROW_OP_PHASE1;
+                break;
+            }
             case ROW_ENV1_TIME:
             case ROW_ENV2_TIME:
             case ROW_ENV3_TIME:
@@ -3277,6 +3267,14 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
             }
             break;
         }
+        case ROW_OP_PHASE1:
+        case ROW_OP_PHASE2:
+        case ROW_OP_PHASE3:
+        case ROW_OP_PHASE4:
+        case ROW_OP_PHASE5:
+        case ROW_OP_PHASE6:
+            refreshOscillatorOperatorShape();
+            break;
         case ROW_LFOPHASES:
         case ROW_LFOOSC1:
         case ROW_LFOOSC2:
@@ -4373,7 +4371,9 @@ bool FMDisplayEditor::isInModulatorPage(uint8_t pageNumber) {
 void FMDisplayEditor::refreshOscillatorOperatorShape() {
     int op = synthState_->fullState.operatorNumber;
     OscillatorParams *oscillatorParams = &synthState_->params->osc1;
+    OperatorPhaseRowParams *phaseParams = &synthState_->params->phaseOp1;
 
+    tft_->oscilloBgSetOperatorPhase(phaseParams[op].phase);
     tft_->oscilloBgActionOperatorShape((int) oscillatorParams[op].shape);
 }
 
