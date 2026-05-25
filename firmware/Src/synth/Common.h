@@ -151,6 +151,8 @@ enum {
     BUTTONID_MENU_SETTINGS,
     BUTTONID_PERFORMANCE,
     BUTTONID_ENV_1,
+    // Dedicated state bucket for the Operator Osc page (Osc <-> Phase states).
+    BUTTONID_OP_OSC,
     NUMBER_OF_BUTTONIDS
 };
 
@@ -226,11 +228,18 @@ enum {
     ROW_ENV5_CURVE,
     ROW_ENV6_CURVE,
     ROW_EFFECT2,
+    // Operator phase rows (one 4-float row per operator for UI/editor indexing).
+    ROW_OP_PHASE1,
+    ROW_OP_PHASE2,
+    ROW_OP_PHASE3,
+    ROW_OP_PHASE4,
+    ROW_OP_PHASE5,
+    ROW_OP_PHASE6,
     ROW_NONE
 };
 
-#define NUMBER_OF_ROWS (ROW_EFFECT2+1)
-#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_EFFECT2+1)
+#define NUMBER_OF_ROWS (ROW_OP_PHASE6+1)
+#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_OP_PHASE6+1)
 
 
 enum {
@@ -549,6 +558,15 @@ struct MidiNoteCurveRowParams {
     float unused1;
 };
 
+struct OperatorPhaseRowParams {
+    // Phase offset in degrees [0..360].
+    float phase;
+    // Reserved to keep row width aligned with 4-encoder editor storage.
+    float unused1;
+    float unused2;
+    float unused3;
+};
+
 struct OneSynthParams {
     struct Engine1Params engine1;
     struct EngineIm1 engineIm1;
@@ -612,6 +630,13 @@ struct OneSynthParams {
     struct EnvelopeCurveParams env5Curve;
     struct EnvelopeCurveParams env6Curve;
     struct EffectRowParams effect2;
+    // Stored as rows so operator page editing can reuse the standard row*4 indexing path.
+    struct OperatorPhaseRowParams phaseOp1;
+    struct OperatorPhaseRowParams phaseOp2;
+    struct OperatorPhaseRowParams phaseOp3;
+    struct OperatorPhaseRowParams phaseOp4;
+    struct OperatorPhaseRowParams phaseOp5;
+    struct OperatorPhaseRowParams phaseOp6;
     char presetName[13];
 };
 

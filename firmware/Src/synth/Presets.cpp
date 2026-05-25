@@ -97,6 +97,13 @@ const struct OneSynthParams defaultPreset  = {
         { 1, 0, 1, 0} ,
         // Effect 2
         { 0, 0.5, 0.5, 1.0} ,
+        // Operator phase defaults (degrees), one row per operator.
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
         // Name
         "Default"
 };
@@ -187,6 +194,13 @@ const struct OneSynthParams preenMainPreset  = {
         { 1, 0, 1, 0} ,
         // Effect 2
         { 0, 0.5, 0.5, 1.0} ,
+        // Operator phase defaults (degrees), one row per operator.
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
         "Sound"
 };
 
@@ -273,6 +287,13 @@ const struct OneSynthParams newPresetParams  = {
         { 1, 0, 1, 0} ,
         // Effect 2
         { 0, 0.5, 0.5, 1.0} ,
+        // Operator phase defaults (degrees), one row per operator.
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 },
         "Default"
 };
 

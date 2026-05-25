@@ -19,6 +19,13 @@
 
 __attribute__((section(".ram_d2b"))) struct PFM3File preenFMBankAlloc[NUMBEROFPREENFMBANKS];
 
+static inline uint32_t getLegacyV2NamePosition() {
+    // PRESET_VERSION2 stored presetName before the newly added operator phase rows.
+    // This offset points to the legacy name location for safe migration.
+    OneSynthParams *params = (OneSynthParams*) 0;
+    return (uint32_t) (((unsigned int) &params->phaseOp1) - ((unsigned int) params));
+}
+
 PatchBank::PatchBank() {
     numberOfFilesMax_ = NUMBEROFPREENFMBANKS;
     myFiles_ = preenFMBankAlloc;
@@ -91,12 +98,21 @@ void PatchBank::loadPatch(const struct PFM3File *bank, int patchNumber, struct O
     if (result == ALIGNED_PATCH_SIZE) {
         uint32_t version = *(uint32_t*) (&storageBuffer[ALIGNED_PATCH_SIZE - 5]);
         switch (version) {
-            case PRESET_VERSION2:
-                // Direct copy
-                for (uint32_t p = 0; p < PFM3_PATCH_FLASH_SIZE; p++) {
+            case PRESET_VERSION2: {
+                uint32_t legacyNamePosition = getLegacyV2NamePosition();
+                uint32_t newNamePosition = (uint32_t) (((unsigned int) params->presetName) - ((unsigned int) params));
+
+                for (uint32_t p = 0; p < sizeof(struct OneSynthParams); p++) {
+                    ((char*) params)[p] = 0;
+                }
+                for (uint32_t p = 0; p < legacyNamePosition; p++) {
                     ((char*) params)[p] = storageBuffer[p];
                 }
+                for (uint32_t p = 0; p < 13; p++) {
+                    ((char*) params)[newNamePosition + p] = storageBuffer[legacyNamePosition + p];
+                }
                 break;
+            }
             default:
                 // VERSION1 Needs a conversion
                 convertFlashToParams((const struct FlashSynthParams*) storageBuffer, params, *arpeggiatorPartOfThePreset_ > 0);
@@ -114,11 +130,9 @@ const char* PatchBank::loadPatchName(const struct PFM3File *bank, int patchNumbe
     int namePosition;
 
     switch (version) {
-        case PRESET_VERSION2: {
-            OneSynthParams *version2Params = (OneSynthParams*) storageBuffer;
-            namePosition = (int) (((unsigned int) version2Params->presetName) - (unsigned int) version2Params);
+        case PRESET_VERSION2:
+            namePosition = (int) getLegacyV2NamePosition();
             break;
-        }
         default: {
             // VERSION 1
             FlashSynthParams *flashSynthParams = (FlashSynthParams*) storageBuffer;

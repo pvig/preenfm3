@@ -1287,6 +1287,48 @@ struct ParameterRowDisplay oscParameterRow = {
             nullNamesOrder,
             nullNamesOrder } } };
 
+struct ParameterRowDisplay oscPhaseParameterRow = {
+    // Dedicated operator phase row: first encoder edits phase, others are hidden.
+    "OpPh",
+    {
+        "Phs",
+        "",
+        "",
+        "" },
+    {
+        {
+            0,
+            360,
+            361,
+            DISPLAY_TYPE_FLOAT,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder  },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder  },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder } } };
+
 struct ParameterRowDisplay envParameterTime = {
     "Env T",
     {
@@ -1917,7 +1959,13 @@ struct AllParameterRowsDisplay allParameterRows = {
         &engineCurveParameterRow,
         &engineCurveParameterRow,
         &engineCurveParameterRow,
-        &fx2ParameterRow
+        &fx2ParameterRow,
+        &oscPhaseParameterRow,
+        &oscPhaseParameterRow,
+        &oscPhaseParameterRow,
+        &oscPhaseParameterRow,
+        &oscPhaseParameterRow,
+        &oscPhaseParameterRow
 
 } };
 
@@ -2305,12 +2353,37 @@ const struct Pfm3OneButtonState pfm3ButtonOPShapeState = {
             ROW_NONE,
             ENCODER_NONE } } };
 
+const struct Pfm3OneButtonState pfm3ButtonOPPhaseState = {
+    // Alternate state of the Operator Osc page to edit per-operator start phase.
+    "Phase",
+    {
+        {
+            ROW_OP_PHASE1,
+            ENCODER_OSC_PHASE },
+        {
+            ROW_NONE,
+            ENCODER_NONE },
+        {
+            ROW_NONE,
+            ENCODER_NONE },
+        {
+            ROW_NONE,
+            ENCODER_NONE },
+        {
+            ROW_NONE,
+            ENCODER_NONE },
+        {
+            ROW_NONE,
+            ENCODER_NONE } } };
+
 const struct Pfm3OneButton pfm3ButtonOPShape = {
     "Osc",
-    BUTTONID_ONLY_ONE_STATE,
-    1,
+    // Dedicated button state id prevents sharing state with unrelated one-state pages.
+    BUTTONID_OP_OSC,
+    2,
     {
-        &pfm3ButtonOPShapeState } };
+        &pfm3ButtonOPShapeState,
+        &pfm3ButtonOPPhaseState } };
 
 const struct Pfm3OneButtonState pfm3ButtonNoPage = {
     "",

@@ -488,7 +488,19 @@ float Voice::getNoteRealFrequencyEstimation(float newNoteFrequency) {
     return currentTimbre->osc1_.getNoteRealFrequencyEstimation(&oscState1_, newNoteFrequency);
 }
 
+static inline float phaseDegreeToNormalized(float phaseDegree) {
+    // Convert UI phase in degrees to wavetable phase in [0..1].
+    if (phaseDegree < 0.0f) {
+        phaseDegree = 0.0f;
+    } else if (phaseDegree > 360.0f) {
+        phaseDegree = 360.0f;
+    }
+    return phaseDegree * (1.0f / 360.0f);
+}
+
 void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32_t index, float phase) {
+
+    (void)phase;
 
 
     // On noteOn we can only glide in mono and unison with glideType ALWAYS
@@ -507,17 +519,30 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
         this->note = newNote;
         this->noteFrequency = newNoteFrequency;
 
+        // Absolute per-operator start phase at note-on.
+        float oscPhase1 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp1.phase);
+        float oscPhase2 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp2.phase);
+        float oscPhase3 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp3.phase);
+        float oscPhase4 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp4.phase);
+        float oscPhase5 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp5.phase);
+        float oscPhase6 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp6.phase);
+
         if (unlikely(currentTimbre->params_.engine2.unisonDetune < 0.0f)) {
-            phase = 0.25f;
+            oscPhase1 = 0.25f;
+            oscPhase2 = 0.25f;
+            oscPhase3 = 0.25f;
+            oscPhase4 = 0.25f;
+            oscPhase5 = 0.25f;
+            oscPhase6 = 0.25f;
         }
 
-        currentTimbre->osc1_.newNote(&oscState1_, newNoteFrequency, phase);
-        currentTimbre->osc1_.newNote(&oscState1_, newNoteFrequency, phase);
-        currentTimbre->osc2_.newNote(&oscState2_, newNoteFrequency, phase);
-        currentTimbre->osc3_.newNote(&oscState3_, newNoteFrequency, phase);
-        currentTimbre->osc4_.newNote(&oscState4_, newNoteFrequency, phase);
-        currentTimbre->osc5_.newNote(&oscState5_, newNoteFrequency, phase);
-        currentTimbre->osc6_.newNote(&oscState6_, newNoteFrequency, phase);
+        currentTimbre->osc1_.newNote(&oscState1_, newNoteFrequency, oscPhase1);
+        currentTimbre->osc1_.newNote(&oscState1_, newNoteFrequency, oscPhase1);
+        currentTimbre->osc2_.newNote(&oscState2_, newNoteFrequency, oscPhase2);
+        currentTimbre->osc3_.newNote(&oscState3_, newNoteFrequency, oscPhase3);
+        currentTimbre->osc4_.newNote(&oscState4_, newNoteFrequency, oscPhase4);
+        currentTimbre->osc5_.newNote(&oscState5_, newNoteFrequency, oscPhase5);
+        currentTimbre->osc6_.newNote(&oscState6_, newNoteFrequency, oscPhase6);
     }
 
     this->midiVelocity = velocity;

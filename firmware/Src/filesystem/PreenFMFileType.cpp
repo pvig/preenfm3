@@ -388,6 +388,8 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     fsu_->copyFloat((float*) &params->midiNote1Curve, (float*) &flashMemory->midiNote1Curve, 4);
     fsu_->copyFloat((float*) &params->midiNote2Curve, (float*) &flashMemory->midiNote2Curve, 4);
     fsu_->copyFloat((float*) &params->lfoPhases, (float*) &flashMemory->lfoPhases, 4);
+    // Persist all 6 operator phase rows as one contiguous block.
+    fsu_->copyFloat((float*) &params->phaseOp1, (float*) &flashMemory->phaseOp1, 4 * 6);
 
 
     for (int s = 0; s < 16; s++) {
@@ -495,6 +497,8 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     fsu_->copyFloat((float*) &flashMemory->lfoPhases, (float*) &params->lfoPhases, 4);
     fsu_->copyFloat((float*) &flashMemory->midiNote1Curve, (float*) &params->midiNote1Curve, 4);
     fsu_->copyFloat((float*) &flashMemory->midiNote2Curve, (float*) &params->midiNote2Curve, 4);
+    // Restore all 6 operator phase rows from flash payload.
+    fsu_->copyFloat((float*) &flashMemory->phaseOp1, (float*) &params->phaseOp1, 4 * 6);
 
     for (int s = 0; s < 16; s++) {
         params->lfoSteps1.steps[s] = flashMemory->lfoSteps1.steps[s];

@@ -131,6 +131,10 @@ enum {
 };
 
 enum {
+    ENCODER_OSC_PHASE = 0
+};
+
+enum {
     ENCODER_ENV_A = 0,
     ENCODER_ENV_D,
     ENCODER_ENV_S,
