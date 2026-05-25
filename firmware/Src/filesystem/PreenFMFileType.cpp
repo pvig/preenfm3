@@ -390,6 +390,7 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     fsu_->copyFloat((float*) &params->lfoPhases, (float*) &flashMemory->lfoPhases, 4);
     // Persist all 6 operator phase rows as one contiguous block.
     fsu_->copyFloat((float*) &params->phaseOp1, (float*) &flashMemory->phaseOp1, 4 * 6);
+    fsu_->copyFloat((float*) &params->engineDecimation, (float*) &flashMemory->engineDecimation, 4);
 
 
     for (int s = 0; s < 16; s++) {
@@ -499,6 +500,7 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     fsu_->copyFloat((float*) &flashMemory->midiNote2Curve, (float*) &params->midiNote2Curve, 4);
     // Restore all 6 operator phase rows from flash payload.
     fsu_->copyFloat((float*) &flashMemory->phaseOp1, (float*) &params->phaseOp1, 4 * 6);
+    fsu_->copyFloat((float*) &flashMemory->engineDecimation, (float*) &params->engineDecimation, 4);
 
     for (int s = 0; s < 16; s++) {
         params->lfoSteps1.steps[s] = flashMemory->lfoSteps1.steps[s];
@@ -562,6 +564,7 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     }
 
     // Fixe poly Mono depending on pfm3Version :
+    float patchVersion = params->engine2.pfm3Version;
     uint32_t version = (uint32_t)(params->engine2.pfm3Version + .1f);
     if (version == 0) {
         // map to new parameters
@@ -582,6 +585,15 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
         } else {
             params->engine2.glideType = GLIDE_TYPE_OFF;
         }
+    }
+
+    // Decimation range changed in patch version 1.3.
+    if (patchVersion < 1.3f) {
+        params->engineDecimation.decimation = FM_DECIMATION_CURRENT;
+    }
+    if (params->engineDecimation.decimation < FM_DECIMATION_1BIT
+        || params->engineDecimation.decimation > FM_DECIMATION_CURRENT) {
+        params->engineDecimation.decimation = FM_DECIMATION_CURRENT;
     }
 
     params->engine2.pfm3Version = PFM3_PATCH_VERSION; // fix done, patch is now fm3 compatible

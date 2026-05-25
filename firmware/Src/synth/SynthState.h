@@ -47,6 +47,10 @@ enum {
     ENCODER_USED_FOR_PFM3_VERSION,
 };
 
+enum {
+    ENCODER_ENGINE_DECIMATION = 0,
+};
+
 
 enum {
     ENCODER_ARPEGGIATOR_CLOCK = 0,

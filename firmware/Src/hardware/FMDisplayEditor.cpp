@@ -156,6 +156,75 @@ struct ParameterRowDisplay engine2ParameterRow = {
             nullNamesOrder,
             nullNamesOrder } } };
 
+const char *decimationNames[] = {
+    "1bit ",
+    "2bit ",
+    "3bit ",
+    "4bit ",
+    "5bit ",
+    "6bit ",
+    "7bit ",
+    "8bit ",
+    "9bit ",
+    "10bit",
+    "11bit",
+    "12bit",
+    "13bit",
+    "14bit",
+    "15bit",
+    "16bit",
+    "17bit",
+    "18bit",
+    "19bit",
+    "20bit",
+    "21bit",
+    "22bit",
+    "23bit",
+    "24bit",
+    "Full "
+};
+
+struct ParameterRowDisplay engineDecimationParameterRow = {
+    "Engine",
+    {
+        "Decim",
+        "",
+        "",
+        "" },
+    {
+        {
+            FM_DECIMATION_1BIT,
+            FM_DECIMATION_CURRENT,
+            FM_DECIMATION_CURRENT + 1,
+            DISPLAY_TYPE_STRINGS,
+            decimationNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder } } };
+
 
 const char *syncNames[] = {
     "Int",
@@ -1965,7 +2034,8 @@ struct AllParameterRowsDisplay allParameterRows = {
         &oscPhaseParameterRow,
         &oscPhaseParameterRow,
         &oscPhaseParameterRow,
-        &oscPhaseParameterRow
+        &oscPhaseParameterRow,
+        &engineDecimationParameterRow
 
 } };
 
@@ -1980,8 +2050,8 @@ const struct Pfm3OneButtonState pfm3ButtonEngineState = {
             ROW_ENGINE,
             ENCODER_ENGINE_ALGO },
         {
-            ROW_NONE,
-            ENCODER_NONE },
+            ROW_ENGINE_DECIMATION,
+            ENCODER_ENGINE_DECIMATION },
         {
             ROW_NONE,
             ENCODER_NONE },

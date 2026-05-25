@@ -147,6 +147,7 @@ struct FlashSynthParams {
     struct OperatorPhaseRowParams phaseOp4;
     struct OperatorPhaseRowParams phaseOp5;
     struct OperatorPhaseRowParams phaseOp6;
+    struct EngineDecimationParams engineDecimation;
 };
 
 #define PFM3_PATCH_FLASH_SIZE sizeof(struct FlashSynthParams)

@@ -105,8 +105,39 @@ public:
         return gliding;
     }
 
+    inline void updateWaveDecimationMode(int mode) {
+        bool enabled = true;
+        uint8_t bits = 1;
+
+        if (mode <= FM_DECIMATION_1BIT) {
+            bits = 1;
+        } else if (mode >= FM_DECIMATION_CURRENT) {
+            enabled = false;
+            bits = 24;
+        } else {
+            bits = (uint8_t)(mode + 1);
+        }
+
+        oscState1_.waveDecimationEnabled = enabled;
+        oscState2_.waveDecimationEnabled = enabled;
+        oscState3_.waveDecimationEnabled = enabled;
+        oscState4_.waveDecimationEnabled = enabled;
+        oscState5_.waveDecimationEnabled = enabled;
+        oscState6_.waveDecimationEnabled = enabled;
+
+        oscState1_.waveDecimationBits = bits;
+        oscState2_.waveDecimationBits = bits;
+        oscState3_.waveDecimationBits = bits;
+        oscState4_.waveDecimationBits = bits;
+        oscState5_.waveDecimationBits = bits;
+        oscState6_.waveDecimationBits = bits;
+    }
+
     void updateAllModulationIndexes() {
-        int numberOfIMs = algoInformation[(int) (currentTimbre->getParamRaw()->engine1.algo)].im;
+        int algo = (int)(currentTimbre->getParamRaw()->engine1.algo);
+        int numberOfIMs = algoInformation[algo].im;
+        int decimationMode = (int) (currentTimbre->getParamRaw()->engineDecimation.decimation + 0.1f);
+        updateWaveDecimationMode(decimationMode);
 
         // Feedback range is [0:1] compared to [0:16] of other modulation, let's divide the modulation impact by 16 (* 0.0625)
         feedbackModulation = currentTimbre->getParamRaw()->engineIm3.modulationIndex6 + this->velIm6
@@ -116,7 +147,6 @@ public:
         } else if (unlikely(feedbackModulation > 1.0f)) {
             feedbackModulation = 1.0f;
         }
-
         modulationIndex1 = currentTimbre->getParamRaw()->engineIm1.modulationIndex1 + matrix.getDestination(INDEX_MODULATION1)
             + matrix.getDestination(INDEX_ALL_MODULATION) + this->velIm1;
         if (unlikely(modulationIndex1 < 0.0f)) {

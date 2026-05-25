@@ -85,7 +85,7 @@
 #define PFM3_VERSIONS_H_
 
 // Patch/preset format version
-#define PFM3_PATCH_VERSION 1.1f
+#define PFM3_PATCH_VERSION 1.3f
 
 #endif /* PFM3_VERSIONS_H_ */
 
@@ -235,11 +235,12 @@ enum {
     ROW_OP_PHASE4,
     ROW_OP_PHASE5,
     ROW_OP_PHASE6,
+    ROW_ENGINE_DECIMATION,
     ROW_NONE
 };
 
-#define NUMBER_OF_ROWS (ROW_OP_PHASE6+1)
-#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_OP_PHASE6+1)
+#define NUMBER_OF_ROWS (ROW_ENGINE_DECIMATION+1)
+#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_ENGINE_DECIMATION+1)
 
 
 enum {
@@ -313,6 +314,41 @@ struct Engine2Params {
     float unisonSpread;
     float unisonDetune;
     float pfm3Version;
+};
+
+enum {
+    FM_DECIMATION_1BIT = 0,
+    FM_DECIMATION_2BIT,
+    FM_DECIMATION_3BIT,
+    FM_DECIMATION_4BIT,
+    FM_DECIMATION_5BIT,
+    FM_DECIMATION_6BIT,
+    FM_DECIMATION_7BIT,
+    FM_DECIMATION_8BIT,
+    FM_DECIMATION_9BIT,
+    FM_DECIMATION_10BIT,
+    FM_DECIMATION_11BIT,
+    FM_DECIMATION_12BIT,
+    FM_DECIMATION_13BIT,
+    FM_DECIMATION_14BIT,
+    FM_DECIMATION_15BIT,
+    FM_DECIMATION_16BIT,
+    FM_DECIMATION_17BIT,
+    FM_DECIMATION_18BIT,
+    FM_DECIMATION_19BIT,
+    FM_DECIMATION_20BIT,
+    FM_DECIMATION_21BIT,
+    FM_DECIMATION_22BIT,
+    FM_DECIMATION_23BIT,
+    FM_DECIMATION_24BIT,
+    FM_DECIMATION_CURRENT
+};
+
+struct EngineDecimationParams {
+    float decimation;
+    float unused1;
+    float unused2;
+    float unused3;
 };
 
 //{ "Acti", "Clk ", "BPM ", "Dire" },
@@ -637,6 +673,7 @@ struct OneSynthParams {
     struct OperatorPhaseRowParams phaseOp4;
     struct OperatorPhaseRowParams phaseOp5;
     struct OperatorPhaseRowParams phaseOp6;
+    struct EngineDecimationParams engineDecimation;
     char presetName[13];
 };
 
