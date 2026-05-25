@@ -1,0 +1,2 @@
+aeb688b751ebe1b48445ae249fd6ad2e581c9ae91827231c5794187dabd4c165  firmware/preenfm3_firmware_v1.06.bin
+868f7045a7204559d076bb6305e41a5023d349a340552ef6243c94f558e9fedd  bootloader/preenfm3_bootloader_1.09.bin
