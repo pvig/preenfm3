@@ -7,6 +7,10 @@ CUBEIDE_BIN="${CUBEIDE_BIN:-/Applications/STM32CubeIDE.app/Contents/MacOS/STM32C
 BUILD_CONFIG="${BUILD_CONFIG:-DebugLQFP144}"
 CLEAN_BUILD="${CLEAN_BUILD:-0}"
 OBJCOPY_BIN="${OBJCOPY_BIN:-arm-none-eabi-objcopy}"
+UPDATE_RELEASE="${UPDATE_RELEASE:-1}"
+RELEASE_DIR="${RELEASE_DIR:-$ROOT_DIR/release/preenfm3-v1.06-bl1.09}"
+RELEASE_FIRMWARE_BIN_NAME="${RELEASE_FIRMWARE_BIN_NAME:-preenfm3_firmware_v1.06.bin}"
+RELEASE_BOOTLOADER_BIN_NAME="${RELEASE_BOOTLOADER_BIN_NAME:-preenfm3_bootloader_1.09.bin}"
 
 LOG_DIR="${1:-$ROOT_DIR/build-logs}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
@@ -120,6 +124,66 @@ convert_flash_bin() {
   fi
 }
 
+update_release_artifacts() {
+  if [[ "$UPDATE_RELEASE" != "1" ]]; then
+    return
+  fi
+
+  local firmware_src="$ROOT_DIR/firmware/${BUILD_CONFIG}/preenfm3.bin"
+  local bootloader_src="$ROOT_DIR/bootloader/${BUILD_CONFIG}/preenfm3 bootloader.bin"
+  local firmware_dst="$RELEASE_DIR/firmware/$RELEASE_FIRMWARE_BIN_NAME"
+  local bootloader_dst="$RELEASE_DIR/bootloader/$RELEASE_BOOTLOADER_BIN_NAME"
+  local sha_file="$RELEASE_DIR/SHA256SUMS.txt"
+  local release_parent
+  local release_name
+  local zip_file
+
+  if [[ ! -d "$RELEASE_DIR" ]]; then
+    echo "Release directory not found, skipping release update: $RELEASE_DIR"
+    return
+  fi
+
+  if [[ ! -f "$firmware_src" || ! -f "$bootloader_src" ]]; then
+    echo "Release update skipped: missing build binaries."
+    echo "  firmware: $firmware_src"
+    echo "  bootloader: $bootloader_src"
+    return
+  fi
+
+  if ! command -v shasum >/dev/null 2>&1; then
+    echo "shasum not found; cannot update release checksums." >&2
+    exit 1
+  fi
+
+  if ! command -v zip >/dev/null 2>&1; then
+    echo "zip not found; cannot rebuild release archive." >&2
+    exit 1
+  fi
+
+  echo "=== Updating release folder ==="
+  cp "$firmware_src" "$firmware_dst"
+  cp "$bootloader_src" "$bootloader_dst"
+
+  (
+    cd "$RELEASE_DIR"
+    shasum -a 256 "bootloader/$RELEASE_BOOTLOADER_BIN_NAME" "firmware/$RELEASE_FIRMWARE_BIN_NAME" > "$sha_file"
+  )
+
+  release_parent="$(dirname "$RELEASE_DIR")"
+  release_name="$(basename "$RELEASE_DIR")"
+  zip_file="$release_parent/$release_name.zip"
+
+  (
+    cd "$release_parent"
+    rm -f "$zip_file"
+    zip -r "$zip_file" "$release_name" -x "*/.DS_Store"
+  )
+
+  echo "OK: release updated"
+  echo "  folder: $RELEASE_DIR"
+  echo "  zip: $zip_file"
+}
+
 if ! command -v "$OBJCOPY_BIN" >/dev/null 2>&1; then
   echo "objcopy not found: $OBJCOPY_BIN" >&2
   echo "Set OBJCOPY_BIN to your arm-none-eabi-objcopy path." >&2
@@ -134,6 +198,7 @@ run_build_step "preenfm3 bootloader/${BUILD_CONFIG}" "bootloader"
 
 convert_flash_bin "$ROOT_DIR/firmware/${BUILD_CONFIG}/preenfm3.elf" "$ROOT_DIR/firmware/${BUILD_CONFIG}/preenfm3.bin" "firmware-bin"
 convert_flash_bin "$ROOT_DIR/bootloader/${BUILD_CONFIG}/preenfm3 bootloader.elf" "$ROOT_DIR/bootloader/${BUILD_CONFIG}/preenfm3 bootloader.bin" "bootloader-bin"
+update_release_artifacts
 
 echo ""
 echo "All builds succeeded."
