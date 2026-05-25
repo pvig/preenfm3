@@ -318,6 +318,15 @@ float Hexter::getRounded(float r) {
  */
 void Hexter::voiceSetData(struct OneSynthParams *params, uint8_t *patch)
 {
+	float previousOperatorPhases[6] = {
+		params->phaseOp1.phase,
+		params->phaseOp2.phase,
+		params->phaseOp3.phase,
+		params->phaseOp4.phase,
+		params->phaseOp5.phase,
+		params->phaseOp6.phase
+	};
+
 	for (int k = 0; k < (int)(sizeof(struct OneSynthParams) / sizeof(float)); k++) {
         int row = k >> 2;
         if (row == ROW_ARPEGGIATOR1 || row == ROW_ARPEGGIATOR2 || row == ROW_ENGINE) {
@@ -368,13 +377,6 @@ void Hexter::voiceSetData(struct OneSynthParams *params, uint8_t *patch)
 		} else {
 			float freq = exp(M_LN10 * ((double)(eb_op[18] & 3) + (double)eb_op[19] / 100.0f));
 			oscParam->frequencyMul = freq / 1000.0f;
-
-			// Low frequency does not work at all with PreenFM
-			if (oscParam->frequencyMul < 40) {
-				oscParam->frequencyType = 0;
-				oscParam->frequencyMul = 1.0f;
-				oscParam->detune = 0.0;
-			}
 		}
 
 		// transpose ?
@@ -860,21 +862,43 @@ void Hexter::voiceSetData(struct OneSynthParams *params, uint8_t *patch)
 
 	int dx7Pmd = limit(patch[139], 0, 99);
 	int dx7Amd = limit(patch[140], 0, 99);
+	int dx7Pms = limit(patch[143], 0, 7);
+	float dx7AmsRatio[6];
+	for (int i = 0; i < 6; i++) {
+		uint8_t *eb_op = patch + ((5 - i) * 21);
+		int dx7Ams = eb_op[14] & 0x03;
+		dx7AmsRatio[i] = (float)dx7Ams / 3.0f;
+	}
 
 	// Matrix use LFO 1 (o all frequency
 	params->matrixRowState1.source = MATRIX_SOURCE_LFO1;
-	params->matrixRowState1.mul =  (float)dx7Pmd / 120.0f;
+	// DX7 pitch vibrato depth depends on both PMD and PMS.
+	// Normalize PMS against the DX7 maximum (12 semitones at PMS=7).
+	float pmsRatio = dx7_voice_pms_to_semitones[dx7Pms] * (1.0f / 12.0f);
+	params->matrixRowState1.mul = ((float)dx7Pmd / 120.0f) * pmsRatio;
 	params->matrixRowState1.dest1 = ALL_OSC_FREQ;
 
+	float amdDepth = dx7_voice_amd_to_ol_adjustment[dx7Amd] / 100.0f;
 	params->matrixRowState2.source = MATRIX_SOURCE_LFO2;
-	// Regression guard: keep row 2 mul from DX7 AMD mapping; do not reset it to 0.
-	params->matrixRowState2.mul = dx7_voice_amd_to_ol_adjustment[dx7Amd] / 100.0f;
-	params->matrixRowState2.dest1 = ALL_MIX;
+	params->matrixRowState2.mul = amdDepth * dx7AmsRatio[0];
+	params->matrixRowState2.dest1 = MIX_OSC1;
 
-	params->matrixRowState3.mul = 0.0f;
-	params->matrixRowState4.mul = 0.0f;
-	params->matrixRowState5.mul = 0.0f;
+	params->matrixRowState3.source = MATRIX_SOURCE_LFO2;
+	params->matrixRowState3.mul = amdDepth * dx7AmsRatio[1];
+	params->matrixRowState3.dest1 = MIX_OSC2;
+
+	params->matrixRowState4.source = MATRIX_SOURCE_LFO2;
+	params->matrixRowState4.mul = amdDepth * dx7AmsRatio[2];
+	params->matrixRowState4.dest1 = MIX_OSC3;
+
+	params->matrixRowState5.source = MATRIX_SOURCE_LFO2;
+	params->matrixRowState5.mul = amdDepth * dx7AmsRatio[3];
+	params->matrixRowState5.dest1 = MIX_OSC4;
+
+	params->matrixRowState6.source = MATRIX_SOURCE_NONE;
 	params->matrixRowState6.mul = 0.0f;
+	params->matrixRowState6.dest1 = DESTINATION_NONE;
+
 	params->matrixRowState7.mul = 0.0f;
 	params->matrixRowState8.mul = 0.0f;
 	params->matrixRowState9.mul = 0.0f;
@@ -890,6 +914,26 @@ void Hexter::voiceSetData(struct OneSynthParams *params, uint8_t *patch)
 	params->matrixRowState12.source = MATRIX_SOURCE_PITCHBEND;
 	params->matrixRowState12.mul = .5f;
 	params->matrixRowState12.dest1 = ALL_OSC_FREQ_HARM;
+
+	// DX7 has key sync but no explicit per-operator phase offsets.
+	// Approximation rule:
+	// - key sync ON  => all operator phases start at 0 degrees.
+	// - key sync OFF => keep the current pre-import operator phases.
+	if ((patch[136] & 0x01) == 0) {
+		params->phaseOp1.phase = previousOperatorPhases[0];
+		params->phaseOp2.phase = previousOperatorPhases[1];
+		params->phaseOp3.phase = previousOperatorPhases[2];
+		params->phaseOp4.phase = previousOperatorPhases[3];
+		params->phaseOp5.phase = previousOperatorPhases[4];
+		params->phaseOp6.phase = previousOperatorPhases[5];
+	} else {
+		params->phaseOp1.phase = 0.0f;
+		params->phaseOp2.phase = 0.0f;
+		params->phaseOp3.phase = 0.0f;
+		params->phaseOp4.phase = 0.0f;
+		params->phaseOp5.phase = 0.0f;
+		params->phaseOp6.phase = 0.0f;
+	}
 }
 
 
