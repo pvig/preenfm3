@@ -113,7 +113,7 @@ public:
             bits = 1;
         } else if (mode >= FM_DECIMATION_CURRENT) {
             enabled = false;
-            bits = 24;
+            bits = 19;
         } else {
             bits = (uint8_t)(mode + 1);
         }
@@ -131,6 +131,23 @@ public:
         oscState4_.waveDecimationBits = bits;
         oscState5_.waveDecimationBits = bits;
         oscState6_.waveDecimationBits = bits;
+
+        float scale = (float)(1u << bits);
+        float invScale = 1.0f / scale;
+
+        oscState1_.waveDecimationScale = scale;
+        oscState2_.waveDecimationScale = scale;
+        oscState3_.waveDecimationScale = scale;
+        oscState4_.waveDecimationScale = scale;
+        oscState5_.waveDecimationScale = scale;
+        oscState6_.waveDecimationScale = scale;
+
+        oscState1_.waveDecimationInvScale = invScale;
+        oscState2_.waveDecimationInvScale = invScale;
+        oscState3_.waveDecimationInvScale = invScale;
+        oscState4_.waveDecimationInvScale = invScale;
+        oscState5_.waveDecimationInvScale = invScale;
+        oscState6_.waveDecimationInvScale = invScale;
     }
 
     void updateAllModulationIndexes() {

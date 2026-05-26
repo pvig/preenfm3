@@ -53,7 +53,7 @@ FMDisplayMixer displayMixer;
 FMDisplaySequencer displaySequencer;
 MidiDecoder midiDecoder;
 Encoders encoders;
-FirmwareTftDisplay tft;
+RAM_D1_SECTION FirmwareTftDisplay tft;
 TftAlgo tftAlgo;
 Synth synth;
 Storage sdCard;

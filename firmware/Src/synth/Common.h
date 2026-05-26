@@ -85,7 +85,7 @@
 #define PFM3_VERSIONS_H_
 
 // Patch/preset format version
-#define PFM3_PATCH_VERSION 1.3f
+#define PFM3_PATCH_VERSION 1.4f
 
 #endif /* PFM3_VERSIONS_H_ */
 
@@ -336,11 +336,6 @@ enum {
     FM_DECIMATION_17BIT,
     FM_DECIMATION_18BIT,
     FM_DECIMATION_19BIT,
-    FM_DECIMATION_20BIT,
-    FM_DECIMATION_21BIT,
-    FM_DECIMATION_22BIT,
-    FM_DECIMATION_23BIT,
-    FM_DECIMATION_24BIT,
     FM_DECIMATION_CURRENT
 };
 
@@ -555,6 +550,22 @@ struct LfoParams {
     float keybRamp;
 };
 
+struct LfoSyncModes {
+    float lfo1;
+    float lfo2;
+    float lfo3;
+    float unused1;
+};
+
+enum LfoSyncMode {
+    LFO_SYNC_INTERNAL = 0,
+    LFO_SYNC_EXTERNAL = 1,
+    LFO_SYNC_ONESHOT_INTERNAL_1 = 2,
+    LFO_SYNC_ONESHOT_INTERNAL_8 = 9,
+    LFO_SYNC_ONESHOT_EXTERNAL_1 = 10,
+    LFO_SYNC_ONESHOT_EXTERNAL_8 = 17,
+};
+
 struct StepSequencerParams {
     float bpm;
     float gate;
@@ -675,6 +686,8 @@ struct OneSynthParams {
     struct OperatorPhaseRowParams phaseOp6;
     struct EngineDecimationParams engineDecimation;
     char presetName[13];
+    // Sync mode per LFO oscillator (Int/Ext/1Si..8Si/1Se..8Se).
+    struct LfoSyncModes lfoSyncModes;
 };
 
 enum SourceEnum {

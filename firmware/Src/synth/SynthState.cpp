@@ -861,6 +861,7 @@ void SynthState::randomizePreset() {
 
         for (int o = 0; o < 3; o++) {
             struct LfoParams* osc = &((struct LfoParams*) &params->lfoOsc1)[o];
+            float* syncModes = &params->lfoSyncModes.lfo1;
             osc->shape = getRandomInt(5);
             osc->freq = getRandomFloat(0.2, 3 + modulationRandom * 2);
             if (getRandomInt(4) > 1) {
@@ -874,7 +875,9 @@ void SynthState::randomizePreset() {
             } else {
                 osc->keybRamp = getRandomFloat(0.0f, 1.0f);
             }
+            syncModes[o] = LFO_SYNC_INTERNAL;
         }
+        params->lfoSyncModes.unused1 = 0.0f;
         for (int e = 0; e < 2; e++) {
             struct EnvelopeLfoParams* env = &((struct EnvelopeLfoParams*) &params->lfoEnv1)[e];
             env->attack = getRandomFloat(0.05f, 1.0f);

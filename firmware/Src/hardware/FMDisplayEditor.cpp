@@ -176,11 +176,6 @@ const char *decimationNames[] = {
     "17bit",
     "18bit",
     "19bit",
-    "20bit",
-    "21bit",
-    "22bit",
-    "23bit",
-    "24bit",
     "Full "
 };
 
@@ -227,9 +222,35 @@ struct ParameterRowDisplay engineDecimationParameterRow = {
 
 
 const char *syncNames[] = {
-    "Int",
-    "Ext"
+    "Int ",
+    "Ext ",
+    "1Si ",
+    "2Si ",
+    "3Si ",
+    "4Si ",
+    "5Si ",
+    "6Si ",
+    "7Si ",
+    "8Si ",
+    "1Se ",
+    "2Se ",
+    "3Se ",
+    "4Se ",
+    "5Se ",
+    "6Se ",
+    "7Se ",
+    "8Se "
 };
+
+static int clampLfoSyncMode(float syncMode) {
+    int mode = (int)(syncMode + 0.5f);
+    if (mode < LFO_SYNC_INTERNAL) {
+        mode = LFO_SYNC_INTERNAL;
+    } else if (mode > LFO_SYNC_ONESHOT_EXTERNAL_8) {
+        mode = LFO_SYNC_ONESHOT_EXTERNAL_8;
+    }
+    return mode;
+}
 
 
 struct ParameterRowDisplay lfoSyncParameterRow = {
@@ -242,8 +263,8 @@ struct ParameterRowDisplay lfoSyncParameterRow = {
     {
         {
             0,
-            1,
-            2,
+            17,
+            18,
             DISPLAY_TYPE_STRINGS,
             syncNames,
             nullNamesOrder,
@@ -1657,7 +1678,26 @@ const char *lfoShapeNames[] = {
     "Rand",
     "Brwn",
     "Wndr",
-    "Flow"
+    "Flow",
+    "SawD",
+    "DExp",
+    "DLog",
+    "RExp",
+    "RLog",
+    "AD  ",
+    "AHD ",
+    "SDec",
+    "Plng",
+    "Plg2",
+    "SnSq",
+    "Sn0 ",
+    "Sn+ ",
+    "Usr1",
+    "Usr2",
+    "Usr3",
+    "Usr4",
+    "Usr5",
+    "Usr6"
      };
 
 struct ParameterRowDisplay lfoParameterRow = {
@@ -3399,9 +3439,9 @@ void FMDisplayEditor::displayParamValue(int encoder, TFT_COLOR color) {
         } else if (rowEncoder.encoder == ENCODER_MODULATOR_SYNC_LFO) {
             tft_->setCharBackgroundColor(COLOR_BLACK);
             tft_->setCharColor(color);
-            struct LfoParams * lfoParams = &synthState_->params->lfoOsc1;
             int lfoButtonState = synthState_->fullState.buttonState[BUTTONID_EDIT_LFOS];
-            tft_->print(lfoSyncParameterRow.params[0].valueName[lfoParams[lfoButtonState].freq < 100.0f ? 0 : 1]);
+            float* lfoSyncModes = &synthState_->params->lfoSyncModes.lfo1;
+            tft_->print(lfoSyncParameterRow.params[0].valueName[clampLfoSyncMode(lfoSyncModes[lfoButtonState])]);
         } else if (rowEncoder.encoder == ENCODER_MODULATOR_SYNC_STEPS) {
             tft_->setCharBackgroundColor(COLOR_BLACK);
             tft_->setCharColor(color);
@@ -4008,41 +4048,81 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
         param = &(allParameterRows.row[row + synthState_->fullState.operatorNumber]->params[encoder4]);
         row += synthState_->fullState.operatorNumber;
     } else if (unlikely(encoder4 == ENCODER_MODULATOR_SYNC_LFO)) {
-        // Simulate we're Osc freq
+        // Virtual LFO sync selector: Int / Ext / 1Shot..8Shot.
         int lfoButtonState = synthState_->fullState.buttonState[BUTTONID_EDIT_LFOS];
+        int lfoRow = ROW_LFOOSC1 + lfoButtonState;
+        struct LfoParams *lfoParams = &synthState_->params->lfoOsc1;
+        struct LfoParams &lfo = lfoParams[lfoButtonState];
+        float *lfoSyncModes = &synthState_->params->lfoSyncModes.lfo1;
 
-        row =  ROW_LFOOSC1 + lfoButtonState;
-        encoder4 = ENCODER_LFO_FREQ;
-        num = encoder4 + row * NUMBER_OF_ENCODERS_PFM2;
-        param = &(allParameterRows.row[row]->params[encoder4]);
-
-        // Block if necessary
-        if ((ticks > 0 && ((float*) synthState_->params)[num] > 99.95f)
-            || (ticks < 0 && ((float*) synthState_->params)[num] < 99.95f)) {
+        int mode = clampLfoSyncMode(lfoSyncModes[lfoButtonState]);
+        int step = ticks > 0 ? 1 : (ticks < 0 ? -1 : 0);
+        if (step == 0) {
             return;
         }
 
-        float freqToSet;
-        if (lfoFreqPreviousValue[lfoButtonState] == -1.0f) {
-            freqToSet = ticks > 0 ? 100.4f : 2.0f;
+        int targetMode = mode + step;
+        if (targetMode < LFO_SYNC_INTERNAL) {
+            targetMode = LFO_SYNC_INTERNAL;
+        } else if (targetMode > LFO_SYNC_ONESHOT_EXTERNAL_8) {
+            targetMode = LFO_SYNC_ONESHOT_EXTERNAL_8;
+        }
+
+        if (targetMode == mode) {
+            return;
+        }
+
+        struct ParameterDisplay *freqParam = &(allParameterRows.row[lfoRow]->params[ENCODER_LFO_FREQ]);
+        struct ParameterDisplay *ksynParam = &(allParameterRows.row[lfoRow]->params[ENCODER_LFO_KSYNC]);
+
+        auto restoreInternalFreq = [&]() {
+            float internalFreq = lfoFreqPreviousValue[lfoButtonState] == -1.0f ? 2.0f : lfoFreqPreviousValue[lfoButtonState];
+            if (internalFreq > 99.9f) {
+                internalFreq = 99.9f;
+            }
+            float oldValue = lfo.freq;
+            lfo.freq = internalFreq;
+            if (oldValue != lfo.freq) {
+                synthState_->propagateNewParamValue(currentTimbre_, lfoRow, ENCODER_LFO_FREQ, freqParam, oldValue, lfo.freq);
+            }
+        };
+
+        if (targetMode == 0) {
+            // Int
+            restoreInternalFreq();
+        } else if (targetMode == 1) {
+            // Ext
+            if (lfo.freq < 100.0f) {
+                lfoFreqPreviousValue[lfoButtonState] = lfo.freq;
+                float oldValue = lfo.freq;
+                lfo.freq = 100.4f;
+                synthState_->propagateNewParamValue(currentTimbre_, lfoRow, ENCODER_LFO_FREQ, freqParam, oldValue, lfo.freq);
+            }
+        } else if (targetMode <= 9) {
+            // 1Si..8Si
+            if (lfo.freq >= 100.0f) {
+                restoreInternalFreq();
+            }
         } else {
-            freqToSet = lfoFreqPreviousValue[lfoButtonState];
-            // User arrive in Ext/Int area with Freq encoder ?
-            if (ticks < 0 && freqToSet > 99.95f) {
-                freqToSet = 99.9f;
-            } else if (ticks > 0 && freqToSet < 99.95f) {
-                freqToSet = 100.0f;
+            // 1Se..8Se
+            if (lfo.freq < 100.0f) {
+                lfoFreqPreviousValue[lfoButtonState] = lfo.freq;
+                float oldValue = lfo.freq;
+                lfo.freq = 100.4f;
+                synthState_->propagateNewParamValue(currentTimbre_, lfoRow, ENCODER_LFO_FREQ, freqParam, oldValue, lfo.freq);
             }
         }
-        lfoFreqPreviousValue[lfoButtonState] = ((float*) synthState_->params)[num];
 
-        if (ticks > 0) {
-            ticks = 20;
-            ((float*) synthState_->params)[num] = freqToSet - .1f * ticks;
-        } else {
-            ticks = - 1000;
-            ((float*) synthState_->params)[num] = freqToSet - .1f * ticks;
+        if (targetMode != mode) {
+            lfoSyncModes[lfoButtonState] = (float)targetMode;
+            // Force LFO runtime update (one-shot limit comes from sync mode).
+            synthState_->propagateNewParamValue(currentTimbre_, lfoRow, ENCODER_LFO_KSYNC, ksynParam, lfo.keybRamp, lfo.keybRamp);
         }
+
+        // Sync is a virtual encoder field; refresh it explicitly after mode changes.
+        displayParamValue(1, COLOR_WHITE);
+
+        return;
     } else  if (unlikely(encoder4 == ENCODER_MODULATOR_SYNC_STEPS)) {
         // Simulate we're Osc freq
         int stepButtonState = synthState_->fullState.buttonState[BUTTONID_EDIT_STEPS];
@@ -4468,10 +4548,11 @@ void FMDisplayEditor::refreshLfoOscillator() {
     uint8_t lfoNumber = synthState_->fullState.buttonState[page->buttonId];
 
     LfoParams *lfoParam = &synthState_->params->lfoOsc1;
+    float *lfoSyncModes = &synthState_->params->lfoSyncModes.lfo1;
     float *lfoPhase = (float*) &synthState_->params->lfoPhases;
 
     tft_->oscilloBgSetLfo(lfoParam[lfoNumber].shape, lfoParam[lfoNumber].freq, lfoParam[lfoNumber].keybRamp,
-        lfoParam[lfoNumber].bias, lfoPhase[lfoNumber]);
+        lfoSyncModes[lfoNumber], lfoParam[lfoNumber].bias, lfoPhase[lfoNumber]);
     tft_->oscilloBgActionLfo();
 }
 

@@ -20,6 +20,8 @@
 #include "FirmwareTftDisplay.h"
 #include "Common.h"
 #include "Env.h"
+#include "Osc.h"
+#include <math.h>
 
 extern DMA2D_HandleTypeDef hdma2d;
 extern RNG_HandleTypeDef hrng;
@@ -262,15 +264,16 @@ void FirmwareTftDisplay::oscilloBgSetLfoEnvelope(float a, float d, float s, floa
 }
 
 
-void FirmwareTftDisplay::oscilloBgSetLfo(float shape, float freq, float kSyn, float bias, float phase) {
+void FirmwareTftDisplay::oscilloBgSetLfo(float shape, float freq, float kSyn, float syncMode, float bias, float phase) {
     if (freq >= 100.0f) {
         freq = 1.0f;
     }
     oscilParams1[0] = shape;
     oscilParams1[1] = freq;
     oscilParams1[2] = kSyn;
-    oscilParams1[3] = bias;
-    oscilParams1[4] = phase;
+    oscilParams1[3] = syncMode;
+    oscilParams1[4] = bias;
+    oscilParams1[5] = phase;
 
 }
 
@@ -506,13 +509,16 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
     switch ((int)oscilParams1[0]) {
     case 0: {
         // Sin
-        float *samples = waveForm[0].waveForms;
-        int size = waveForm[0].size;
+        float *samples = waveTables[OSC_SHAPE_SIN].table;
+        int size = waveTables[OSC_SHAPE_SIN].max + 1;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[4];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
             int iIndex = index;
             iIndex %= size;
-            oscilloYValue[x] = (int) (samples[iIndex] * 48.0f);
+            if (iIndex < 0) {
+                iIndex += size;
+            }
+            oscilloYValue[x] = (int) (samples[iIndex] * 47.0f);
         }
         break;
     }
@@ -521,7 +527,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         int size = 200;
         float incSample = 0.005f;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[4];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
             int iIndex = index;
             iIndex %= size;
             oscilloYValue[x] = -47 + (int) ((float)iIndex) * incSample * 94.0f;
@@ -534,7 +540,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         // incSample twice 1/200 for triangle
         float incSample = 0.01f;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[4];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
             int iIndex = index;
             iIndex %= size;
             if (iIndex < 100) {
@@ -550,7 +556,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         // Square
         int size = 50;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[4];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
             int iIndex = index;
             iIndex %= size;
             oscilloYValue[x] = iIndex < 25 ? 47 : -47;
@@ -564,12 +570,348 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         // Rand
         oscilloFillWithRand((int)oscilParams1[0] - 4);
         break;
+    case 8: {
+        // Falling saw
+        int size = 200;
+        float incSample = 0.005f;
+        for (int x = 0; x < 160; x++) {
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
+            int iIndex = index;
+            iIndex %= size;
+            oscilloYValue[x] = 47 - (int) ((float)iIndex) * incSample * 94.0f;
+        }
+        break;
+    }
+    case 9: {
+        // Exponential decay from max to min over one cycle.
+        const float k = 6.0f;
+        const float expEnd = expf(-k);
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float norm = (expf(-k * phase) - expEnd) / (1.0f - expEnd);
+            oscilloYValue[x] = (int)((norm * 2.0f - 1.0f) * 47.0f);
+        }
+        break;
+    }
+    case 10: {
+        // Log-like decay: starts gently then drops faster.
+        const float a = 31.0f;
+        const float invLog = 1.0f / logf(1.0f + a);
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float norm = logf(1.0f + a * (1.0f - phase)) * invLog;
+            oscilloYValue[x] = (int)((norm * 2.0f - 1.0f) * 47.0f);
+        }
+        break;
+    }
+    case 11: {
+        // Exponential rise from min to max.
+        const float k = 6.0f;
+        const float expEnd = expf(-k);
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float norm = (1.0f - expf(-k * phase)) / (1.0f - expEnd);
+            oscilloYValue[x] = (int)((norm * 2.0f - 1.0f) * 47.0f);
+        }
+        break;
+    }
+    case 12: {
+        // Log-like rise: starts gently then rises faster.
+        const float a = 31.0f;
+        const float invLog = 1.0f / logf(1.0f + a);
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float norm = (1.0f - logf(1.0f + a * (1.0f - phase)) * invLog);
+            oscilloYValue[x] = (int)((norm * 2.0f - 1.0f) * 47.0f);
+        }
+        break;
+    }
+    case 13: {
+        // Rounded attack-decay hump.
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float y;
+            if (phase < 0.5f) {
+                float t = phase * 2.0f;
+                float s = t * t * (3.0f - 2.0f * t);
+                y = -1.0f + 2.0f * s;
+            } else {
+                float t = (phase - 0.5f) * 2.0f;
+                float s = t * t * (3.0f - 2.0f * t);
+                y = 1.0f - 2.0f * s;
+            }
+            oscilloYValue[x] = (int)(y * 47.0f);
+        }
+        break;
+    }
+    case 14: {
+        // Rounded attack-hold-decay.
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float y;
+            if (phase < 0.25f) {
+                float t = phase * 4.0f;
+                float s = t * t * (3.0f - 2.0f * t);
+                y = -1.0f + 2.0f * s;
+            } else if (phase < 0.5f) {
+                y = 1.0f;
+            } else {
+                float t = (phase - 0.5f) * 2.0f;
+                float s = t * t * (3.0f - 2.0f * t);
+                y = 1.0f - 2.0f * s;
+            }
+            oscilloYValue[x] = (int)(y * 47.0f);
+        }
+        break;
+    }
+    case 15: {
+        // S-curve decay.
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float s = phase * phase * (3.0f - 2.0f * phase);
+            float y = 1.0f - 2.0f * s;
+            oscilloYValue[x] = (int)(y * 47.0f);
+        }
+        break;
+    }
+    case 16: {
+        // Buchla-like "plong": fast rounded attack, short hold, curved decay.
+        const float attack = 0.05f;
+        const float hold = 0.06f;
+        const float k = 7.0f;
+        const float expEnd = expf(-k);
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float y;
+            if (phase < attack) {
+                float t = phase / attack;
+                float s = t * t * (3.0f - 2.0f * t);
+                y = -1.0f + 2.0f * s;
+            } else if (phase < attack + hold) {
+                y = 1.0f;
+            } else {
+                float d = (phase - attack - hold) / (1.0f - attack - hold);
+                float norm = (expf(-k * d) - expEnd) / (1.0f - expEnd);
+                y = norm * 2.0f - 1.0f;
+                y += 0.10f * expf(-18.0f * d) * sinf(18.849556f * d);
+                if (y > 1.0f) {
+                    y = 1.0f;
+                } else if (y < -1.0f) {
+                    y = -1.0f;
+                }
+            }
+            oscilloYValue[x] = (int)(y * 47.0f);
+        }
+        break;
+    }
+    case 17: {
+        // Buchla-like "plong" variant with doubled peak hold.
+        const float attack = 0.05f;
+        const float hold = 0.12f;
+        const float k = 7.0f;
+        const float expEnd = expf(-k);
+        for (int x = 0; x < 160; x++) {
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            phase -= (int)phase;
+            if (phase < 0.0f) {
+                phase += 1.0f;
+            }
+            float y;
+            if (phase < attack) {
+                float t = phase / attack;
+                float s = t * t * (3.0f - 2.0f * t);
+                y = -1.0f + 2.0f * s;
+            } else if (phase < attack + hold) {
+                y = 1.0f;
+            } else {
+                float d = (phase - attack - hold) / (1.0f - attack - hold);
+                float norm = (expf(-k * d) - expEnd) / (1.0f - expEnd);
+                y = norm * 2.0f - 1.0f;
+                y += 0.10f * expf(-18.0f * d) * sinf(18.849556f * d);
+                if (y > 1.0f) {
+                    y = 1.0f;
+                } else if (y < -1.0f) {
+                    y = -1.0f;
+                }
+            }
+            oscilloYValue[x] = (int)(y * 47.0f);
+        }
+        break;
+    }
+    case 18:
+    case 19:
+    case 20:
+    case 21:
+    case 22:
+    case 23:
+    case 24:
+    case 25:
+    case 26: {
+        // Extra LFO wavetable shapes from oscillator tables.
+        int oscShape;
+        if ((int)oscilParams1[0] <= 20) {
+            oscShape = OSC_SHAPE_SIN_SQUARE + ((int)oscilParams1[0] - 18);
+        } else {
+            oscShape = OSC_SHAPE_USER1 + ((int)oscilParams1[0] - 21);
+        }
+        float* samples = waveTables[oscShape].table;
+        int size = waveTables[oscShape].max + 1;
+        for (int x = 0; x < 160; x++) {
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
+            int iIndex = (int)index;
+            iIndex %= size;
+            if (iIndex < 0) {
+                iIndex += size;
+            }
+            oscilloYValue[x] = (int)(samples[iIndex] * 47.0f);
+        }
+        break;
+    }
     }
 
-    if (oscilParams1[2] > 0.0f) {
+    int syncMode = (int)(oscilParams1[3] + 0.5f);
+    int shotCount = 0;
+    if (syncMode >= LFO_SYNC_ONESHOT_INTERNAL_1 && syncMode <= LFO_SYNC_ONESHOT_INTERNAL_8) {
+        shotCount = syncMode - LFO_SYNC_ONESHOT_INTERNAL_1 + 1;
+    } else if (syncMode >= LFO_SYNC_ONESHOT_EXTERNAL_1 && syncMode <= LFO_SYNC_ONESHOT_EXTERNAL_8) {
+        shotCount = syncMode - LFO_SYNC_ONESHOT_EXTERNAL_1 + 1;
+    }
+
+    float ksyncAmount = oscilParams1[2];
+
+    // One-shot preview with hold section.
+    if (shotCount > 0 && oscilParams1[1] > 0.0f) {
+
+        float phase0 = oscilParams1[5];
+        while (phase0 >= 1.0f) {
+            phase0 -= 1.0f;
+        }
+        while (phase0 < 0.0f) {
+            phase0 += 1.0f;
+        }
+
+        float cyclesToHold = (float)shotCount - phase0;
+        if (cyclesToHold < 0.0f) {
+            cyclesToHold = 0.0f;
+        }
+
+        // Convert hold time to pixel index with ceil-like behavior so the
+        // one-shot waveform is never truncated early.
+        float holdPixels = cyclesToHold * 160.0f / oscilParams1[1];
+        int holdX = (int)holdPixels;
+        if ((float)holdX < holdPixels) {
+            holdX++;
+        }
+        if (holdX < 0) {
+            holdX = 0;
+        }
+
+        if (holdX < 160) {
+            int holdY;
+            switch ((int)oscilParams1[0]) {
+            case 0: // Sin
+                holdY = 0;
+                break;
+            case 1: // Saw
+                holdY = 47;
+                break;
+            case 8: // Falling saw
+                holdY = -47;
+                break;
+            case 2: // Triangle
+                holdY = -47;
+                break;
+            case 9: // Exp decay
+            case 10: // Log decay
+            case 13: // AD
+            case 14: // AHD
+            case 15: // S decay
+            case 16: // Buchla plong
+            case 17: // Buchla plong2
+                holdY = -47;
+                break;
+            case 11: // Exp rise
+            case 12: // Log rise
+                holdY = 47;
+                break;
+            case 3: // Square
+                holdY = 47;
+                break;
+            case 18: // SinSquare
+                holdY = (int)(waveTables[OSC_SHAPE_SIN_SQUARE].table[0] * 47.0f);
+                break;
+            case 19: // SinZero
+                holdY = (int)(waveTables[OSC_SHAPE_SIN_ZERO].table[0] * 47.0f);
+                break;
+            case 20: // SinPos
+                holdY = (int)(waveTables[OSC_SHAPE_SIN_POS].table[0] * 47.0f);
+                break;
+            case 21: // User1
+                holdY = (int)(waveTables[OSC_SHAPE_USER1].table[0] * 47.0f);
+                break;
+            case 22: // User2
+                holdY = (int)(waveTables[OSC_SHAPE_USER2].table[0] * 47.0f);
+                break;
+            case 23: // User3
+                holdY = (int)(waveTables[OSC_SHAPE_USER3].table[0] * 47.0f);
+                break;
+            case 24: // User4
+                holdY = (int)(waveTables[OSC_SHAPE_USER4].table[0] * 47.0f);
+                break;
+            case 25: // User5
+                holdY = (int)(waveTables[OSC_SHAPE_USER5].table[0] * 47.0f);
+                break;
+            case 26: // User6
+                holdY = (int)(waveTables[OSC_SHAPE_USER6].table[0] * 47.0f);
+                break;
+            default:
+                // Random family: keep the last reached value.
+                holdY = holdX > 0 ? oscilloYValue[holdX - 1] : oscilloYValue[0];
+                break;
+            }
+
+            for (int x = holdX; x < 160; x++) {
+                oscilloYValue[x] = holdY;
+            }
+        }
+    }
+
+    if (ksyncAmount > 0.0f) {
         // Ksyn
         // 1/160 = 0.00627
-        float kSyncInc = 1.0f / (160.0f * oscilParams1[2]);
+        float kSyncInc = 1.0f / (160.0f * ksyncAmount);
         float kSync = 0;
         for (int x = 0; x < 160; x++) {
             if (kSync < 1) {
@@ -581,9 +923,9 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         }
     }
 
-    if (oscilParams1[3] != 0.0f) {
+    if (oscilParams1[4] != 0.0f) {
         for (int x = 0; x < 160; x++) {
-            oscilloYValue[x] += (oscilParams1[3] * 48.0f);
+            oscilloYValue[x] += (oscilParams1[4] * 48.0f);
         }
     }
 

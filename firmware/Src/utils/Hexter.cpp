@@ -844,6 +844,11 @@ void Hexter::voiceSetData(struct OneSynthParams *params, uint8_t *patch)
 	// To avoid mix to overload...
 	params->lfoOsc2.bias = -1.0f;
 
+	params->lfoSyncModes.lfo1 = LFO_SYNC_INTERNAL;
+	params->lfoSyncModes.lfo2 = LFO_SYNC_INTERNAL;
+	params->lfoSyncModes.lfo3 = LFO_SYNC_INTERNAL;
+	params->lfoSyncModes.unused1 = 0.0f;
+
 //	voice->lfo_pmd      = limit(edit_buffer[139], 0, 99);
 //	voice->lfo_amd      = limit(edit_buffer[140], 0, 99);
 //	voice->lfo_key_sync = edit_buffer[141] & 0x01;

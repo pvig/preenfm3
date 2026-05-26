@@ -384,6 +384,7 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     fsu_->copyFloat((float*) &params->lfoEnv1, (float*) &flashMemory->lfoEnv1, 4);
     fsu_->copyFloat((float*) &params->lfoEnv2, (float*) &flashMemory->lfoEnv2, 4);
     fsu_->copyFloat((float*) &params->lfoSeq1, (float*) &flashMemory->lfoSeq1, 4 * 2);
+    fsu_->copyFloat((float*) &params->lfoSyncModes, (float*) &flashMemory->lfoSyncModes, 4);
 
     fsu_->copyFloat((float*) &params->midiNote1Curve, (float*) &flashMemory->midiNote1Curve, 4);
     fsu_->copyFloat((float*) &params->midiNote2Curve, (float*) &flashMemory->midiNote2Curve, 4);
@@ -494,6 +495,7 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     fsu_->copyFloat((float*) &flashMemory->lfoEnv1, (float*) &params->lfoEnv1, 4);
     fsu_->copyFloat((float*) &flashMemory->lfoEnv2, (float*) &params->lfoEnv2, 4);
     fsu_->copyFloat((float*) &flashMemory->lfoSeq1, (float*) &params->lfoSeq1, 4 * 2);
+    fsu_->copyFloat((float*) &flashMemory->lfoSyncModes, (float*) &params->lfoSyncModes, 4);
 
     fsu_->copyFloat((float*) &flashMemory->lfoPhases, (float*) &params->lfoPhases, 4);
     fsu_->copyFloat((float*) &flashMemory->midiNote1Curve, (float*) &params->midiNote1Curve, 4);
@@ -563,8 +565,31 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
         params->midiNote2Curve.breakNote = 60;
     }
 
-    // Fixe poly Mono depending on pfm3Version :
     float patchVersion = params->engine2.pfm3Version;
+
+    // For presets saved before dedicated sync-mode storage existed,
+    // initialize sync mode from internal/external LFO frequency only.
+    // Keep keybRamp unchanged to preserve existing KSync behavior.
+    if (patchVersion < 1.4f) {
+        LfoParams* lfoParams = &params->lfoOsc1;
+        float* syncModes = &params->lfoSyncModes.lfo1;
+        for (int i = 0; i < 3; i++) {
+            syncModes[i] = lfoParams[i].freq < 100.0f ? (float)LFO_SYNC_INTERNAL : (float)LFO_SYNC_EXTERNAL;
+        }
+        params->lfoSyncModes.unused1 = 0.0f;
+    }
+
+    // Clamp sync mode values for safety.
+    float* syncModes = &params->lfoSyncModes.lfo1;
+    for (int i = 0; i < 3; i++) {
+        if (syncModes[i] < (float)LFO_SYNC_INTERNAL) {
+            syncModes[i] = (float)LFO_SYNC_INTERNAL;
+        } else if (syncModes[i] > (float)LFO_SYNC_ONESHOT_EXTERNAL_8) {
+            syncModes[i] = (float)LFO_SYNC_ONESHOT_EXTERNAL_8;
+        }
+    }
+
+    // Fixe poly Mono depending on pfm3Version :
     uint32_t version = (uint32_t)(params->engine2.pfm3Version + .1f);
     if (version == 0) {
         // map to new parameters
@@ -591,6 +616,13 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     if (patchVersion < 1.3f) {
         params->engineDecimation.decimation = FM_DECIMATION_CURRENT;
     }
+
+    // Legacy presets may contain 20..24-bit values. Clamp them to the new 19-bit max.
+    if (params->engineDecimation.decimation > FM_DECIMATION_19BIT
+        && params->engineDecimation.decimation <= 24.0f) {
+        params->engineDecimation.decimation = FM_DECIMATION_19BIT;
+    }
+
     if (params->engineDecimation.decimation < FM_DECIMATION_1BIT
         || params->engineDecimation.decimation > FM_DECIMATION_CURRENT) {
         params->engineDecimation.decimation = FM_DECIMATION_CURRENT;

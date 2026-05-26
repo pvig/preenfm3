@@ -8,9 +8,27 @@ BUILD_CONFIG="${BUILD_CONFIG:-DebugLQFP144}"
 CLEAN_BUILD="${CLEAN_BUILD:-0}"
 OBJCOPY_BIN="${OBJCOPY_BIN:-arm-none-eabi-objcopy}"
 UPDATE_RELEASE="${UPDATE_RELEASE:-1}"
-RELEASE_DIR="${RELEASE_DIR:-$ROOT_DIR/release/preenfm3-v1.06a-bl1.09}"
-RELEASE_FIRMWARE_BIN_NAME="${RELEASE_FIRMWARE_BIN_NAME:-preenfm3_firmware_v1.06a.bin}"
-RELEASE_BOOTLOADER_BIN_NAME="${RELEASE_BOOTLOADER_BIN_NAME:-preenfm3_bootloader_1.09.bin}"
+
+read_define_value() {
+  local file="$1"
+  local define_name="$2"
+  sed -nE "s/^#define[[:space:]]+${define_name}[[:space:]]+\"([^\"]+)\".*/\1/p" "$file" | head -n1
+}
+
+FIRMWARE_VERSION="$(read_define_value "$ROOT_DIR/firmware/Inc/version.h" "PFM3_FIRMWARE_VERSION")"
+BOOTLOADER_VERSION="$(read_define_value "$ROOT_DIR/bootloader/Inc/version.h" "PFM3_BOOTLOADER_VERSION")"
+
+if [[ -z "$FIRMWARE_VERSION" ]]; then
+  FIRMWARE_VERSION="v1.06b"
+fi
+
+if [[ -z "$BOOTLOADER_VERSION" ]]; then
+  BOOTLOADER_VERSION="1.09"
+fi
+
+RELEASE_DIR="${RELEASE_DIR:-$ROOT_DIR/release/preenfm3-${FIRMWARE_VERSION}-bl${BOOTLOADER_VERSION}}"
+RELEASE_FIRMWARE_BIN_NAME="${RELEASE_FIRMWARE_BIN_NAME:-preenfm3_firmware_${FIRMWARE_VERSION}.bin}"
+RELEASE_BOOTLOADER_BIN_NAME="${RELEASE_BOOTLOADER_BIN_NAME:-preenfm3_bootloader_${BOOTLOADER_VERSION}.bin}"
 
 LOG_DIR="${1:-$ROOT_DIR/build-logs}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"

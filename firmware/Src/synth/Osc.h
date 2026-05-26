@@ -35,6 +35,10 @@ struct OscState {
     float nextFrequency;
     uint8_t waveDecimationBits;
     uint8_t waveDecimationEnabled;
+    uint8_t waveDecimationStepPhase;
+    float waveDecimationScale;
+    float waveDecimationInvScale;
+    float waveDecimationHeldSample;
 };
 
 
@@ -61,73 +65,49 @@ public:
         oscState->mainFrequencyPlusMatrix +=  (oscState->mainFrequency  * (matrix->getDestination(destFreq) + matrix->getDestination(ALL_OSC_FREQ)) * .1f);
     }
 
-    inline float quantizeWaveSample(float value, uint8_t bits) {
-        float scale = (float)(1u << bits);
-        float scaled = value * scale;
-        // Keep rounding in float domain to avoid integer overflow for large FM sums.
-        float q = (scaled >= 0.0f) ? floorf(scaled + 0.5f) : ceilf(scaled - 0.5f);
-        return q * (1.0f / scale);
-    }
-
-    inline float quantizeFrequencyWithFmSum(struct OscState *oscState) {
-        if (!oscState->waveDecimationEnabled) {
-            return oscState->frequency;
+    inline float quantizeWaveSample(struct OscState *oscState, float value) {
+        // Quantize with fixed-point style fractional precision to preserve FM behavior.
+        float scaled = value * oscState->waveDecimationScale;
+        if (scaled > 2147483520.0f) {
+            scaled = 2147483520.0f;
+        } else if (scaled < -2147483520.0f) {
+            scaled = -2147483520.0f;
         }
-
-        float fmSum = oscState->frequency - oscState->mainFrequencyPlusMatrix;
-        float quantizedFmSum = quantizeWaveSample(fmSum, oscState->waveDecimationBits);
-        return oscState->mainFrequencyPlusMatrix + quantizedFmSum;
-    }
-
-    inline float quantizePhaseIncrement(struct OscState *oscState, float phaseIncrement) {
-        if (!oscState->waveDecimationEnabled) {
-            return phaseIncrement;
-        }
-        return quantizeWaveSample(phaseIncrement, oscState->waveDecimationBits);
-    }
-
-    inline float quantizePhaseAccumulator(struct OscState *oscState, float index, int max) {
-        if (!oscState->waveDecimationEnabled) {
-            return index;
-        }
-
-        int indexInteger = (int)floorf(index);
-        float frac = index - (float)indexInteger;
-        frac = quantizeWaveSample(frac, oscState->waveDecimationBits);
-        if (unlikely(frac >= 1.0f)) {
-            // Keep integer index stable for current-sample lookup; clamp frac to max representable step.
-            frac = 1.0f - (1.0f / (float)(1u << oscState->waveDecimationBits));
-        }
-        indexInteger &= max;
-        return (float)indexInteger + frac;
-    }
-
-    inline float quantizeWaveInputSample(struct OscState *oscState, float sample) {
-        if (!oscState->waveDecimationEnabled) {
-            return sample;
-        }
-        return quantizeWaveSample(sample, oscState->waveDecimationBits);
-    }
-
-    inline float quantizePhaseModulationOffset(struct OscState *oscState, float phaseModulationOffset) {
-        if (!oscState->waveDecimationEnabled) {
-            return phaseModulationOffset;
-        }
-        return quantizeWaveSample(phaseModulationOffset, oscState->waveDecimationBits);
+        int q = (int)(scaled + (scaled >= 0.0f ? 0.5f : -0.5f));
+        return (float)q * oscState->waveDecimationInvScale;
     }
 
     inline float quantizeOscOutputBeforeEnvelope(struct OscState *oscState, float outputSample) {
         if (!oscState->waveDecimationEnabled) {
             return outputSample;
         }
-        return quantizeWaveSample(outputSample, oscState->waveDecimationBits);
+        return quantizeWaveSample(oscState, outputSample);
     }
 
     inline float getNextSample(struct OscState *oscState)  {
         struct WaveTable* waveTable = &waveTables[(int) oscillator->shape];
-        float quantizedFrequency = quantizeFrequencyWithFmSum(oscState);
-        float phaseIncrement = quantizedFrequency * waveTable->precomputedValue + waveTable->floatToAdd;
-        phaseIncrement = quantizePhaseIncrement(oscState, phaseIncrement);
+        float phaseIncrement = oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd;
+
+        if (oscState->waveDecimationEnabled) {
+            if (oscState->waveDecimationStepPhase != 0) {
+                oscState->waveDecimationStepPhase = 0;
+                return oscState->waveDecimationHeldSample;
+            }
+
+            oscState->waveDecimationStepPhase = 1;
+            float phaseIncrement2 = phaseIncrement + phaseIncrement;
+            oscState->index += phaseIncrement2;
+
+            int indexInteger = oscState->index;
+            oscState->index -= indexInteger;
+            indexInteger &= waveTable->max;
+            oscState->index += indexInteger;
+
+            float sample = waveTable->table[indexInteger];
+            sample = quantizeOscOutputBeforeEnvelope(oscState, sample);
+            oscState->waveDecimationHeldSample = sample;
+            return sample;
+        }
 
         oscState->index += phaseIncrement;
 
@@ -139,10 +119,7 @@ public:
         indexInteger &= waveTable->max;
         // Readjust the floating pont inside the table
         oscState->index += indexInteger;
-        oscState->index = quantizePhaseAccumulator(oscState, oscState->index, waveTable->max);
-
         float sample = waveTable->table[indexInteger];
-        sample = quantizeWaveInputSample(oscState, sample);
         return quantizeOscOutputBeforeEnvelope(oscState, sample);
     }
 
@@ -161,23 +138,44 @@ public:
         int shape = (int) oscillator->shape;
    		int max = waveTables[shape].max;
    		float *wave = waveTables[shape].table;
-        float quantizedFrequency = quantizeFrequencyWithFmSum(oscState);
-        float freq = quantizedFrequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
-        freq = quantizePhaseIncrement(oscState, freq);
+        float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
+		float freq2 = freq + freq;
    		float fIndex = oscState->index;
    		int iIndex;
    		float* oscValuesToFill = oscValues[oscValuesCpt];
     	oscValuesCpt++;
     	oscValuesCpt &= 0x3;
 
-   		for (int k=0; k<32; ) {
+		if (oscState->waveDecimationEnabled) {
+			for (int k=0; k<32; k++) {
+                if (oscState->waveDecimationStepPhase == 0) {
+                    fIndex += freq2;
+                    iIndex = fIndex;
+                    fIndex -= iIndex;
+                    iIndex &=  max;
+                    fIndex += iIndex;
+                    float sample = wave[iIndex];
+                    sample = quantizeOscOutputBeforeEnvelope(oscState, sample);
+                    oscState->waveDecimationHeldSample = sample;
+                    oscState->waveDecimationStepPhase = 1;
+                    oscValuesToFill[k] = sample;
+                } else {
+                    oscState->waveDecimationStepPhase = 0;
+                    oscValuesToFill[k] = oscState->waveDecimationHeldSample;
+                }
+            }
+
+			oscState->index = fIndex;
+			return oscValuesToFill;
+		}
+
+		for (int k=0; k<32; ) {
             fIndex +=  freq;
             iIndex = fIndex;
             fIndex -= iIndex;
             iIndex &=  max;
             fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
-            float sample = quantizeWaveInputSample(oscState, wave[iIndex]);
+            float sample = wave[iIndex];
             oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
 
             fIndex +=  freq;
@@ -185,8 +183,7 @@ public:
             fIndex -= iIndex;
             iIndex &=  max;
             fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
-            sample = quantizeWaveInputSample(oscState, wave[iIndex]);
+            sample = wave[iIndex];
             oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
 
             fIndex +=  freq;
@@ -194,8 +191,7 @@ public:
             fIndex -= iIndex;
             iIndex &=  max;
             fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
-            sample = quantizeWaveInputSample(oscState, wave[iIndex]);
+            sample = wave[iIndex];
             oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
 
             fIndex +=  freq;
@@ -203,11 +199,11 @@ public:
             fIndex -= iIndex;
             iIndex &=  max;
             fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
-            sample = quantizeWaveInputSample(oscState, wave[iIndex]);
+            sample = wave[iIndex];
             oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
 
    		}
+
     	oscState->index = fIndex;
     	return oscValuesToFill;
     };
@@ -217,9 +213,7 @@ public:
         int shape = (int) oscillator->shape;
         int max = waveTables[shape].max;
         float *wave = waveTables[shape].table;
-        float quantizedFrequency = quantizeFrequencyWithFmSum(oscState);
-        float freq = quantizedFrequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
-        freq = quantizePhaseIncrement(oscState, freq);
+        float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
         float fIndex = oscState->index;
         int iIndex;
         float* oscValuesToFill = oscValues[4];
@@ -239,14 +233,12 @@ public:
             fIndex -= iIndex;
             iIndex &= max;
             fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
 
-            float phaseModulationOffset = quantizePhaseModulationOffset(oscState, localLastValue0 * phaseModulationAmplitude);
+            float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
             int index = iIndex + (int)phaseModulationOffset;
             index &= max;
 
-            // Get rid of DC offset
-            float newValue = quantizeWaveInputSample(oscState, wave[index]);
+            float newValue = wave[index];
             localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
             localLastValue1 = newValue;
 
@@ -269,77 +261,97 @@ public:
         int shape = (int) oscillator->shape;
    		int max = waveTables[shape].max;
    		float *wave = waveTables[shape].table;
-        float quantizedFrequency = quantizeFrequencyWithFmSum(oscState);
-        float freq = quantizedFrequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
-        freq = quantizePhaseIncrement(oscState, freq);
+        float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
+        float freq2 = freq + freq;
    		float fIndex = oscState->index;
    		int iIndex;
    		float fp;
    		float* oscValuesToFill = oscValues[oscValuesCpt];
     	oscValuesCpt++;
     	oscValuesCpt &= 0x3;
-   		for (int k=0; k<32; ) {
-            fIndex +=  freq;
-            iIndex = fIndex;
-            fIndex -= iIndex;
-            iIndex &=  max;
-            fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
-            fp = fIndex - floorf(fIndex);
-            float sample;
-            if (oscState->waveDecimationEnabled) {
-                sample = quantizeWaveInputSample(oscState, wave[iIndex]);
-            } else {
-                int iIndexNext = (iIndex + 1) & max;
-                sample = wave[iIndex] * (1-fp) + wave[iIndexNext] * fp;
-            }
-            oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
 
-            fIndex +=  freq;
-            iIndex = fIndex;
-            fIndex -= iIndex;
-            iIndex &=  max;
-            fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
-            fp = fIndex - floorf(fIndex);
-            if (oscState->waveDecimationEnabled) {
-                sample = quantizeWaveInputSample(oscState, wave[iIndex]);
-            } else {
-                int iIndexNext = (iIndex + 1) & max;
-                sample = wave[iIndex] * (1-fp) + wave[iIndexNext] * fp;
+        if (oscState->waveDecimationEnabled) {
+            for (int k=0; k<32; k++) {
+                if (oscState->waveDecimationStepPhase == 0) {
+                    fIndex +=  freq2;
+                    iIndex = fIndex;
+                    fIndex -= iIndex;
+                    iIndex &=  max;
+                    fIndex += iIndex;
+                    float sample = wave[iIndex];
+                    sample = quantizeOscOutputBeforeEnvelope(oscState, sample);
+                    oscState->waveDecimationHeldSample = sample;
+                    oscState->waveDecimationStepPhase = 1;
+                    oscValuesToFill[k] = sample;
+                } else {
+                    oscState->waveDecimationStepPhase = 0;
+                    oscValuesToFill[k] = oscState->waveDecimationHeldSample;
+                }
             }
-            oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
 
-            fIndex +=  freq;
-            iIndex = fIndex;
-            fIndex -= iIndex;
-            iIndex &=  max;
-            fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
-            fp = fIndex - floorf(fIndex);
-            if (oscState->waveDecimationEnabled) {
-                sample = quantizeWaveInputSample(oscState, wave[iIndex]);
-            } else {
-                int iIndexNext = (iIndex + 1) & max;
-                sample = wave[iIndex] * (1-fp) + wave[iIndexNext] * fp;
-            }
-            oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
+            oscState->index = fIndex;
+            return oscValuesToFill;
+        }
 
-            fIndex +=  freq;
-            iIndex = fIndex;
-            fIndex -= iIndex;
-            iIndex &=  max;
-            fIndex += iIndex;
-            fIndex = quantizePhaseAccumulator(oscState, fIndex, max);
-            fp = fIndex - floorf(fIndex);
-            if (oscState->waveDecimationEnabled) {
-                sample = quantizeWaveInputSample(oscState, wave[iIndex]);
-            } else {
-                int iIndexNext = (iIndex + 1) & max;
-                sample = wave[iIndex] * (1-fp) + wave[iIndexNext] * fp;
-            }
-            oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
-   		}
+			for (int k=0; k<32; ) {
+                fIndex +=  freq;
+                iIndex = fIndex;
+                fIndex -= iIndex;
+                iIndex &=  max;
+                fIndex += iIndex;
+                fp = fIndex - (float)iIndex;
+                float sample;
+                if (oscState->waveDecimationEnabled) {
+                    sample = wave[iIndex];
+                } else {
+                    int iIndexNext = (iIndex + 1) & max;
+                    sample = wave[iIndex] * (1-fp) + wave[iIndexNext] * fp;
+                }
+                oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
+
+                fIndex +=  freq;
+                iIndex = fIndex;
+                fIndex -= iIndex;
+                iIndex &=  max;
+                fIndex += iIndex;
+                fp = fIndex - (float)iIndex;
+                if (oscState->waveDecimationEnabled) {
+                    sample = wave[iIndex];
+                } else {
+                    int iIndexNext = (iIndex + 1) & max;
+                    sample = wave[iIndex] * (1-fp) + wave[iIndexNext] * fp;
+                }
+                oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
+
+                fIndex +=  freq;
+                iIndex = fIndex;
+                fIndex -= iIndex;
+                iIndex &=  max;
+                fIndex += iIndex;
+                fp = fIndex - (float)iIndex;
+                if (oscState->waveDecimationEnabled) {
+                    sample = wave[iIndex];
+                } else {
+                    int iIndexNext = (iIndex + 1) & max;
+                    sample = wave[iIndex] * (1-fp) + wave[iIndexNext] * fp;
+                }
+                oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
+
+                fIndex +=  freq;
+                iIndex = fIndex;
+                fIndex -= iIndex;
+                iIndex &=  max;
+                fIndex += iIndex;
+                fp = fIndex - (float)iIndex;
+                if (oscState->waveDecimationEnabled) {
+                    sample = wave[iIndex];
+                } else {
+                    int iIndexNext = (iIndex + 1) & max;
+                    sample = wave[iIndex] * (1-fp) + wave[iIndexNext] * fp;
+                }
+                oscValuesToFill[k++] = quantizeOscOutputBeforeEnvelope(oscState, sample);
+			}
+
     	oscState->index = fIndex;
     	return oscValuesToFill;
     };

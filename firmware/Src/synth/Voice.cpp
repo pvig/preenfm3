@@ -529,10 +529,13 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
 
     (void)phase;
 
+    bool retriggerLfo = true;
+
 
     // On noteOn we can only glide in mono and unison with glideType ALWAYS
     if (unlikely(currentTimbre->params_.engine1.playMode != PLAY_MODE_POLY
         && currentTimbre->params_.engine2.glideType == GLIDE_TYPE_ALWAYS)) {
+        bool wasPlaying = this->playing;
         if (unlikely(this->nextMainFrequency != 0.0f)) {
             this->noteFrequency = this->nextMainFrequency;
         } else {
@@ -543,6 +546,8 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
         newGlide=true;
         this->note = newNote;
         this->nextMainFrequency = newNoteFrequency;
+        // In glide mode, overlapping notes are slides and should not retrigger one-shot LFO.
+        retriggerLfo = !wasPlaying;
     } else {
         this->note = newNote;
         this->noteFrequency = newNoteFrequency;
@@ -578,7 +583,9 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
     // Tell nextBlock() to init Env...
     this->newNotePlayed = true;
 
-    lfoNoteOn();
+    if (retriggerLfo) {
+        lfoNoteOn();
+    }
 }
 
 void Voice::endNoteOrBeginNextOne() {
@@ -4085,6 +4092,7 @@ void Voice::setCurrentTimbre(Timbre *timbre) {
     }
 
     struct LfoParams *lfoParams[] = { &timbre->getParamRaw()->lfoOsc1, &timbre->getParamRaw()->lfoOsc2, &timbre->getParamRaw()->lfoOsc3 };
+    float *lfoSyncModes = &timbre->getParamRaw()->lfoSyncModes.lfo1;
     struct StepSequencerParams *stepseqparams[] = { &timbre->getParamRaw()->lfoSeq1, &timbre->getParamRaw()->lfoSeq2 };
     struct StepSequencerSteps *stepseqs[] = { &timbre->getParamRaw()->lfoSteps1, &timbre->getParamRaw()->lfoSteps2 };
 
@@ -4095,7 +4103,7 @@ void Voice::setCurrentTimbre(Timbre *timbre) {
     // OSC
     for (int k = 0; k < NUMBER_OF_LFO_OSC; k++) {
         float *phase = &((float*) &timbre->getParamRaw()->lfoPhases.phaseLfo1)[k];
-        lfoOsc[k].init(lfoParams[k], phase, &this->matrix, (SourceEnum) (MATRIX_SOURCE_LFO1 + k), (DestinationEnum) (LFO1_FREQ + k));
+        lfoOsc[k].init(lfoParams[k], &lfoSyncModes[k], phase, &this->matrix, (SourceEnum) (MATRIX_SOURCE_LFO1 + k), (DestinationEnum) (LFO1_FREQ + k));
     }
 
     // ENV

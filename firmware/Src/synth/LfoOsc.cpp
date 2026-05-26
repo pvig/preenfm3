@@ -16,19 +16,203 @@
  */
 
 #include "LfoOsc.h"
+#include "LfoCurveTables.h"
+#include <math.h>
 
 
 
 extern float noise[32];
 
-void LfoOsc::init(struct LfoParams *lfoParams, float* phase, Matrix *matrix, SourceEnum source, DestinationEnum dest) {
+namespace {
+float tableLookupLinear(const float* table, float x) {
+    if (x <= 0.0f) {
+        return table[0];
+    }
+    if (x >= 1.0f) {
+        return table[LFO_CURVE_TABLE_SIZE];
+    }
+
+    float tablePos = x * (float)LFO_CURVE_TABLE_SIZE;
+    int index = (int)tablePos;
+    float frac = tablePos - (float)index;
+    return table[index] + (table[index + 1] - table[index]) * frac;
+}
+
+float waveLookupLinear(const float* table, int max, float phase01) {
+    phase01 -= (int)phase01;
+    if (phase01 < 0.0f) {
+        phase01 += 1.0f;
+    }
+
+    float tablePos = phase01 * (float)max;
+    int index0 = (int)tablePos;
+    float frac = tablePos - (float)index0;
+    int index1 = (index0 + 1) & max;
+
+    float sample0 = table[index0];
+    return sample0 + (table[index1] - sample0) * frac;
+}
+
+float sinLookup(float phase01) {
+    return waveLookupLinear(sinTable, waveTables[0].max, phase01);
+}
+}
+
+void LfoOsc::executeTriangle(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    if (phase < .5f) {
+        lfoValue = phase * 4.0f - 1.0f;
+    } else {
+        lfoValue = 1.0f - (phase - .5f) * 4.0f;
+    }
+}
+
+void LfoOsc::executeSawUp(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    lfoValue = -1.0f + phase * 2.0f;
+}
+
+void LfoOsc::executeSawDown(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    lfoValue = 1.0f - phase * 2.0f;
+}
+
+void LfoOsc::executeDecayExp(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    float norm = tableLookupLinear(lfoDecayExpK6Table, phase);
+    lfoValue = norm * 2.0f - 1.0f;
+}
+
+void LfoOsc::executeDecayLog(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    float norm = tableLookupLinear(lfoDecayLogA31Table, phase);
+    lfoValue = norm * 2.0f - 1.0f;
+}
+
+void LfoOsc::executeRiseExp(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    float norm = 1.0f - tableLookupLinear(lfoDecayExpK6Table, phase);
+    lfoValue = norm * 2.0f - 1.0f;
+}
+
+void LfoOsc::executeRiseLog(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    float norm = 1.0f - tableLookupLinear(lfoDecayLogA31Table, phase);
+    lfoValue = norm * 2.0f - 1.0f;
+}
+
+void LfoOsc::executeAttackDecay(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    if (phase < 0.5f) {
+        float t = phase * adAttackPhaseScale;
+        float s = t * t * (3.0f - 2.0f * t);
+        lfoValue = -1.0f + 2.0f * s;
+    } else {
+        float t = (phase - adDecayPhaseOffset) * adDecayPhaseScale;
+        float s = t * t * (3.0f - 2.0f * t);
+        lfoValue = 1.0f - 2.0f * s;
+    }
+}
+
+void LfoOsc::executeAttackHoldDecay(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    if (phase < 0.25f) {
+        float t = phase * ahdAttackPhaseScale;
+        float s = t * t * (3.0f - 2.0f * t);
+        lfoValue = -1.0f + 2.0f * s;
+    } else if (phase < 0.5f) {
+        lfoValue = 1.0f;
+    } else {
+        float t = (phase - ahdDecayPhaseOffset) * ahdDecayPhaseScale;
+        float s = t * t * (3.0f - 2.0f * t);
+        lfoValue = 1.0f - 2.0f * s;
+    }
+}
+
+void LfoOsc::executeDecayS(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    float s = phase * phase * (3.0f - 2.0f * phase);
+    lfoValue = 1.0f - 2.0f * s;
+}
+
+void LfoOsc::executeBuchla(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    if (phase < shapeAttack) {
+        float t = phase * shapeInvAttack;
+        float s = t * t * (3.0f - 2.0f * t);
+        lfoValue = -1.0f + 2.0f * s;
+    } else if (phase < (shapeAttack + shapeHold)) {
+        lfoValue = 1.0f;
+    } else {
+        float d = (phase - shapeAttack - shapeHold) * shapeInvDecay;
+        float norm = tableLookupLinear(lfoDecayExpK7Table, d);
+        lfoValue = norm * 2.0f - 1.0f;
+        float bump = 0.10f * tableLookupLinear(lfoDampingExp18Table, d) * sinLookup(d * 3.0f);
+        lfoValue += bump;
+        if (lfoValue > 1.0f) {
+            lfoValue = 1.0f;
+        } else if (lfoValue < -1.0f) {
+            lfoValue = -1.0f;
+        }
+    }
+}
+
+void LfoOsc::executeWaveTable(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    lfoValue = waveLookupLinear(shapeWaveTable, shapeWaveMax, phase);
+}
+
+void LfoOsc::executeSquare(float& lfoValue, float phase, bool phaseWrapped) {
+    (void)phaseWrapped;
+    lfoValue = phase < .5f ? -1.0f : 1.0f;
+}
+
+void LfoOsc::executeRandomFamily(float& lfoValue, float phase, bool phaseWrapped) {
+    switch (randomRuntimeMode) {
+    case 1: // random
+        if (phaseWrapped) {
+            currentRandomValue = noise[0];
+        }
+        lfoValue = currentRandomValue;
+        break;
+    case 2: // brownian
+        if (phaseWrapped) {
+            noiseLp = noise[0] * 0.4f + noiseLp * 0.6f;
+            currentRandomValue = noiseLp;
+        }
+        lfoValue = currentRandomValue;
+        break;
+    case 3: // wandering
+        if (phaseWrapped) {
+            currentRandomValue = nextRandomValue;
+            nextRandomValue = noise[0];
+        }
+        lfoValue = phase * (nextRandomValue - currentRandomValue) + currentRandomValue;
+        break;
+    case 4: // flow
+        if (phaseWrapped) {
+            noiseLp = noise[0] * 0.4f + noiseLp * 0.6f;
+            currentRandomValue = nextRandomValue;
+            nextRandomValue = noiseLp;
+        }
+        lfoValue = phase * (nextRandomValue - currentRandomValue) + currentRandomValue;
+        break;
+    default:
+        lfoValue = -1.0f;
+        break;
+    }
+}
+
+void LfoOsc::init(struct LfoParams *lfoParams, float* lfoSyncMode, float* phase, Matrix *matrix, SourceEnum source, DestinationEnum dest) {
     Lfo::init(matrix, source, dest);
     this->type = LFO_TRIANGLE;
     this->ramp = 0;
     this->initPhase = phase;
+    this->syncMode = lfoSyncMode;
     this->rampInv = 10000000 ;
     this->currentRamp = 0;
     this->lfo = lfoParams;
+    valueChanged(ENCODER_LFO_SHAPE);
     valueChanged(3);
     this->destination = dest;
     this->currentRandomValue = 0.0f;
@@ -132,6 +316,11 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
 
 
 void LfoOsc::nextValueInMatrix() {
+    if (unlikely(oneShotLimit > 0 && !oneShotActive)) {
+        matrix->setSource((enum SourceEnum)source, oneShotHoldValue);
+        return;
+    }
+
     float lfoValue = 0.0f;
 
     ticks ++;
@@ -141,82 +330,56 @@ void LfoOsc::nextValueInMatrix() {
     }
     phase += currentFreq * PREENFM_FREQUENCY_INVERSED_LFO;
 
-    switch ((int)lfo->shape) {
-    case LFO_TRIANGLE:
-    {
-        if (unlikely(phase >= 1.0f)) {
-            phase -= 1;
-        }
-        if (phase < .5f) {
-            lfoValue = phase * 4.0f -1.0f ;
-        } else {
-            lfoValue = 1.0f - (phase - .5f ) * 4.0f;
-        }
-        break;
-    }
-    case LFO_SAW:
-        if (unlikely(phase >= 1.0f)) {
-            phase -= 1;
-        }
-        lfoValue = -1.0f + phase * 2.0f;
-        break;
-    case LFO_SIN:
-    {
-        if (unlikely(phase >= 1.0f)) {
-            phase -= 1;
-        }
-        int sinIndex = (int) (phase * waveTables[0].max);
-        sinIndex &= waveTables[0].max;
-        lfoValue = sinTable[sinIndex];
-        break;
-    }
-    case LFO_SQUARE:
-        if (unlikely(phase >= 1.0f)) {
-            phase -= 1;
-        }
-        if (phase < .5) {
-            lfoValue = -1.0f;
-        } else {
-            lfoValue = 1.0f;
-        }
-        break;
-    case LFO_RANDOM:
-        if (unlikely(phase >= 1.0f)) {
+    if (unlikely(oneShotActive && phase >= 1.0f)) {
+        while (phase >= 1.0f) {
             phase -= 1.0f;
-            currentRandomValue = noise[0];
-        }
 
-        lfoValue = currentRandomValue;
-        break;
-    case LFO_BROWNIAN:
-        if (unlikely(phase >= 1.0f)) {
-            phase -= 1.0f;
-            noiseLp = noise[0] * 0.4f + noiseLp * 0.6f;
-            currentRandomValue = noiseLp;
-        }
+            oneShotRemaining--;
+            if (oneShotRemaining <= 0) {
+                oneShotActive = false;
+                switch (oneShotTerminalMode) {
+                case 1:
+                    lfoValue = currentRandomValue;
+                    break;
+                case 2:
+                    lfoValue = nextRandomValue;
+                    break;
+                default:
+                    lfoValue = oneShotTerminalShapeValue;
+                    break;
+                }
+                lfoValue += lfo->bias;
+                oneShotHoldValue = lfoValue;
+                matrix->setSource((enum SourceEnum)source, lfoValue);
+                return;
+            }
 
-        lfoValue = currentRandomValue;
-        break;
-    case LFO_WANDERING:
-        if (unlikely(phase >= 1.0f)) {
-            phase -= 1;
-            currentRandomValue = nextRandomValue;
-            nextRandomValue = noise[0];
+            if (lfo->shape == LFO_RANDOM) {
+                currentRandomValue = noise[0];
+            } else if (lfo->shape == LFO_BROWNIAN) {
+                noiseLp = noise[0] * 0.4f + noiseLp * 0.6f;
+                currentRandomValue = noiseLp;
+            } else if (lfo->shape == LFO_WANDERING) {
+                currentRandomValue = nextRandomValue;
+                nextRandomValue = noise[0];
+            } else if (lfo->shape == LFO_FLOW) {
+                noiseLp = noise[0] * 0.4f + noiseLp * 0.6f;
+                currentRandomValue = nextRandomValue;
+                nextRandomValue = noiseLp;
+            }
         }
-
-        lfoValue = phase * (nextRandomValue - currentRandomValue) + currentRandomValue;
-        break;
-    case LFO_FLOW:
-        if (unlikely(phase >= 1.0f)) {
-            phase -= 1;
-            noiseLp = noise[0] * 0.4f + noiseLp * 0.6f;
-            currentRandomValue = nextRandomValue;
-            nextRandomValue = noiseLp;
-        }
-
-        lfoValue = phase * (nextRandomValue - currentRandomValue) + currentRandomValue;
-        break;
     }
+
+    bool phaseWrapped = false;
+    if (unlikely(phase >= 1.0f)) {
+        // One wrap normalization for all non-one-shot shape paths.
+        while (phase >= 1.0f) {
+            phase -= 1.0f;
+            phaseWrapped = true;
+        }
+    }
+
+    (this->*shapeExecutor)(lfoValue, phase, phaseWrapped);
 
 
     if (unlikely(currentRamp < ramp)) {
@@ -231,6 +394,24 @@ void LfoOsc::nextValueInMatrix() {
 
 
 void LfoOsc::noteOn() {
+    if (oneShotLimit > 0) {
+        if ((lfo->freq * 10.0f) < LFO_MIDICLOCK_MC_DIV_16) {
+            phase = *this->initPhase;
+        }
+
+        oneShotRemaining = oneShotLimit;
+        oneShotActive = true;
+        currentRamp = ramp >= 0.0f ? 0.0f : 1.0f;
+
+        if (unlikely(lfo->shape == LFO_RANDOM)) {
+            currentRandomValue = noise[0];
+        } else if (unlikely(lfo->shape == LFO_BROWNIAN || lfo->shape == LFO_WANDERING || lfo->shape == LFO_FLOW)) {
+            noiseLp = noise[0] * 0.4f + noiseLp * 0.6f;
+            currentRandomValue = noiseLp;
+        }
+        return;
+    }
+
     if (ramp >= 0.0f) {
         currentRamp = 0.0f;
         if ((lfo->freq * 10.0f) < LFO_MIDICLOCK_MC_DIV_16) {
@@ -240,7 +421,7 @@ void LfoOsc::noteOn() {
         // Retriger value if random...
         if (unlikely(lfo->shape == LFO_RANDOM)) {
             currentRandomValue = noise[0];
-        } else if (unlikely(lfo->shape >= LFO_BROWNIAN)) {
+        } else if (unlikely(lfo->shape == LFO_BROWNIAN || lfo->shape == LFO_WANDERING || lfo->shape == LFO_FLOW)) {
             noiseLp = noise[0] * 0.4f + noiseLp * 0.6f;
             currentRandomValue = noiseLp;
         }
