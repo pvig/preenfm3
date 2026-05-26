@@ -16,10 +16,15 @@ Functional additions and fixes in this branch include:
 - Operator phase marker visualization and editor/UI wiring for phase offsets.
 - DX7 SysEx import hardening and mapping fixes (bank validation, vibrato/AMS handling, fixed-frequency preservation).
 - FM decimation control added to engine parameters with preset/file persistence support.
-- FM decimation expanded in oscillator DSP path to multiple domains: FM sum, phase increment/accumulator, phase modulation index/offset, waveform input, and oscillator output level before envelope multiply.
+- FM decimation modes are capped at 19-bit precision (plus `Full`), with legacy preset values above 19-bit clamped on load for compatibility.
+- FM decimation path is simplified for CPU efficiency: output sample quantization is retained, phase-accumulator quantization removed, and temporal decimation (`D=2` sample-and-hold) is applied in safe oscillator render paths.
+- Feedback oscillator rendering remains full-rate for stability while still using decimation output quantization.
 - High-quality wavetable interpolation is bypassed when decimation is enabled.
+- LFO Sync selector expanded with one-shot to eight-shot modes for both internal and external sync clocks: `1Si..8Si` and `1Se..8Se`, in addition to `Int` and `Ext`.
+- LFO one-shot mode and KSyn are now independent so KSyn can be combined with shot modes.
+- LFO shape list expanded in the editor/oscilloscope: `SawD`, `DExp`, `DLog`, `RExp`, `RLog`, `AD`, `AHD`, `SDec`, `Plng`, `Plg2`, `SnSq`, `Sn0`, `Sn+`, and `Usr1..Usr6`.
 - Build and release workflow improvements for VS Code/CLI headless builds (`scripts/build_cli.sh`), including automatic release artifact refresh and checksum regeneration.
-- New subrelease packaging updated to firmware `v1.06a` with `bl1.09` bundle naming.
+- New subrelease packaging updated to firmware `v1.06b` with `bl1.09` bundle naming.
 
 Notes:
 
