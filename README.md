@@ -23,8 +23,9 @@ Functional additions and fixes in this branch include:
 - LFO Sync selector expanded with one-shot to eight-shot modes for both internal and external sync clocks: `1Si..8Si` and `1Se..8Se`, in addition to `Int` and `Ext`.
 - LFO one-shot mode and KSyn are now independent so KSyn can be combined with shot modes.
 - LFO shape list expanded in the editor/oscilloscope: `SawD`, `DExp`, `DLog`, `RExp`, `RLog`, `AD`, `AHD`, `SDec`, `Plng`, `Plg2`, `SnSq`, `Sn0`, `Sn+`, and `Usr1..Usr6`.
+- LFO Phase encoder now doubles as a startup delay: negative values set a delay of 0–4000 ms (displayed as integer ms); positive values set a phase offset of 0–1. Encoder stepping uses adaptive resolution — 1 ms steps below 50 ms, up to 50 ms steps near 4 s — with a float32 forward-progress guard that prevents the encoder from getting stuck at quantisation boundaries (notably the 100 ms transition between step sizes).
 - Build and release workflow improvements for VS Code/CLI headless builds (`scripts/build_cli.sh`), including automatic release artifact refresh and checksum regeneration.
-- New subrelease packaging updated to firmware `v1.06b` with `bl1.09` bundle naming.
+- New subrelease packaging updated to firmware `v1.06e` with `bl1.09` bundle naming.
 
 Notes:
 

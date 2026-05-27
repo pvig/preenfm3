@@ -1839,26 +1839,26 @@ struct ParameterRowDisplay lfoPhaseParameterRow = {
         "    " },
     {
         {
-            0,
+            -4,
             1,
-            101,
-            DISPLAY_TYPE_FLOAT,
+            501,
+            DISPLAY_TYPE_LFO_DELAY,
             nullNames,
             nullNamesOrder,
             nullNamesOrder },
         {
-            0,
+            -4,
             1,
-            101,
-            DISPLAY_TYPE_FLOAT,
+            501,
+            DISPLAY_TYPE_LFO_DELAY,
             nullNames,
             nullNamesOrder,
             nullNamesOrder },
         {
-            0,
+            -4,
             1,
-            101,
-            DISPLAY_TYPE_FLOAT,
+            501,
+            DISPLAY_TYPE_LFO_DELAY,
             nullNames,
             nullNamesOrder,
             nullNamesOrder },
@@ -3888,6 +3888,31 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
     case DISPLAY_TYPE_FLOAT:
         tft_->printFloatWithSpace(newFloatValue);
         break;
+    case DISPLAY_TYPE_LFO_DELAY: {
+        if (newFloatValue < 0.0f) {
+            float delaySeconds = -newFloatValue;
+            int delayMsRounded = (int)(delaySeconds * 1000.0f + 0.5f);
+
+            if (delayMsRounded > 4000) {
+                delayMsRounded = 4000;
+            }
+
+            // Keep fixed field width so previous longer values are fully overwritten.
+            if (delayMsRounded < 10) {
+                tft_->print("    ");
+            } else if (delayMsRounded < 100) {
+                tft_->print("   ");
+            } else if (delayMsRounded < 1000) {
+                tft_->print("  ");
+            } else {
+                tft_->print(' ');
+            }
+            tft_->print(delayMsRounded);
+        } else {
+            tft_->printFloatWithSpace(newFloatValue);
+        }
+        break;
+    }
         // else what follows
     case DISPLAY_TYPE_INT:
         tft_->printValueWithSpace(newValue);
@@ -4183,6 +4208,76 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
         float &value = ((float*) synthState_->params)[num];
         oldValue = value;
 
+        if (row == ROW_LFOPHASES && encoder4 >= ENCODER_LFO_PHASE1 && encoder4 <= ENCODER_LFO_PHASE3) {
+            auto delayStep = [](float delaySeconds) {
+                if (delaySeconds < 0.050f) return 0.001f;
+                if (delaySeconds < 0.100f) return 0.002f;
+                if (delaySeconds < 0.200f) return 0.005f;
+                if (delaySeconds < 1.000f) return 0.010f;
+                if (delaySeconds < 2.000f) return 0.020f;
+                if (delaySeconds < 3.000f) return 0.025f;
+                return 0.050f;
+            };
+
+            int direction = ticks > 0 ? 1 : (ticks < 0 ? -1 : 0);
+            int steps = ticks > 0 ? ticks : -ticks;
+
+            for (int s = 0; s < steps; s++) {
+                if (direction > 0) {
+                    if (value < 0.0f) {
+                        float delay = -value;
+                        delay -= delayStep(delay);
+                        if (delay < 0.0005f) {
+                            value = 0.0f;
+                        } else {
+                            float quantStep = delayStep(delay);
+                            int q = (int)(delay / quantStep + 0.5f);
+                            value = -(float)q * quantStep;
+                        }
+                    } else {
+                        value += param->incValue;
+                        if (value > param->maxValue) {
+                            value = param->maxValue;
+                        }
+                    }
+                } else if (direction < 0) {
+                    if (value <= 0.0f) {
+                        float origValue = value;
+                        float delay = -value;
+                        delay += delayStep(delay);
+                        if (delay > 4.0f) {
+                            delay = 4.0f;
+                        }
+                        float quantStep = delayStep(delay);
+                        int q = (int)(delay / quantStep + 0.5f);
+                        float newValue = -(float)q * quantStep;
+                        // Guard: float32 can quantize 20*0.005 back below 0.100,
+                        // making delayStep return 0.002 forever.  Force forward.
+                        if (newValue >= origValue) {
+                            newValue = -(float)(q + 1) * quantStep;
+                        }
+                        if (newValue < -4.0f) {
+                            newValue = -4.0f;
+                        }
+                        value = newValue;
+                    } else {
+                        value -= param->incValue;
+                        if (value < 0.0f) {
+                            value = -0.001f;
+                        }
+                    }
+                }
+            }
+
+            newValue = value;
+            if (newValue > param->maxValue) {
+                newValue = param->maxValue;
+            }
+            if (newValue < param->minValue) {
+                newValue = param->minValue;
+            }
+            value = newValue;
+        } else {
         float inc = param->incValue;
 
         // Slow down LFO frequency
@@ -4202,6 +4297,7 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
             newValue = param->minValue;
         }
         value = newValue;
+        }
     } else {
         float *value = &((float*) synthState_->params)[num];
         newValue = oldValue = (*value);

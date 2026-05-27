@@ -157,8 +157,24 @@ update_release_artifacts() {
   local zip_file
 
   if [[ ! -d "$RELEASE_DIR" ]]; then
-    echo "Release directory not found, skipping release update: $RELEASE_DIR"
-    return
+    echo "Release directory not found, creating: $RELEASE_DIR"
+    mkdir -p "$RELEASE_DIR/firmware" "$RELEASE_DIR/bootloader"
+
+    local release_parent
+    local previous_release
+    release_parent="$(dirname "$RELEASE_DIR")"
+
+    previous_release="$({
+      ls -1d "$release_parent"/preenfm3-v*-bl"$BOOTLOADER_VERSION" 2>/dev/null || true
+    } | sort | tail -n 1)"
+
+    if [[ -n "$previous_release" && -f "$previous_release/README.txt" ]]; then
+      cp "$previous_release/README.txt" "$RELEASE_DIR/README.txt"
+    elif [[ -f "$ROOT_DIR/firmware/README.txt" ]]; then
+      cp "$ROOT_DIR/firmware/README.txt" "$RELEASE_DIR/README.txt"
+    fi
+  else
+    mkdir -p "$RELEASE_DIR/firmware" "$RELEASE_DIR/bootloader"
   fi
 
   if [[ ! -f "$firmware_src" || ! -f "$bootloader_src" ]]; then

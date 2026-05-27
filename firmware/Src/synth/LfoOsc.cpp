@@ -216,6 +216,7 @@ void LfoOsc::init(struct LfoParams *lfoParams, float* lfoSyncMode, float* phase,
     valueChanged(3);
     this->destination = dest;
     this->currentRandomValue = 0.0f;
+    this->startupDelaySeconds = 0.0f;
 
     ticks = 1536;
     midiClock(0, true);
@@ -225,6 +226,11 @@ void LfoOsc::init(struct LfoParams *lfoParams, float* lfoSyncMode, float* phase,
 void LfoOsc::midiClock(int songPosition, bool computeStep) {
 
     ticks &= 0x7ff;
+    float phaseOffset = *this->initPhase;
+    if (phaseOffset < 0.0f) {
+        // Negative phase is used as note-on startup delay, not as running phase offset.
+        phaseOffset = 0.0f;
+    }
 
     switch ((int)(lfo->freq * 10.0f + .05f)) {
     case LFO_MIDICLOCK_MC_DIV_16:
@@ -233,7 +239,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 currentFreq = PREENFM_FREQUENCY / BLOCK_SIZE / 32.0f * invTab[ticks];
                 ticks = 0;
             }
-            phase = (songPosition & 0x3E) * 0.015625f + *this->initPhase;
+            phase = (songPosition & 0x3E) * 0.015625f + phaseOffset;
         }
         break;
     case LFO_MIDICLOCK_MC_DIV_8:
@@ -242,7 +248,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 currentFreq = PREENFM_FREQUENCY / BLOCK_SIZE / 16.0f * invTab[ticks];
                 ticks = 0;
             }
-            phase = (songPosition & 0x1E) * 0.03125f + *this->initPhase;
+            phase = (songPosition & 0x1E) * 0.03125f + phaseOffset;
         }
         break;
     case LFO_MIDICLOCK_MC_DIV_4:
@@ -251,7 +257,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 currentFreq = PREENFM_FREQUENCY / BLOCK_SIZE / 8.0f * invTab[ticks];
                 ticks = 0;
             }
-            phase = (songPosition & 0xE) * 0.0625f + *this->initPhase;
+            phase = (songPosition & 0xE) * 0.0625f + phaseOffset;
         }
         break;
     case LFO_MIDICLOCK_MC_DIV_2:
@@ -261,7 +267,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 ticks = 0;
             }
             // 0,2,4,6
-            phase = (songPosition & 0x6) * .125f + *this->initPhase;
+            phase = (songPosition & 0x6) * .125f + phaseOffset;
         }
         break;
     case LFO_MIDICLOCK_MC:
@@ -272,7 +278,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 ticks = 0;
             }
             // 0 or 2 -> 0 ou .5
-            phase = (songPosition & 0x2) * .25f + *this->initPhase;
+            phase = (songPosition & 0x2) * .25f + phaseOffset;
         }
         break;
     case LFO_MIDICLOCK_MC_TIME_2:
@@ -281,7 +287,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 currentFreq = PREENFM_FREQUENCY / BLOCK_SIZE * invTab[ticks];
                 ticks = 0;
             }
-            phase =  *this->initPhase;
+            phase =  phaseOffset;
         }
         break;
     case LFO_MIDICLOCK_MC_TIME_3:
@@ -290,7 +296,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 currentFreq = PREENFM_FREQUENCY / BLOCK_SIZE * invTab[ticks] * 3.0;
                 ticks = 0;
             }
-            phase = *this->initPhase;
+            phase = phaseOffset;
         }
         break;
     case LFO_MIDICLOCK_MC_TIME_4:
@@ -299,7 +305,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 currentFreq = PREENFM_FREQUENCY / BLOCK_SIZE * invTab[ticks] * 2.0f;
                 ticks = 0;
             }
-            phase = *this->initPhase;
+            phase = phaseOffset;
         }
         break;
     case LFO_MIDICLOCK_MC_TIME_8:
@@ -308,7 +314,7 @@ void LfoOsc::midiClock(int songPosition, bool computeStep) {
                 currentFreq = PREENFM_FREQUENCY / BLOCK_SIZE * invTab[ticks] * 4.0f;
                 ticks = 0;
             }
-            phase = *this->initPhase;
+            phase = phaseOffset;
         }
         break;
     }
@@ -322,6 +328,17 @@ void LfoOsc::nextValueInMatrix() {
     }
 
     float lfoValue = 0.0f;
+
+    if (startupDelaySeconds > 0.0f) {
+        startupDelaySeconds -= PREENFM_FREQUENCY_INVERSED_LFO;
+        if (startupDelaySeconds > 0.0f) {
+            (this->*shapeExecutor)(lfoValue, 0.0f, false);
+            lfoValue += lfo->bias;
+            matrix->setSource((enum SourceEnum)source, lfoValue);
+            return;
+        }
+        startupDelaySeconds = 0.0f;
+    }
 
     ticks ++;
 
@@ -394,8 +411,20 @@ void LfoOsc::nextValueInMatrix() {
 
 
 void LfoOsc::noteOn() {
+    auto setupNegativeDelay = [this]() {
+        if (*this->initPhase < 0.0f) {
+            this->phase = 0.0f;
+            this->startupDelaySeconds = -*this->initPhase;
+            return true;
+        }
+        this->startupDelaySeconds = 0.0f;
+        return false;
+    };
+
+    bool hasNegativeDelay = setupNegativeDelay();
+
     if (oneShotLimit > 0) {
-        if ((lfo->freq * 10.0f) < LFO_MIDICLOCK_MC_DIV_16) {
+        if (!hasNegativeDelay && (lfo->freq * 10.0f) < LFO_MIDICLOCK_MC_DIV_16) {
             phase = *this->initPhase;
         }
 
@@ -414,8 +443,7 @@ void LfoOsc::noteOn() {
 
     if (ramp >= 0.0f) {
         currentRamp = 0.0f;
-        if ((lfo->freq * 10.0f) < LFO_MIDICLOCK_MC_DIV_16) {
-
+        if (!hasNegativeDelay && (lfo->freq * 10.0f) < LFO_MIDICLOCK_MC_DIV_16) {
             phase = *this->initPhase;
         }
         // Retriger value if random...

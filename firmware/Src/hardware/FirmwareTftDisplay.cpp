@@ -504,6 +504,18 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
     // Sclae 160 pixel = 1 second of LFO
     int indexMiddle = 50 * 160;
     uint16_t oscilloColor = tftPalette565[COLOR_BLUE];
+    float phaseForPreview = oscilParams1[5];
+    int previewDelayPixels = 0;
+
+    if (phaseForPreview < 0.0f) {
+        float delaySeconds = -phaseForPreview;
+        // Keep delay preview bounded to the 1-second oscilloscope window.
+        previewDelayPixels = (int)(delaySeconds * 160.0f + 0.999f);
+        if (previewDelayPixels > 160) {
+            previewDelayPixels = 160;
+        }
+        phaseForPreview = 0.0f;
+    }
 
     // Shape
     switch ((int)oscilParams1[0]) {
@@ -512,7 +524,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         float *samples = waveTables[OSC_SHAPE_SIN].table;
         int size = waveTables[OSC_SHAPE_SIN].max + 1;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * phaseForPreview;
             int iIndex = index;
             iIndex %= size;
             if (iIndex < 0) {
@@ -527,7 +539,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         int size = 200;
         float incSample = 0.005f;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * phaseForPreview;
             int iIndex = index;
             iIndex %= size;
             oscilloYValue[x] = -47 + (int) ((float)iIndex) * incSample * 94.0f;
@@ -540,7 +552,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         // incSample twice 1/200 for triangle
         float incSample = 0.01f;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * phaseForPreview;
             int iIndex = index;
             iIndex %= size;
             if (iIndex < 100) {
@@ -556,7 +568,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         // Square
         int size = 50;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * phaseForPreview;
             int iIndex = index;
             iIndex %= size;
             oscilloYValue[x] = iIndex < 25 ? 47 : -47;
@@ -575,7 +587,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         int size = 200;
         float incSample = 0.005f;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * phaseForPreview;
             int iIndex = index;
             iIndex %= size;
             oscilloYValue[x] = 47 - (int) ((float)iIndex) * incSample * 94.0f;
@@ -587,7 +599,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         const float k = 6.0f;
         const float expEnd = expf(-k);
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -602,7 +614,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         const float a = 31.0f;
         const float invLog = 1.0f / logf(1.0f + a);
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -617,7 +629,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         const float k = 6.0f;
         const float expEnd = expf(-k);
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -632,7 +644,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         const float a = 31.0f;
         const float invLog = 1.0f / logf(1.0f + a);
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -645,7 +657,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
     case 13: {
         // Rounded attack-decay hump.
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -667,7 +679,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
     case 14: {
         // Rounded attack-hold-decay.
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -691,7 +703,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
     case 15: {
         // S-curve decay.
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -709,7 +721,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         const float k = 7.0f;
         const float expEnd = expf(-k);
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -743,7 +755,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         const float k = 7.0f;
         const float expEnd = expf(-k);
         for (int x = 0; x < 160; x++) {
-            float phase = ((float)x) / 160.0f * oscilParams1[1] + oscilParams1[5];
+            float phase = ((float)x) / 160.0f * oscilParams1[1] + phaseForPreview;
             phase -= (int)phase;
             if (phase < 0.0f) {
                 phase += 1.0f;
@@ -789,7 +801,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         float* samples = waveTables[oscShape].table;
         int size = waveTables[oscShape].max + 1;
         for (int x = 0; x < 160; x++) {
-            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * oscilParams1[5];
+            float index = ((float)x) * ((float)size) / 160.0f * oscilParams1[1] + size * phaseForPreview;
             int iIndex = (int)index;
             iIndex %= size;
             if (iIndex < 0) {
@@ -814,7 +826,7 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
     // One-shot preview with hold section.
     if (shotCount > 0 && oscilParams1[1] > 0.0f) {
 
-        float phase0 = oscilParams1[5];
+        float phase0 = phaseForPreview;
         while (phase0 >= 1.0f) {
             phase0 -= 1.0f;
         }
@@ -908,12 +920,23 @@ void FirmwareTftDisplay::oscilloBgDrawLfo() {
         }
     }
 
+    if (previewDelayPixels > 0) {
+        int holdY = oscilloYValue[0];
+
+        for (int x = 159; x >= previewDelayPixels; x--) {
+            oscilloYValue[x] = oscilloYValue[x - previewDelayPixels];
+        }
+        for (int x = 0; x < previewDelayPixels; x++) {
+            oscilloYValue[x] = holdY;
+        }
+    }
+
     if (ksyncAmount > 0.0f) {
         // Ksyn
         // 1/160 = 0.00627
         float kSyncInc = 1.0f / (160.0f * ksyncAmount);
         float kSync = 0;
-        for (int x = 0; x < 160; x++) {
+        for (int x = previewDelayPixels; x < 160; x++) {
             if (kSync < 1) {
                 oscilloYValue[x] = ((float)oscilloYValue[x] * kSync);
             } else {

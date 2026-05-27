@@ -319,6 +319,7 @@ private:
     float ahdAttackPhaseScale = 0.0f;
     float ahdDecayPhaseOffset = 0.0f;
     float ahdDecayPhaseScale = 0.0f;
+    float startupDelaySeconds = 0.0f;
     const float* shapeWaveTable = 0;
     int shapeWaveMax = 0;
     int randomRuntimeMode = 0;

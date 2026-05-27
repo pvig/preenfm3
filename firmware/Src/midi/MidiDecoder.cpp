@@ -696,7 +696,7 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_LFO2_PHASE:
         case CC_LFO3_PHASE:
             this->synth->setNewValueFromMidi(timbre, ROW_LFOPHASES, ENCODER_LFO_PHASE1 + midiEvent.value[0] - CC_LFO1_PHASE,
-                    (float) midiEvent.value[1] * .01f);
+                -4.0f + (float) midiEvent.value[1] * (5.0f / 127.0f));
             break;
         case CC_LFO1_BIAS:
         case CC_LFO2_BIAS:
@@ -1024,7 +1024,8 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             int valueToSend;
 
             if (param->displayType == DISPLAY_TYPE_FLOAT || param->displayType == DISPLAY_TYPE_FLOAT_OSC_FREQUENCY
-                    || param->displayType == DISPLAY_TYPE_FLOAT_LFO_FREQUENCY || param->displayType == DISPLAY_TYPE_LFO_KSYN) {
+                    || param->displayType == DISPLAY_TYPE_FLOAT_LFO_FREQUENCY || param->displayType == DISPLAY_TYPE_LFO_KSYN
+                    || param->displayType == DISPLAY_TYPE_LFO_DELAY) {
                 valueToSend = (newValue - param->minValue) * 100.0f + .1f;
             } else {
                 valueToSend = newValue + .1f;
@@ -1189,7 +1190,12 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             break;
         case ROW_LFOPHASES:
             cc.value[0] = CC_LFO1_PHASE + encoder;
-            cc.value[1] = newValue * 100.0f + .1f;
+            cc.value[1] = (newValue + 4.0f) * (127.0f / 5.0f) + .1f;
+            if (cc.value[1] < 0) {
+                cc.value[1] = 0;
+            } else if (cc.value[1] > 127) {
+                cc.value[1] = 127;
+            }
             break;
         case ROW_ARPEGGIATOR1:
             switch (encoder) {
