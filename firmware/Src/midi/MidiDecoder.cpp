@@ -1259,9 +1259,14 @@ void MidiDecoder::writeMidiCCOut(struct MidiEvent *toSend) {
 
     }
 
+    // usartBufferOut is also written by the USB ISR (midiThru path).
+    // Disable the USB IRQ for the duration of these three inserts to prevent
+    // a concurrent write from corrupting the ring buffer's tail pointer.
+    HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
     usartBufferOut.insert(toSend->eventType + toSend->channel);
     usartBufferOut.insert(toSend->value[0]);
     usartBufferOut.insert(toSend->value[1]);
+    HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
 }
 
 void MidiDecoder::sendMidiDin5Out() {
