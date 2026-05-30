@@ -380,12 +380,12 @@ public:
             }
 
             this->matrix.computeAllDestinations();
-            currentTimbre->osc1_.updateWarpWithMatrix(&matrix);
-            currentTimbre->osc2_.updateWarpWithMatrix(&matrix);
-            currentTimbre->osc3_.updateWarpWithMatrix(&matrix);
-            currentTimbre->osc4_.updateWarpWithMatrix(&matrix);
-            currentTimbre->osc5_.updateWarpWithMatrix(&matrix);
-            currentTimbre->osc6_.updateWarpWithMatrix(&matrix);
+            currentTimbre->osc1_.updateWarpWithMatrix(&oscState1_, &matrix);
+            currentTimbre->osc2_.updateWarpWithMatrix(&oscState2_, &matrix);
+            currentTimbre->osc3_.updateWarpWithMatrix(&oscState3_, &matrix);
+            currentTimbre->osc4_.updateWarpWithMatrix(&oscState4_, &matrix);
+            currentTimbre->osc5_.updateWarpWithMatrix(&oscState5_, &matrix);
+            currentTimbre->osc6_.updateWarpWithMatrix(&oscState6_, &matrix);
             updateAllModulationIndexes();
         }
     }

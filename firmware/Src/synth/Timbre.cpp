@@ -690,7 +690,21 @@ void Timbre::voicesToTimbre(float volumeGain) {
 
 void Timbre::gateFx() {
     // Gate algo !!
-    float gate = voices_[lastPlayedNote_]->matrix.getDestination(MAIN_GATE);
+    float gate = 0.0f;
+    if (likely(params_.engine1.playMode == PLAY_MODE_POLY)) {
+        for (int k = 0; k < numberOfVoices_; k++) {
+            int v = voiceNumber_[k];
+            if (unlikely(v < 0 || !voices_[v]->isPlaying())) {
+                continue;
+            }
+            float voiceGate = voices_[v]->matrix.getDestination(MAIN_GATE);
+            if (voiceGate > gate) {
+                gate = voiceGate;
+            }
+        }
+    } else {
+        gate = voices_[lastPlayedNote_]->matrix.getDestination(MAIN_GATE);
+    }
     if (unlikely(gate > 0 || currentGate_ > 0)) {
         gate *= .72547132656922730694f; // 0 < gate < 1.0
         if (gate > 1.0f) {

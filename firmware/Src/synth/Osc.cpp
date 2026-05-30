@@ -175,8 +175,6 @@ void Osc::init(SynthState* synthState, struct OscillatorParams *oscParams, struc
         phaseWarpParam = &phaseParamsBase[opIndex].unused1;
         destWarp = (DestinationEnum)(((int)OSC1_WARP) + opIndex);
     }
-    effectiveWarp = 0.0f;
-
     if (waveTables[0].precomputedValue <= 0) {
         for (int k=0; k<NUMBER_OF_WAVETABLES; k++) {
             waveTables[k].precomputedValue = (waveTables[k].max + 1) * waveTables[k].useFreq * PREENFM_FREQUENCY_INVERSED;
@@ -198,6 +196,7 @@ void Osc::init(SynthState* synthState, struct OscillatorParams *oscParams, struc
 void Osc::newNote(struct OscState* oscState, float newNoteFrequency, float phase) {
 
     oscState->index = waveTables[(int) oscillator->shape].max * phase;
+    oscState->effectiveWarp = 0.0f;
     oscState->waveDecimationStepPhase = 0;
     oscState->waveDecimationHeldSample = 0.0f;
     switch ((int)oscillator->frequencyType) {

@@ -39,6 +39,7 @@ struct OscState {
     float waveDecimationScale;
     float waveDecimationInvScale;
     float waveDecimationHeldSample;
+    float effectiveWarp;
 };
 
 
@@ -59,7 +60,7 @@ public:
     void glideToNote(struct OscState* oscState, float newNoteFrequency);
     void glideStep(struct OscState* oscState, float phase);
 
-    inline __attribute__((always_inline)) void updateWarpWithMatrix(Matrix* matrix) {
+    inline __attribute__((always_inline)) void updateWarpWithMatrix(struct OscState *oscState, Matrix* matrix) {
         float warp = *phaseWarpParam;
         if (destWarp != DESTINATION_NONE) {
             warp += matrix->getDestination(destWarp);
@@ -77,7 +78,7 @@ public:
         if (warp > -0.0001f && warp < 0.0001f) {
             warp = 0.0f;
         }
-        effectiveWarp = warp;
+        oscState->effectiveWarp = warp;
     }
 
     inline __attribute__((always_inline)) void calculateFrequencyWithMatrix(struct OscState *oscState, Matrix* matrix, float expHarm) {
@@ -111,7 +112,7 @@ public:
     inline __attribute__((always_inline)) float getNextSample(struct OscState *oscState)  {
         struct WaveTable* waveTable = &waveTables[(int) oscillator->shape];
         float phaseIncrement = oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd;
-        float warp = effectiveWarp;
+        float warp = oscState->effectiveWarp;
         bool waveDecimationEnabled = oscState->waveDecimationEnabled != 0;
 
         if (likely(warp == 0.0f)) {
@@ -284,7 +285,7 @@ public:
    		float *wave = waveTables[shape].table;
         float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
 		float freq2 = freq + freq;
-        float warp = effectiveWarp;
+        float warp = oscState->effectiveWarp;
         bool warpEnabled = warp != 0.0f;
         bool waveDecimationEnabled = oscState->waveDecimationEnabled != 0;
         float slopeFirstHalf = 1.0f + warp;
@@ -450,7 +451,7 @@ public:
         int iIndex;
         float* oscValuesToFill = oscValues[4];
 
-        float warp = effectiveWarp;
+        float warp = oscState->effectiveWarp;
         bool warpEnabled = warp != 0.0f;
         float slopeFirstHalf = 1.0f + warp;
         float slopeSecondHalf = 1.0f - warp;
@@ -526,7 +527,7 @@ public:
    		float *wave = waveTables[shape].table;
         float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
         float freq2 = freq + freq;
-        float warp = effectiveWarp;
+        float warp = oscState->effectiveWarp;
         bool warpEnabled = warp != 0.0f;
         bool waveDecimationEnabled = oscState->waveDecimationEnabled != 0;
         float slopeFirstHalf = 1.0f + warp;
@@ -710,5 +711,4 @@ private:
     OscillatorParams* oscillator;
     float* phaseWarpParam;
     float phaseWarpFallback;
-    float effectiveWarp;
 };
