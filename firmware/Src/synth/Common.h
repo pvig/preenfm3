@@ -85,7 +85,7 @@
 #define PFM3_VERSIONS_H_
 
 // Patch/preset format version
-#define PFM3_PATCH_VERSION 1.4f
+#define PFM3_PATCH_VERSION 1.5f
 
 #endif /* PFM3_VERSIONS_H_ */
 
@@ -777,6 +777,18 @@ enum DestinationEnum {
     FILTER2_PARAM1,
     FILTER2_PARAM2,
     FILTER2_AMP,
+    OSC1_PHASE,
+    OSC2_PHASE,
+    OSC3_PHASE,
+    OSC4_PHASE,
+    OSC5_PHASE,
+    OSC6_PHASE,
+    OSC1_WARP,
+    OSC2_WARP,
+    OSC3_WARP,
+    OSC4_WARP,
+    OSC5_WARP,
+    OSC6_WARP,
     DESTINATION_MAX
 };
 

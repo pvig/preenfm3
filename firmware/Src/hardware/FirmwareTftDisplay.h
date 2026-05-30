@@ -61,7 +61,7 @@ public:
     void oscilloBgSetEnvelope(float a, float d, float s, float r, float aL, float dL, float sL, float rL, int8_t aCurve, int8_t dCurve, int8_t sCurve, int8_t rCurve);
     void oscilloBgSetLfoEnvelope(float a, float d, float s, float r, float aL, float dL, float sL, float rL);
     void oscilloBgSetLfo(float shape, float freq, float kSyn, float syncMode, float bias, float phase);
-    void oscilloBgSetOperatorPhase(float phaseDegrees);
+    void oscilloBgSetOperatorPhase(float phaseDegrees, float warp);
 
     void additionalActions();
     void clearActions();
@@ -86,6 +86,7 @@ private:
     int lfoInQueue;
     int operatorInQueue;
     float operatorPhaseNormalized;
+    float operatorPhaseWarp;
 };
 
 #endif /* HARDWARE_FIRMWARETFTDISPLAY_H_KO_ */

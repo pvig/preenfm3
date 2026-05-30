@@ -380,6 +380,12 @@ public:
             }
 
             this->matrix.computeAllDestinations();
+            currentTimbre->osc1_.updateWarpWithMatrix(&matrix);
+            currentTimbre->osc2_.updateWarpWithMatrix(&matrix);
+            currentTimbre->osc3_.updateWarpWithMatrix(&matrix);
+            currentTimbre->osc4_.updateWarpWithMatrix(&matrix);
+            currentTimbre->osc5_.updateWarpWithMatrix(&matrix);
+            currentTimbre->osc6_.updateWarpWithMatrix(&matrix);
             updateAllModulationIndexes();
         }
     }

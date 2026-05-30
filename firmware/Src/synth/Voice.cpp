@@ -27,6 +27,11 @@
 #include "Voice.h"
 #include "Timbre.h"
 
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC push_options
+#pragma GCC optimize ("Ofast", "fast-math")
+#endif
+
 
 float Voice::glidePhaseInc[13];
 float Voice::mpeBitchBend[6];
@@ -499,13 +504,23 @@ static inline float phaseDegreeToNormalized(float phaseDegree) {
     return phaseDegree * (1.0f / 360.0f);
 }
 
+static inline float phaseDegreeToNormalizedWrapped(float phaseDegree) {
+    while (phaseDegree < 0.0f) {
+        phaseDegree += 360.0f;
+    }
+    while (phaseDegree > 360.0f) {
+        phaseDegree -= 360.0f;
+    }
+    return phaseDegree * (1.0f / 360.0f);
+}
+
 void Voice::applyOperatorStartPhases(float mainFrequency) {
-    float oscPhase1 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp1.phase);
-    float oscPhase2 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp2.phase);
-    float oscPhase3 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp3.phase);
-    float oscPhase4 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp4.phase);
-    float oscPhase5 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp5.phase);
-    float oscPhase6 = phaseDegreeToNormalized(currentTimbre->params_.phaseOp6.phase);
+    float oscPhase1 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp1.phase + matrix.getDestination(OSC1_PHASE));
+    float oscPhase2 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp2.phase + matrix.getDestination(OSC2_PHASE));
+    float oscPhase3 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp3.phase + matrix.getDestination(OSC3_PHASE));
+    float oscPhase4 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp4.phase + matrix.getDestination(OSC4_PHASE));
+    float oscPhase5 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp5.phase + matrix.getDestination(OSC5_PHASE));
+    float oscPhase6 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp6.phase + matrix.getDestination(OSC6_PHASE));
 
     // Preserve legacy unison behavior for negative detune.
     if (unlikely(currentTimbre->params_.engine2.unisonDetune < 0.0f)) {
@@ -8030,4 +8045,8 @@ void Voice::midiClockStart() {
         lfoStepSeq[1].midiContinue();
     }
 }
+
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC pop_options
+#endif
 

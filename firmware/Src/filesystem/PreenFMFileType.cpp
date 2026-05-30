@@ -589,6 +589,27 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
         }
     }
 
+    // For presets saved before warp existed, start from neutral warp.
+    struct OperatorPhaseRowParams* phaseParams = &params->phaseOp1;
+    if (patchVersion < 1.5f) {
+        for (int i = 0; i < 6; i++) {
+            phaseParams[i].unused1 = 0.0f;
+        }
+    }
+
+    // Clamp operator phase-warp values from reserved storage slot.
+    for (int i = 0; i < 6; i++) {
+        float warp = phaseParams[i].unused1;
+        if (!(warp == warp)) {
+            warp = 0.0f;
+        } else if (warp > 4.0f) {
+            warp = 4.0f;
+        } else if (warp < -4.0f) {
+            warp = -4.0f;
+        }
+        phaseParams[i].unused1 = warp;
+    }
+
     // Fixe poly Mono depending on pfm3Version :
     uint32_t version = (uint32_t)(params->engine2.pfm3Version + .1f);
     if (version == 0) {

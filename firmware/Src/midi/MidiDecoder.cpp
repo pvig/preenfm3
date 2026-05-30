@@ -587,6 +587,18 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             this->synth->setNewValueFromMidi(timbre, ROW_OSC1 + midiEvent.value[0] - CC_OSC1_FREQ, ENCODER_OSC_FREQ,
                     (float) midiEvent.value[1] * .0833333333333333f);
             break;
+        case CC_OSC1_WARP:
+        case CC_OSC2_WARP:
+        case CC_OSC3_WARP:
+            this->synth->setNewValueFromMidi(timbre, ROW_OP_PHASE1 + midiEvent.value[0] - CC_OSC1_WARP, ENCODER_OSC_WARP,
+                (float)midiEvent.value[1] * (8.0f * INV127) - 4.0f);
+            break;
+        case CC_OSC4_WARP:
+        case CC_OSC5_WARP:
+        case CC_OSC6_WARP:
+            this->synth->setNewValueFromMidi(timbre, ROW_OP_PHASE4 + midiEvent.value[0] - CC_OSC4_WARP, ENCODER_OSC_WARP,
+                (float)midiEvent.value[1] * (8.0f * INV127) - 4.0f);
+            break;
         case CC_MATRIXROW1_MUL:
         case CC_MATRIXROW2_MUL:
         case CC_MATRIXROW3_MUL:
@@ -1103,6 +1115,22 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             if (encoder == ENCODER_OSC_FREQ) {
                 cc.value[0] = CC_OSC1_FREQ + (currentrow - ROW_OSC_FIRST);
                 cc.value[1] = newValue * 12.0f + .1f;
+            }
+            break;
+        case ROW_OP_PHASE1:
+        case ROW_OP_PHASE2:
+        case ROW_OP_PHASE3:
+        case ROW_OP_PHASE4:
+        case ROW_OP_PHASE5:
+        case ROW_OP_PHASE6:
+            if (encoder == ENCODER_OSC_WARP) {
+                int op = currentrow - ROW_OP_PHASE1;
+                if (op < 3) {
+                    cc.value[0] = CC_OSC1_WARP + op;
+                } else {
+                    cc.value[0] = CC_OSC4_WARP + (op - 3);
+                }
+                cc.value[1] = (newValue + 4.0f) * (127.0f / 8.0f) + .1f;
             }
             break;
         case ROW_MATRIX_FIRST ... ROW_MATRIX4:

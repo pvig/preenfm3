@@ -135,7 +135,8 @@ enum {
 };
 
 enum {
-    ENCODER_OSC_PHASE = 0
+    ENCODER_OSC_PHASE = 0,
+    ENCODER_OSC_WARP
 };
 
 enum {

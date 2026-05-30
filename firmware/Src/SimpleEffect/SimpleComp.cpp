@@ -1,3 +1,9 @@
+#include "SimpleComp.h"
+
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC push_options
+#pragma GCC optimize ("Ofast", "fast-math")
+#endif
 /*
  *	Simple Compressor (source)
  *
@@ -26,10 +32,6 @@
  *	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  *	DEALINGS IN THE SOFTWARE.
  */
-
-
-#include "SimpleComp.h"
-
 namespace chunkware_simple
 {
 	//-------------------------------------------------------------
@@ -94,3 +96,7 @@ namespace chunkware_simple
 	}
 
 }	// end namespace chunkware_simple
+
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC pop_options
+#endif

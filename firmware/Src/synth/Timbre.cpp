@@ -185,12 +185,13 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     env5_.init(&params_.env5Time, &params_.env5Level, 4, &params_.engine1.algo, &params_.env5Curve);
     env6_.init(&params_.env6Time, &params_.env6Level, 5, &params_.engine1.algo, &params_.env6Curve);
 
-    osc1_.init(synthState, &params_.osc1, OSC1_FREQ);
-    osc2_.init(synthState, &params_.osc2, OSC2_FREQ);
-    osc3_.init(synthState, &params_.osc3, OSC3_FREQ);
-    osc4_.init(synthState, &params_.osc4, OSC4_FREQ);
-    osc5_.init(synthState, &params_.osc5, OSC5_FREQ);
-    osc6_.init(synthState, &params_.osc6, OSC6_FREQ);
+    struct OperatorPhaseRowParams* phaseParamsBase = &params_.phaseOp1;
+    osc1_.init(synthState, &params_.osc1, phaseParamsBase, OSC1_FREQ);
+    osc2_.init(synthState, &params_.osc2, phaseParamsBase, OSC2_FREQ);
+    osc3_.init(synthState, &params_.osc3, phaseParamsBase, OSC3_FREQ);
+    osc4_.init(synthState, &params_.osc4, phaseParamsBase, OSC4_FREQ);
+    osc5_.init(synthState, &params_.osc5, phaseParamsBase, OSC5_FREQ);
+    osc6_.init(synthState, &params_.osc6, phaseParamsBase, OSC6_FREQ);
 
     timbreNumber_ = timbreNumber;
 

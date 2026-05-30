@@ -701,10 +701,12 @@ void SynthState::randomizePreset() {
 
         for (int o = 0; o < 6; o++) {
             struct OscillatorParams* currentOsc = &((struct OscillatorParams*) &params->osc1)[o];
+            struct OperatorPhaseRowParams* currentPhase = &((struct OperatorPhaseRowParams*) &params->phaseOp1)[o];
             currentOsc->shape = getRandomShape(operatorRandom);
             currentOsc->frequencyMul = getRandomFrequency(operatorRandom);
             currentOsc->frequencyType = getRandomFrequencyType(operatorRandom);
             currentOsc->detune = getFineTune(operatorRandom);
+            currentPhase->unused1 = 0.0f;
         }
 
         // FX

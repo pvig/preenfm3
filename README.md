@@ -12,8 +12,11 @@ Baseline used for comparison: merge-base with `origin/master` (`65cb963`).
 
 Functional additions and fixes in this branch include:
 
-- Per-operator start phase offset support in the synth engine.
-- Operator phase marker visualization and editor/UI wiring for phase offsets.
+- Per-operator start phase offset support in the synth engine, with UI visualization of the phase marker in the oscilloscope view and encoder/editor wiring.
+- Per-operator **Warp** parameter: asymmetrically stretches the first and second halves of the wavetable cycle so the waveform leans towards attack or decay. Range ±4 (values beyond ±1 invert one half of the waveform). Warp is applied in all oscillator render paths (`getNextSample`, `getNextBlock`, `getNextBlockHQ`) including the decimated sub-paths. A deadband near zero preserves the fast no-warp render path under small modulation.
+- Both `Phase` and `Warp` for operators 1–6 are exposed as modulation-matrix destinations (`o1Ph`–`o6Ph`, `o1Wr`–`o6Wr`), wired through the matrix update loop in `Voice::prepareMatrixForNewBlock`. Warp updates are applied every block; Phase is applied at note-on.
+- `Warp` is mapped to MIDI CC per operator and accessible via the encoder row in the editor UI.
+- Patch format bumped to **v1.5**: Warp defaults to 0 on load of older patches; out-of-range Warp values are clamped on load.
 - DX7 SysEx import hardening and mapping fixes (bank validation, vibrato/AMS handling, fixed-frequency preservation).
 - FM decimation control added to engine parameters with preset/file persistence support.
 - FM decimation modes are capped at 19-bit precision (plus `Full`), with legacy preset values above 19-bit clamped on load for compatibility.
@@ -25,7 +28,8 @@ Functional additions and fixes in this branch include:
 - LFO shape list expanded in the editor/oscilloscope: `SawD`, `DExp`, `DLog`, `RExp`, `RLog`, `AD`, `AHD`, `SDec`, `Plng`, `Plg2`, `SnSq`, `Sn0`, `Sn+`, and `Usr1..Usr6`.
 - LFO Phase encoder now doubles as a startup delay: negative values set a delay of 0–4000 ms (displayed as integer ms); positive values set a phase offset of 0–1. Encoder stepping uses adaptive resolution — 1 ms steps below 50 ms, up to 50 ms steps near 4 s — with a float32 forward-progress guard that prevents the encoder from getting stuck at quantisation boundaries (notably the 100 ms transition between step sizes).
 - Build and release workflow improvements for VS Code/CLI headless builds (`scripts/build_cli.sh`), including automatic release artifact refresh and checksum regeneration.
-- New subrelease packaging updated to firmware `v1.06e` with `bl1.09` bundle naming.
+- New subrelease packaging updated to firmware `v1.06f` with `bl1.09` bundle naming.
+- Oscillator CPU hot-path optimised: `quantizeOscOutputBeforeEnvelope` is now skipped when wave-decimation is disabled (the common case), removing a branch and two multiplies per sample across all 32-sample block-render loops in `getNextBlock`, `getNextBlockHQ`, and `getNextSample`. Decimation-enabled state is now cached once per block call rather than read per sample. Hot DSP translation units (`Osc.cpp`, `Voice.cpp`, `FxBus.cpp`, `TimbreFx.cpp`, `SimpleComp.cpp`, `SimpleEnvelope.cpp`) use selective `#pragma GCC optimize("Ofast","fast-math")` in Release builds to enable aggressive floating-point and speed optimisations without changing Debug behaviour.
 
 Notes:
 

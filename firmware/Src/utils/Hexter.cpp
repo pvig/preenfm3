@@ -939,6 +939,13 @@ void Hexter::voiceSetData(struct OneSynthParams *params, uint8_t *patch)
 		params->phaseOp5.phase = 0.0f;
 		params->phaseOp6.phase = 0.0f;
 	}
+
+	params->phaseOp1.unused1 = 0.0f;
+	params->phaseOp2.unused1 = 0.0f;
+	params->phaseOp3.unused1 = 0.0f;
+	params->phaseOp4.unused1 = 0.0f;
+	params->phaseOp5.unused1 = 0.0f;
+	params->phaseOp6.unused1 = 0.0f;
 }
 
 

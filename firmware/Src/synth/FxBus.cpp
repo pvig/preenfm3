@@ -20,6 +20,11 @@
 #include <math.h>
 #include "FxBus.h"
 
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC push_options
+#pragma GCC optimize ("Ofast", "fast-math")
+#endif
+
 inline float fold(float x4) {
     // https://www.desmos.com/calculator/ge2wvg2wgj
     // x4 : x / 4
@@ -795,3 +800,7 @@ void FxBus::lfoProcess(float *lfo, float *lfotri, float *lfoInc) {
     }
     *lfo = (*lfo * lfoLpCoef1 + *lfotri ) * lfoLpCoef2;
 }
+
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC pop_options
+#endif

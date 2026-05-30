@@ -30,6 +30,11 @@
 
 #include "SimpleEnvelope.h"
 
+// Enable file-local Ofast/fast-math for SimpleEnvelope in Release builds only
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC push_options
+#pragma GCC optimize ("Ofast", "fast-math")
+#endif
 namespace chunkware_simple
 {
 	//-------------------------------------------------------------
@@ -95,3 +100,7 @@ namespace chunkware_simple
 	}
 
 }	// end namespace chunkware_simple
+
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC pop_options
+#endif

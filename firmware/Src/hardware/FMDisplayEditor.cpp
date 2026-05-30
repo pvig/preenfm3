@@ -1378,11 +1378,11 @@ struct ParameterRowDisplay oscParameterRow = {
             nullNamesOrder } } };
 
 struct ParameterRowDisplay oscPhaseParameterRow = {
-    // Dedicated operator phase row: first encoder edits phase, others are hidden.
+    // Dedicated operator phase/warp row.
     "OpPh",
     {
         "Phs",
-        "",
+        "Warp",
         "",
         "" },
     {
@@ -1395,10 +1395,10 @@ struct ParameterRowDisplay oscPhaseParameterRow = {
             nullNamesOrder,
             nullNamesOrder },
         {
-            0,
-            0,
-            0,
-            DISPLAY_TYPE_NONE,
+            -4,
+            4,
+            801,
+            DISPLAY_TYPE_FLOAT,
             nullNames,
             nullNamesOrder,
             nullNamesOrder  },
@@ -1613,9 +1613,12 @@ const char *matrixDestNames[DESTINATION_MAX] = { "None ", "Gate ", "IM 1 ", "IM 
     /*filter2 param 1*/  "Fx2 1",
     /*filter2 param 1*/  "Fx2 2",
     /*filter2 amp*/  "Fx2Am",
+    /*osc phase*/  "o1 Ph", "o2 Ph", "o3 Ph", "o4 Ph", "o5 Ph", "o6 Ph",
+    /*osc warp*/   "o1 Wr", "o2 Wr", "o3 Wr", "o4 Wr", "o5 Wr", "o6 Wr",
     };
 const unsigned char matrixTargetOrder[DESTINATION_MAX] = { 0, 1, 2, 3, 4, 5, 48, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 43, 24, 25, 26, 27, 28, 29,
-    30, 45, 44, 46, 31, 47, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 49, 50, 51, 52, 53 };
+    30, 45, 44, 46, 31, 47, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 49, 50, 51, 52, 53,
+    54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65 };
 
 unsigned char matrixTargetPosition[DESTINATION_MAX];
 
@@ -2461,8 +2464,8 @@ const struct Pfm3OneButtonState pfm3ButtonOPShapeState = {
             ROW_OP_PHASE1,
             ENCODER_OSC_PHASE },
         {
-            ROW_NONE,
-            ENCODER_NONE } } };
+            ROW_OP_PHASE1,
+            ENCODER_OSC_WARP } } };
 
 const struct Pfm3OneButton pfm3ButtonOPShape = {
     "Osc",
@@ -4619,7 +4622,7 @@ void FMDisplayEditor::refreshOscillatorOperatorShape() {
     OscillatorParams *oscillatorParams = &synthState_->params->osc1;
     OperatorPhaseRowParams *phaseParams = &synthState_->params->phaseOp1;
 
-    tft_->oscilloBgSetOperatorPhase(phaseParams[op].phase);
+    tft_->oscilloBgSetOperatorPhase(phaseParams[op].phase, phaseParams[op].unused1);
     tft_->oscilloBgActionOperatorShape((int) oscillatorParams[op].shape);
 }
 

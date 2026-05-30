@@ -115,9 +115,25 @@ void FirmwareTftDisplay::oscilloBgDrawOperatorShape(float* waveForm, int size) {
 
     int indexMiddle = 50 * 160;
     uint16_t oscilloColor = tftPalette565[COLOR_YELLOW];
+    float slopeFirstHalf = 1.0f + operatorPhaseWarp;
+    float slopeSecondHalf = 1.0f - operatorPhaseWarp;
 
     for (int x = 0; x < 160; x++) {
-        float index = x * ((float)size) / 160.0f;
+        float phase = (float)x * (1.0f / 160.0f) + operatorPhaseNormalized;
+        phase -= (int)phase;
+        if (phase < 0.0f) {
+            phase += 1.0f;
+        }
+
+        float warpedPhase = phase < 0.5f
+            ? phase * slopeFirstHalf
+            : 1.0f - (1.0f - phase) * slopeSecondHalf;
+        warpedPhase -= (int)warpedPhase;
+        if (warpedPhase < 0.0f) {
+            warpedPhase += 1.0f;
+        }
+
+        float index = warpedPhase * ((float)size);
         oscilloYValue[x] = (int) (waveForm[(int)index] * 48.0f);
     }
 
@@ -277,13 +293,14 @@ void FirmwareTftDisplay::oscilloBgSetLfo(float shape, float freq, float kSyn, fl
 
 }
 
-void FirmwareTftDisplay::oscilloBgSetOperatorPhase(float phaseDegrees) {
+void FirmwareTftDisplay::oscilloBgSetOperatorPhase(float phaseDegrees, float warp) {
     if (phaseDegrees < 0.0f) {
         phaseDegrees = 0.0f;
     } else if (phaseDegrees > 360.0f) {
         phaseDegrees = 360.0f;
     }
     operatorPhaseNormalized = phaseDegrees * (1.0f / 360.0f);
+    operatorPhaseWarp = warp;
 }
 
 
