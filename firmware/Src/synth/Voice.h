@@ -107,11 +107,16 @@ public:
 
     inline void updateWaveDecimationMode(int mode) {
         bool enabled = true;
+        bool hqInterpolation = false;
         uint8_t bits = 1;
 
         if (mode <= FM_DECIMATION_1BIT) {
             bits = 1;
-        } else if (mode >= FM_DECIMATION_CURRENT) {
+        } else if (mode == FM_DECIMATION_HQ) {
+            enabled = false;
+            hqInterpolation = true;
+            bits = 19;
+        } else if (mode >= FM_DECIMATION_FULL) {
             enabled = false;
             bits = 19;
         } else {
@@ -124,6 +129,13 @@ public:
         oscState4_.waveDecimationEnabled = enabled;
         oscState5_.waveDecimationEnabled = enabled;
         oscState6_.waveDecimationEnabled = enabled;
+
+        oscState1_.waveInterpolationEnabled = hqInterpolation;
+        oscState2_.waveInterpolationEnabled = hqInterpolation;
+        oscState3_.waveInterpolationEnabled = hqInterpolation;
+        oscState4_.waveInterpolationEnabled = hqInterpolation;
+        oscState5_.waveInterpolationEnabled = hqInterpolation;
+        oscState6_.waveInterpolationEnabled = hqInterpolation;
 
         oscState1_.waveDecimationBits = bits;
         oscState2_.waveDecimationBits = bits;

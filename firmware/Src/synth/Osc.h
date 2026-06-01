@@ -35,6 +35,7 @@ struct OscState {
     float nextFrequency;
     uint8_t waveDecimationBits;
     uint8_t waveDecimationEnabled;
+    uint8_t waveInterpolationEnabled;
     uint8_t waveDecimationStepPhase;
     float waveDecimationScale;
     float waveDecimationInvScale;
@@ -109,11 +110,33 @@ public:
         return indexInteger;
     }
 
+    inline __attribute__((always_inline)) float getWarpedPhase(float phase, int halfSize, int size, float slopeFirstHalf, float slopeSecondHalf) {
+        return phase < (float)halfSize
+                ? phase * slopeFirstHalf
+                : (float)size - ((float)size - phase) * slopeSecondHalf;
+    }
+
+    inline __attribute__((always_inline)) float getInterpolatedWaveSample(float *wave, int max, float tablePhase) {
+        int indexInteger = (int)tablePhase;
+        float fp = tablePhase - (float)indexInteger;
+
+        // Convert truncation-to-zero to floor for negative wrapped phases.
+        if (fp < 0.0f) {
+            fp += 1.0f;
+            indexInteger -= 1;
+        }
+
+        indexInteger &= max;
+        int indexNext = (indexInteger + 1) & max;
+        return wave[indexInteger] * (1.0f - fp) + wave[indexNext] * fp;
+    }
+
     inline __attribute__((always_inline)) float getNextSample(struct OscState *oscState)  {
         struct WaveTable* waveTable = &waveTables[(int) oscillator->shape];
         float phaseIncrement = oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd;
         float warp = oscState->effectiveWarp;
         bool waveDecimationEnabled = oscState->waveDecimationEnabled != 0;
+        bool waveInterpolationEnabled = (oscState->waveInterpolationEnabled != 0) && !waveDecimationEnabled;
 
         if (likely(warp == 0.0f)) {
             if (waveDecimationEnabled) {
@@ -143,6 +166,13 @@ public:
             oscState->index -= indexInteger;
             indexInteger &= waveTable->max;
             oscState->index += indexInteger;
+
+            if (waveInterpolationEnabled) {
+                float fp = oscState->index - (float)indexInteger;
+                int indexNext = (indexInteger + 1) & waveTable->max;
+                return waveTable->table[indexInteger] * (1.0f - fp) + waveTable->table[indexNext] * fp;
+            }
+
             float sample = waveTable->table[indexInteger];
             return sample;
         }
@@ -185,6 +215,12 @@ public:
         indexInteger &= waveTable->max;
         // Readjust the floating pont inside the table
         oscState->index += indexInteger;
+
+        if (waveInterpolationEnabled) {
+            float warpedPhase = getWarpedPhase(oscState->index, halfSize, size, slopeFirstHalf, slopeSecondHalf);
+            return getInterpolatedWaveSample(waveTable->table, waveTable->max, warpedPhase);
+        }
+
         indexInteger = getWarpedIndex(indexInteger, waveTable->max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
         float sample = waveTable->table[indexInteger];
         return sample;
@@ -278,6 +314,11 @@ public:
 
 
    	inline __attribute__((always_inline)) float* getNextBlock(struct OscState *oscState)  {
+
+        if (unlikely(oscState->waveInterpolationEnabled != 0)) {
+            return getNextBlockHQ(oscState);
+        }
+
         int shape = (int) oscillator->shape;
    		int max = waveTables[shape].max;
         int size = max + 1;
@@ -453,6 +494,7 @@ public:
 
         float warp = oscState->effectiveWarp;
         bool warpEnabled = warp != 0.0f;
+        bool interpolationEnabled = (oscState->waveInterpolationEnabled != 0) && (oscState->waveDecimationEnabled == 0);
         float slopeFirstHalf = 1.0f + warp;
         float slopeSecondHalf = 1.0f - warp;
 
@@ -473,11 +515,21 @@ public:
                 iIndex &= max;
                 fIndex += iIndex;
 
+                float fp = interpolationEnabled ? (fIndex - (float)iIndex) : 0.0f;
+
                 float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
                 int index = iIndex + (int)phaseModulationOffset;
                 index &= max;
 
-                float newValue = wave[index];
+                float newValue;
+                if (interpolationEnabled) {
+                    int iIndexNext = (iIndex + 1) & max;
+                    int indexNext = iIndexNext + (int)phaseModulationOffset;
+                    indexNext &= max;
+                    newValue = wave[index] * (1.0f - fp) + wave[indexNext] * fp;
+                } else {
+                    newValue = wave[index];
+                }
                 localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
                 localLastValue1 = newValue;
 
@@ -493,13 +545,22 @@ public:
                 iIndex &= max;
                 fIndex += iIndex;
 
-                iIndex = getWarpedIndex(iIndex, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
+                float fp = interpolationEnabled ? (fIndex - (float)iIndex) : 0.0f;
+
+                int warpedIndex = getWarpedIndex(iIndex, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
 
                 float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
-                int index = iIndex + (int)phaseModulationOffset;
+                int index = warpedIndex + (int)phaseModulationOffset;
                 index &= max;
 
-                float newValue = wave[index];
+                float newValue;
+                if (interpolationEnabled) {
+                    float warpedPhase = getWarpedPhase(fIndex, halfSize, size, slopeFirstHalf, slopeSecondHalf);
+                    float tablePhase = warpedPhase + (float)((int)phaseModulationOffset);
+                    newValue = getInterpolatedWaveSample(wave, max, tablePhase);
+                } else {
+                    newValue = wave[index];
+                }
                 localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
                 localLastValue1 = newValue;
 
@@ -653,12 +714,9 @@ public:
                 fIndex -= iIndex;
                 iIndex &=  max;
                 fIndex += iIndex;
-                fp = fIndex - (float)iIndex;
                 float sample;
-                int tableIndex = getWarpedIndex(iIndex, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
-                int iIndexNext = (iIndex + 1) & max;
-                int tableIndexNext = getWarpedIndex(iIndexNext, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
-                sample = wave[tableIndex] * (1-fp) + wave[tableIndexNext] * fp;
+                float warpedPhase = getWarpedPhase(fIndex, halfSize, size, slopeFirstHalf, slopeSecondHalf);
+                sample = getInterpolatedWaveSample(wave, max, warpedPhase);
                 oscValuesToFill[k++] = sample;
 
                 fIndex +=  freq;
@@ -666,11 +724,8 @@ public:
                 fIndex -= iIndex;
                 iIndex &=  max;
                 fIndex += iIndex;
-                fp = fIndex - (float)iIndex;
-                tableIndex = getWarpedIndex(iIndex, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
-                iIndexNext = (iIndex + 1) & max;
-                tableIndexNext = getWarpedIndex(iIndexNext, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
-                sample = wave[tableIndex] * (1-fp) + wave[tableIndexNext] * fp;
+                warpedPhase = getWarpedPhase(fIndex, halfSize, size, slopeFirstHalf, slopeSecondHalf);
+                sample = getInterpolatedWaveSample(wave, max, warpedPhase);
                 oscValuesToFill[k++] = sample;
 
                 fIndex +=  freq;
@@ -678,11 +733,8 @@ public:
                 fIndex -= iIndex;
                 iIndex &=  max;
                 fIndex += iIndex;
-                fp = fIndex - (float)iIndex;
-                tableIndex = getWarpedIndex(iIndex, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
-                iIndexNext = (iIndex + 1) & max;
-                tableIndexNext = getWarpedIndex(iIndexNext, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
-                sample = wave[tableIndex] * (1-fp) + wave[tableIndexNext] * fp;
+                warpedPhase = getWarpedPhase(fIndex, halfSize, size, slopeFirstHalf, slopeSecondHalf);
+                sample = getInterpolatedWaveSample(wave, max, warpedPhase);
                 oscValuesToFill[k++] = sample;
 
                 fIndex +=  freq;
@@ -690,11 +742,8 @@ public:
                 fIndex -= iIndex;
                 iIndex &=  max;
                 fIndex += iIndex;
-                fp = fIndex - (float)iIndex;
-                tableIndex = getWarpedIndex(iIndex, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
-                iIndexNext = (iIndex + 1) & max;
-                tableIndexNext = getWarpedIndex(iIndexNext, max, halfSize, size, slopeFirstHalf, slopeSecondHalf);
-                sample = wave[tableIndex] * (1-fp) + wave[tableIndexNext] * fp;
+                warpedPhase = getWarpedPhase(fIndex, halfSize, size, slopeFirstHalf, slopeSecondHalf);
+                sample = getInterpolatedWaveSample(wave, max, warpedPhase);
                 oscValuesToFill[k++] = sample;
 			}
 

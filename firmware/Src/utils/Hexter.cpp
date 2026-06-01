@@ -336,6 +336,8 @@ void Hexter::voiceSetData(struct OneSynthParams *params, uint8_t *patch)
     	}
     }
 
+	params->engineDecimation.decimation = FM_DECIMATION_FULL;
+
 
     struct EnvelopeTimeMemory* envTimes[] = { &params->env1Time, &params->env2Time, &params->env3Time, &params->env4Time, &params->env5Time, &params->env6Time};
     struct EnvelopeLevelMemory* envLevels[] = { &params->env1Level, &params->env2Level, &params->env3Level, &params->env4Level, &params->env5Level, &params->env6Level};

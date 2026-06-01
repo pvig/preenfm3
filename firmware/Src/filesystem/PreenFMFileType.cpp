@@ -635,18 +635,18 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
 
     // Decimation range changed in patch version 1.3.
     if (patchVersion < 1.3f) {
-        params->engineDecimation.decimation = FM_DECIMATION_CURRENT;
+        params->engineDecimation.decimation = FM_DECIMATION_FULL;
     }
 
-    // Legacy presets may contain 20..24-bit values. Clamp them to the new 19-bit max.
-    if (params->engineDecimation.decimation > FM_DECIMATION_19BIT
+    // Legacy presets may contain 20..24-bit values. Keep HQ (20), clamp 21..24 to the 19-bit max.
+    if (params->engineDecimation.decimation > FM_DECIMATION_HQ
         && params->engineDecimation.decimation <= 24.0f) {
         params->engineDecimation.decimation = FM_DECIMATION_19BIT;
     }
 
     if (params->engineDecimation.decimation < FM_DECIMATION_1BIT
-        || params->engineDecimation.decimation > FM_DECIMATION_CURRENT) {
-        params->engineDecimation.decimation = FM_DECIMATION_CURRENT;
+        || params->engineDecimation.decimation > FM_DECIMATION_HQ) {
+        params->engineDecimation.decimation = FM_DECIMATION_FULL;
     }
 
     params->engine2.pfm3Version = PFM3_PATCH_VERSION; // fix done, patch is now fm3 compatible
