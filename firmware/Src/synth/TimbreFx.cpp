@@ -1,6 +1,11 @@
 #include "Timbre.h"
 #include "Voice.h"
 
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC push_options
+#pragma GCC optimize ("Ofast", "fast-math")
+#endif
+
 #define INV_BLOCK_SIZE (1.0f / BLOCK_SIZE)
 
 extern float noise[32];
@@ -2292,3 +2297,7 @@ inline float Timbre::hermiteInterpolation(float frac, float xm1, float x0, float
 
     return ((c3 * frac + c2) * frac + c1) * frac + c0;
 }
+
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC pop_options
+#endif

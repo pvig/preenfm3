@@ -17,8 +17,20 @@
 
 #include <math.h>
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wsequence-point"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
+
 #include "Voice.h"
 #include "Timbre.h"
+
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC push_options
+#pragma GCC optimize ("Ofast", "fast-math")
+#endif
 
 
 float Voice::glidePhaseInc[13];
@@ -422,6 +434,7 @@ void Voice::noteOnWithoutPop(short newNote, float newNoteFrequency, short veloci
     this->index = index;
     // We can glide in mono and unison
     if (!this->released &&  currentTimbre->params_.engine1.playMode != PLAY_MODE_POLY && currentTimbre->params_.engine2.glideType != GLIDE_TYPE_OFF) {
+        // Keep phase continuity on overlap glide: only pitch glides to the new note.
         glideToNote(newNote, newNoteFrequency);
         this->holdedByPedal = false;
         newGlide=false;
@@ -481,36 +494,80 @@ float Voice::getNoteRealFrequencyEstimation(float newNoteFrequency) {
     return currentTimbre->osc1_.getNoteRealFrequencyEstimation(&oscState1_, newNoteFrequency);
 }
 
+static inline float phaseDegreeToNormalized(float phaseDegree) {
+    // Convert UI phase in degrees to wavetable phase in [0..1].
+    if (phaseDegree < 0.0f) {
+        phaseDegree = 0.0f;
+    } else if (phaseDegree > 360.0f) {
+        phaseDegree = 360.0f;
+    }
+    return phaseDegree * (1.0f / 360.0f);
+}
+
+static inline float phaseDegreeToNormalizedWrapped(float phaseDegree) {
+    while (phaseDegree < 0.0f) {
+        phaseDegree += 360.0f;
+    }
+    while (phaseDegree > 360.0f) {
+        phaseDegree -= 360.0f;
+    }
+    return phaseDegree * (1.0f / 360.0f);
+}
+
+void Voice::applyOperatorStartPhases(float mainFrequency) {
+    float oscPhase1 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp1.phase + matrix.getDestination(OSC1_PHASE));
+    float oscPhase2 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp2.phase + matrix.getDestination(OSC2_PHASE));
+    float oscPhase3 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp3.phase + matrix.getDestination(OSC3_PHASE));
+    float oscPhase4 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp4.phase + matrix.getDestination(OSC4_PHASE));
+    float oscPhase5 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp5.phase + matrix.getDestination(OSC5_PHASE));
+    float oscPhase6 = phaseDegreeToNormalizedWrapped(currentTimbre->params_.phaseOp6.phase + matrix.getDestination(OSC6_PHASE));
+
+    // Preserve legacy unison behavior for negative detune.
+    if (unlikely(currentTimbre->params_.engine2.unisonDetune < 0.0f)) {
+        oscPhase1 = 0.25f;
+        oscPhase2 = 0.25f;
+        oscPhase3 = 0.25f;
+        oscPhase4 = 0.25f;
+        oscPhase5 = 0.25f;
+        oscPhase6 = 0.25f;
+    }
+
+    currentTimbre->osc1_.newNote(&oscState1_, mainFrequency, oscPhase1);
+    currentTimbre->osc2_.newNote(&oscState2_, mainFrequency, oscPhase2);
+    currentTimbre->osc3_.newNote(&oscState3_, mainFrequency, oscPhase3);
+    currentTimbre->osc4_.newNote(&oscState4_, mainFrequency, oscPhase4);
+    currentTimbre->osc5_.newNote(&oscState5_, mainFrequency, oscPhase5);
+    currentTimbre->osc6_.newNote(&oscState6_, mainFrequency, oscPhase6);
+}
+
 void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32_t index, float phase) {
+
+    (void)phase;
+
+    bool retriggerLfo = true;
 
 
     // On noteOn we can only glide in mono and unison with glideType ALWAYS
     if (unlikely(currentTimbre->params_.engine1.playMode != PLAY_MODE_POLY
         && currentTimbre->params_.engine2.glideType == GLIDE_TYPE_ALWAYS)) {
+        bool wasPlaying = this->playing;
         if (unlikely(this->nextMainFrequency != 0.0f)) {
             this->noteFrequency = this->nextMainFrequency;
         } else {
             this->noteFrequency = newNoteFrequency;
         }
+        // Keep phase continuity in glide-always mode: glide changes pitch only.
         glideToNote(newNote, newNoteFrequency);
         newGlide=true;
         this->note = newNote;
         this->nextMainFrequency = newNoteFrequency;
+        // In glide mode, overlapping notes are slides and should not retrigger one-shot LFO.
+        retriggerLfo = !wasPlaying;
     } else {
         this->note = newNote;
         this->noteFrequency = newNoteFrequency;
-
-        if (unlikely(currentTimbre->params_.engine2.unisonDetune < 0.0f)) {
-            phase = 0.25f;
-        }
-
-        currentTimbre->osc1_.newNote(&oscState1_, newNoteFrequency, phase);
-        currentTimbre->osc1_.newNote(&oscState1_, newNoteFrequency, phase);
-        currentTimbre->osc2_.newNote(&oscState2_, newNoteFrequency, phase);
-        currentTimbre->osc3_.newNote(&oscState3_, newNoteFrequency, phase);
-        currentTimbre->osc4_.newNote(&oscState4_, newNoteFrequency, phase);
-        currentTimbre->osc5_.newNote(&oscState5_, newNoteFrequency, phase);
-        currentTimbre->osc6_.newNote(&oscState6_, newNoteFrequency, phase);
+        // Absolute per-operator start phase at note-on.
+        applyOperatorStartPhases(newNoteFrequency);
     }
 
     this->midiVelocity = velocity;
@@ -541,7 +598,9 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
     // Tell nextBlock() to init Env...
     this->newNotePlayed = true;
 
-    lfoNoteOn();
+    if (retriggerLfo) {
+        lfoNoteOn();
+    }
 }
 
 void Voice::endNoteOrBeginNextOne() {
@@ -4048,6 +4107,7 @@ void Voice::setCurrentTimbre(Timbre *timbre) {
     }
 
     struct LfoParams *lfoParams[] = { &timbre->getParamRaw()->lfoOsc1, &timbre->getParamRaw()->lfoOsc2, &timbre->getParamRaw()->lfoOsc3 };
+    float *lfoSyncModes = &timbre->getParamRaw()->lfoSyncModes.lfo1;
     struct StepSequencerParams *stepseqparams[] = { &timbre->getParamRaw()->lfoSeq1, &timbre->getParamRaw()->lfoSeq2 };
     struct StepSequencerSteps *stepseqs[] = { &timbre->getParamRaw()->lfoSteps1, &timbre->getParamRaw()->lfoSteps2 };
 
@@ -4058,7 +4118,7 @@ void Voice::setCurrentTimbre(Timbre *timbre) {
     // OSC
     for (int k = 0; k < NUMBER_OF_LFO_OSC; k++) {
         float *phase = &((float*) &timbre->getParamRaw()->lfoPhases.phaseLfo1)[k];
-        lfoOsc[k].init(lfoParams[k], phase, &this->matrix, (SourceEnum) (MATRIX_SOURCE_LFO1 + k), (DestinationEnum) (LFO1_FREQ + k));
+        lfoOsc[k].init(lfoParams[k], &lfoSyncModes[k], phase, &this->matrix, (SourceEnum) (MATRIX_SOURCE_LFO1 + k), (DestinationEnum) (LFO1_FREQ + k));
     }
 
     // ENV
@@ -5785,7 +5845,7 @@ void Voice::fxAfterBlock() {
                     localv0L = (*sp) - pos * (localv0L + pos * (*sp));
                     digitsA = FLOAT2SHORT * (*sp);
                     digitsB = FLOAT2SHORT * localv0L;
-                    localv0L = SHORT2FLOAT * roundf(digitsA ^ digitsB & 0xfff);
+                    localv0L = SHORT2FLOAT * roundf(digitsA ^ (digitsB & 0xfff));
                 } else {
                     localv0L = *sp;
                 }
@@ -5802,7 +5862,7 @@ void Voice::fxAfterBlock() {
                     localv0R = (*sp) - pos * (localv0R + pos * (*sp));
                     digitsA = FLOAT2SHORT * (*sp);
                     digitsB = FLOAT2SHORT * localv0R;
-                    localv0R = SHORT2FLOAT * roundf(digitsA ^ digitsB & 0xfff);
+                    localv0R = SHORT2FLOAT * roundf(digitsA ^ (digitsB & 0xfff));
                 } else {
                     localv0R = *sp;
                 }
@@ -7985,4 +8045,8 @@ void Voice::midiClockStart() {
         lfoStepSeq[1].midiContinue();
     }
 }
+
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC pop_options
+#endif
 

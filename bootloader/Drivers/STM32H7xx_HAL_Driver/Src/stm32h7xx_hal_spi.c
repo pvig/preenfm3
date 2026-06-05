@@ -127,6 +127,10 @@
   ******************************************************************************
   */
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
+
 /* Includes ------------------------------------------------------------------*/
 #include "stm32h7xx_hal.h"
 

@@ -185,12 +185,13 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     env5_.init(&params_.env5Time, &params_.env5Level, 4, &params_.engine1.algo, &params_.env5Curve);
     env6_.init(&params_.env6Time, &params_.env6Level, 5, &params_.engine1.algo, &params_.env6Curve);
 
-    osc1_.init(synthState, &params_.osc1, OSC1_FREQ);
-    osc2_.init(synthState, &params_.osc2, OSC2_FREQ);
-    osc3_.init(synthState, &params_.osc3, OSC3_FREQ);
-    osc4_.init(synthState, &params_.osc4, OSC4_FREQ);
-    osc5_.init(synthState, &params_.osc5, OSC5_FREQ);
-    osc6_.init(synthState, &params_.osc6, OSC6_FREQ);
+    struct OperatorPhaseRowParams* phaseParamsBase = &params_.phaseOp1;
+    osc1_.init(synthState, &params_.osc1, phaseParamsBase, OSC1_FREQ);
+    osc2_.init(synthState, &params_.osc2, phaseParamsBase, OSC2_FREQ);
+    osc3_.init(synthState, &params_.osc3, phaseParamsBase, OSC3_FREQ);
+    osc4_.init(synthState, &params_.osc4, phaseParamsBase, OSC4_FREQ);
+    osc5_.init(synthState, &params_.osc5, phaseParamsBase, OSC5_FREQ);
+    osc6_.init(synthState, &params_.osc6, phaseParamsBase, OSC6_FREQ);
 
     timbreNumber_ = timbreNumber;
 
@@ -689,7 +690,21 @@ void Timbre::voicesToTimbre(float volumeGain) {
 
 void Timbre::gateFx() {
     // Gate algo !!
-    float gate = voices_[lastPlayedNote_]->matrix.getDestination(MAIN_GATE);
+    float gate = 0.0f;
+    if (likely(params_.engine1.playMode == PLAY_MODE_POLY)) {
+        for (int k = 0; k < numberOfVoices_; k++) {
+            int v = voiceNumber_[k];
+            if (unlikely(v < 0 || !voices_[v]->isPlaying())) {
+                continue;
+            }
+            float voiceGate = voices_[v]->matrix.getDestination(MAIN_GATE);
+            if (voiceGate > gate) {
+                gate = voiceGate;
+            }
+        }
+    } else {
+        gate = voices_[lastPlayedNote_]->matrix.getDestination(MAIN_GATE);
+    }
     if (unlikely(gate > 0 || currentGate_ > 0)) {
         gate *= .72547132656922730694f; // 0 < gate < 1.0
         if (gate > 1.0f) {

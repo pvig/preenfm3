@@ -45,6 +45,8 @@ const char* PreenFMFileType::getFileName(FILE_ENUM file) {
             return PROPERTIES_NAME;
         case MIDI_CONTROLLER_STATE:
             return MIDI_CONTROLLER_STATE_NAME;
+        default:
+            return "";
     }
 }
 
@@ -67,7 +69,7 @@ const char* PreenFMFileType::getFullName(const char *fileName) {
 }
 
 int PreenFMFileType::remove(FILE_ENUM file) {
-    f_unlink(getFileName(file));
+    return f_unlink(getFileName(file));
 }
 
 int PreenFMFileType::load(FILE_ENUM file, int seek, void *bytes, int size) {
@@ -90,7 +92,7 @@ int PreenFMFileType::load(const char *fileName, int seek, void *bytes, int size)
         if (fatFSResult == FR_OK) {
             UINT byteRead;
             fatFSResult = f_read(&file, bytes, size, &byteRead);
-            if (fatFSResult == FR_OK && byteRead == size) {
+            if (fatFSResult == FR_OK && byteRead == (UINT)size) {
                 toReturn = byteRead;
             }
         }
@@ -122,7 +124,7 @@ int PreenFMFileType::saveData(FIL &file, void *bytes, uint32_t size) {
     int toReturn = 0;
     UINT byteWritten;
     FRESULT fatFSResult = f_write(&file, bytes, size, &byteWritten);
-    if (fatFSResult == FR_OK && byteWritten == size) {
+    if (fatFSResult == FR_OK && byteWritten == (UINT)size) {
         toReturn = byteWritten;
     }
     return toReturn;
@@ -144,7 +146,7 @@ int PreenFMFileType::save(const char *fileName, int seek, void *bytes, int size)
         if (fatFSResult == FR_OK) {
             UINT byteWritten;
             fatFSResult = f_write(&file, bytes, size, &byteWritten);
-            if (fatFSResult == FR_OK && byteWritten == size) {
+            if (fatFSResult == FR_OK && byteWritten == (UINT)size) {
                 toReturn = byteWritten;
             }
         }
@@ -322,7 +324,7 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
         flashMemory->engineArp2.division = 12;
         flashMemory->engineArp2.duration = 14;
         flashMemory->engineArp2.latche = 0;
-        for (int p = 0; p < ARRAY_SIZE(flashMemory->engineArpUserPatterns.patterns); ++p)
+        for (int p = 0; p < (int)ARRAY_SIZE(flashMemory->engineArpUserPatterns.patterns); ++p)
             flashMemory->engineArpUserPatterns.patterns[p] = 0;
     }
 
@@ -382,10 +384,14 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     fsu_->copyFloat((float*) &params->lfoEnv1, (float*) &flashMemory->lfoEnv1, 4);
     fsu_->copyFloat((float*) &params->lfoEnv2, (float*) &flashMemory->lfoEnv2, 4);
     fsu_->copyFloat((float*) &params->lfoSeq1, (float*) &flashMemory->lfoSeq1, 4 * 2);
+    fsu_->copyFloat((float*) &params->lfoSyncModes, (float*) &flashMemory->lfoSyncModes, 4);
 
     fsu_->copyFloat((float*) &params->midiNote1Curve, (float*) &flashMemory->midiNote1Curve, 4);
     fsu_->copyFloat((float*) &params->midiNote2Curve, (float*) &flashMemory->midiNote2Curve, 4);
     fsu_->copyFloat((float*) &params->lfoPhases, (float*) &flashMemory->lfoPhases, 4);
+    // Persist all 6 operator phase rows as one contiguous block.
+    fsu_->copyFloat((float*) &params->phaseOp1, (float*) &flashMemory->phaseOp1, 4 * 6);
+    fsu_->copyFloat((float*) &params->engineDecimation, (float*) &flashMemory->engineDecimation, 4);
 
 
     for (int s = 0; s < 16; s++) {
@@ -489,10 +495,14 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     fsu_->copyFloat((float*) &flashMemory->lfoEnv1, (float*) &params->lfoEnv1, 4);
     fsu_->copyFloat((float*) &flashMemory->lfoEnv2, (float*) &params->lfoEnv2, 4);
     fsu_->copyFloat((float*) &flashMemory->lfoSeq1, (float*) &params->lfoSeq1, 4 * 2);
+    fsu_->copyFloat((float*) &flashMemory->lfoSyncModes, (float*) &params->lfoSyncModes, 4);
 
     fsu_->copyFloat((float*) &flashMemory->lfoPhases, (float*) &params->lfoPhases, 4);
     fsu_->copyFloat((float*) &flashMemory->midiNote1Curve, (float*) &params->midiNote1Curve, 4);
     fsu_->copyFloat((float*) &flashMemory->midiNote2Curve, (float*) &params->midiNote2Curve, 4);
+    // Restore all 6 operator phase rows from flash payload.
+    fsu_->copyFloat((float*) &flashMemory->phaseOp1, (float*) &params->phaseOp1, 4 * 6);
+    fsu_->copyFloat((float*) &flashMemory->engineDecimation, (float*) &params->engineDecimation, 4);
 
     for (int s = 0; s < 16; s++) {
         params->lfoSteps1.steps[s] = flashMemory->lfoSteps1.steps[s];
@@ -555,6 +565,51 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
         params->midiNote2Curve.breakNote = 60;
     }
 
+    float patchVersion = params->engine2.pfm3Version;
+
+    // For presets saved before dedicated sync-mode storage existed,
+    // initialize sync mode from internal/external LFO frequency only.
+    // Keep keybRamp unchanged to preserve existing KSync behavior.
+    if (patchVersion < 1.4f) {
+        LfoParams* lfoParams = &params->lfoOsc1;
+        float* syncModes = &params->lfoSyncModes.lfo1;
+        for (int i = 0; i < 3; i++) {
+            syncModes[i] = lfoParams[i].freq < 100.0f ? (float)LFO_SYNC_INTERNAL : (float)LFO_SYNC_EXTERNAL;
+        }
+        params->lfoSyncModes.unused1 = 0.0f;
+    }
+
+    // Clamp sync mode values for safety.
+    float* syncModes = &params->lfoSyncModes.lfo1;
+    for (int i = 0; i < 3; i++) {
+        if (syncModes[i] < (float)LFO_SYNC_INTERNAL) {
+            syncModes[i] = (float)LFO_SYNC_INTERNAL;
+        } else if (syncModes[i] > (float)LFO_SYNC_ONESHOT_EXTERNAL_8) {
+            syncModes[i] = (float)LFO_SYNC_ONESHOT_EXTERNAL_8;
+        }
+    }
+
+    // For presets saved before warp existed, start from neutral warp.
+    struct OperatorPhaseRowParams* phaseParams = &params->phaseOp1;
+    if (patchVersion < 1.5f) {
+        for (int i = 0; i < 6; i++) {
+            phaseParams[i].unused1 = 0.0f;
+        }
+    }
+
+    // Clamp operator phase-warp values from reserved storage slot.
+    for (int i = 0; i < 6; i++) {
+        float warp = phaseParams[i].unused1;
+        if (!(warp == warp)) {
+            warp = 0.0f;
+        } else if (warp > 4.0f) {
+            warp = 4.0f;
+        } else if (warp < -4.0f) {
+            warp = -4.0f;
+        }
+        phaseParams[i].unused1 = warp;
+    }
+
     // Fixe poly Mono depending on pfm3Version :
     uint32_t version = (uint32_t)(params->engine2.pfm3Version + .1f);
     if (version == 0) {
@@ -576,6 +631,22 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
         } else {
             params->engine2.glideType = GLIDE_TYPE_OFF;
         }
+    }
+
+    // Decimation range changed in patch version 1.3.
+    if (patchVersion < 1.3f) {
+        params->engineDecimation.decimation = FM_DECIMATION_FULL;
+    }
+
+    // Legacy presets may contain 20..24-bit values. Keep HQ (20), clamp 21..24 to the 19-bit max.
+    if (params->engineDecimation.decimation > FM_DECIMATION_HQ
+        && params->engineDecimation.decimation <= 24.0f) {
+        params->engineDecimation.decimation = FM_DECIMATION_19BIT;
+    }
+
+    if (params->engineDecimation.decimation < FM_DECIMATION_1BIT
+        || params->engineDecimation.decimation > FM_DECIMATION_HQ) {
+        params->engineDecimation.decimation = FM_DECIMATION_FULL;
     }
 
     params->engine2.pfm3Version = PFM3_PATCH_VERSION; // fix done, patch is now fm3 compatible

@@ -42,7 +42,7 @@
 
 #define MIDI_OUT_EP                                  0x01U
 #define MIDI_IN_EP                                   0x81U
-#define USB_MIDI_CONFIG_DESC_SIZ                     0x6DU
+#define USB_MIDI_CONFIG_DESC_SIZ                     0x56U  /* 86 bytes: matches MIDI_CONFIG_DESC_SIZE and wTotalLength */
 #define MIDI_INTERFACE_DESC_SIZE                     0x09U
 #define USB_MIDI_DESC_SIZ                            0x09U
 #define MIDI_STANDARD_ENDPOINT_DESC_SIZE             0x09U

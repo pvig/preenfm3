@@ -151,6 +151,8 @@ void MidiDecoder::newByte(unsigned char byte) {
                 currentEventState.index = 0;
             }
             break;
+        default:
+            break;
         }
     }
 }
@@ -199,6 +201,8 @@ void MidiDecoder::newMessageType(unsigned char byte) {
             }
             currentEventState.numberOfBytes = 2;
             currentEventState.eventState = MIDI_EVENT_IN_PROGRESS;
+            break;
+        default:
             break;
         }
         break;
@@ -343,6 +347,8 @@ void MidiDecoder::midiEventReceived(MidiEvent& midiEvent) {
         this->songPosition = ((int) midiEvent.value[1] << 7) + midiEvent.value[0];
         this->synth->midiClockSetSongPosition(this->songPosition, true);
         break;
+    default:
+        break;
     }
 }
 
@@ -369,6 +375,8 @@ void MidiDecoder::midiEventForInstrument1MPE(MidiEvent& midiEvent) {
 	        this->synth->getTimbre(0)->setMatrixSource(MATRIX_SOURCE_AFTERTOUCH, INV127 * midiEvent.value[0]);
 	        break;
 	    }
+        default:
+            break;
 		}
 		return;
 	}
@@ -410,9 +418,12 @@ void MidiDecoder::midiEventForInstrument1MPE(MidiEvent& midiEvent) {
 			this->synth->getTimbre(0)->setMatrixSourceMPE(midiEvent.channel, MATRIX_SOURCE_MPESLIDE, INV127 * midiEvent.value[1]);
 		}
         break;
-    case MIDI_PITCH_BEND:
-		int pb = ((int) midiEvent.value[1] << 7) + (int) midiEvent.value[0] - 8192;
-		this->synth->getTimbre(0)->setMatrixSourceMPE(midiEvent.channel, MATRIX_SOURCE_PITCHBEND_MPE, (float) pb * .00012207031250000000f);
+    case MIDI_PITCH_BEND: {
+        int pb = ((int) midiEvent.value[1] << 7) + (int) midiEvent.value[0] - 8192;
+        this->synth->getTimbre(0)->setMatrixSourceMPE(midiEvent.channel, MATRIX_SOURCE_PITCHBEND_MPE, (float) pb * .00012207031250000000f);
+        break;
+    }
+    default:
         break;
 	}
 }
@@ -576,6 +587,18 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             this->synth->setNewValueFromMidi(timbre, ROW_OSC1 + midiEvent.value[0] - CC_OSC1_FREQ, ENCODER_OSC_FREQ,
                     (float) midiEvent.value[1] * .0833333333333333f);
             break;
+        case CC_OSC1_WARP:
+        case CC_OSC2_WARP:
+        case CC_OSC3_WARP:
+            this->synth->setNewValueFromMidi(timbre, ROW_OP_PHASE1 + midiEvent.value[0] - CC_OSC1_WARP, ENCODER_OSC_WARP,
+                (float)midiEvent.value[1] * (8.0f * INV127) - 4.0f);
+            break;
+        case CC_OSC4_WARP:
+        case CC_OSC5_WARP:
+        case CC_OSC6_WARP:
+            this->synth->setNewValueFromMidi(timbre, ROW_OP_PHASE4 + midiEvent.value[0] - CC_OSC4_WARP, ENCODER_OSC_WARP,
+                (float)midiEvent.value[1] * (8.0f * INV127) - 4.0f);
+            break;
         case CC_MATRIXROW1_MUL:
         case CC_MATRIXROW2_MUL:
         case CC_MATRIXROW3_MUL:
@@ -685,7 +708,7 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_LFO2_PHASE:
         case CC_LFO3_PHASE:
             this->synth->setNewValueFromMidi(timbre, ROW_LFOPHASES, ENCODER_LFO_PHASE1 + midiEvent.value[0] - CC_LFO1_PHASE,
-                    (float) midiEvent.value[1] * .01f);
+                -4.0f + (float) midiEvent.value[1] * (5.0f / 127.0f));
             break;
         case CC_LFO1_BIAS:
         case CC_LFO2_BIAS:
@@ -1013,7 +1036,8 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             int valueToSend;
 
             if (param->displayType == DISPLAY_TYPE_FLOAT || param->displayType == DISPLAY_TYPE_FLOAT_OSC_FREQUENCY
-                    || param->displayType == DISPLAY_TYPE_FLOAT_LFO_FREQUENCY || param->displayType == DISPLAY_TYPE_LFO_KSYN) {
+                    || param->displayType == DISPLAY_TYPE_FLOAT_LFO_FREQUENCY || param->displayType == DISPLAY_TYPE_LFO_KSYN
+                    || param->displayType == DISPLAY_TYPE_LFO_DELAY) {
                 valueToSend = (newValue - param->minValue) * 100.0f + .1f;
             } else {
                 valueToSend = newValue + .1f;
@@ -1091,6 +1115,22 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             if (encoder == ENCODER_OSC_FREQ) {
                 cc.value[0] = CC_OSC1_FREQ + (currentrow - ROW_OSC_FIRST);
                 cc.value[1] = newValue * 12.0f + .1f;
+            }
+            break;
+        case ROW_OP_PHASE1:
+        case ROW_OP_PHASE2:
+        case ROW_OP_PHASE3:
+        case ROW_OP_PHASE4:
+        case ROW_OP_PHASE5:
+        case ROW_OP_PHASE6:
+            if (encoder == ENCODER_OSC_WARP) {
+                int op = currentrow - ROW_OP_PHASE1;
+                if (op < 3) {
+                    cc.value[0] = CC_OSC1_WARP + op;
+                } else {
+                    cc.value[0] = CC_OSC4_WARP + (op - 3);
+                }
+                cc.value[1] = (newValue + 4.0f) * (127.0f / 8.0f) + .1f;
             }
             break;
         case ROW_MATRIX_FIRST ... ROW_MATRIX4:
@@ -1178,7 +1218,12 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             break;
         case ROW_LFOPHASES:
             cc.value[0] = CC_LFO1_PHASE + encoder;
-            cc.value[1] = newValue * 100.0f + .1f;
+            cc.value[1] = (newValue + 4.0f) * (127.0f / 5.0f) + .1f;
+            if (cc.value[1] < 0) {
+                cc.value[1] = 0;
+            } else if (cc.value[1] > 127) {
+                cc.value[1] = 127;
+            }
             break;
         case ROW_ARPEGGIATOR1:
             switch (encoder) {
@@ -1242,9 +1287,14 @@ void MidiDecoder::writeMidiCCOut(struct MidiEvent *toSend) {
 
     }
 
+    // usartBufferOut is also written by the USB ISR (midiThru path).
+    // Disable the USB IRQ for the duration of these three inserts to prevent
+    // a concurrent write from corrupting the ring buffer's tail pointer.
+    HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
     usartBufferOut.insert(toSend->eventType + toSend->channel);
     usartBufferOut.insert(toSend->value[0]);
     usartBufferOut.insert(toSend->value[1]);
+    HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
 }
 
 void MidiDecoder::sendMidiDin5Out() {

@@ -28,12 +28,14 @@
  \param [in]    sat  Bit position to saturate to (0..31)
  \return             Saturated value
  */
+#ifndef __USAT
 #define __USAT(ARG1,ARG2) \
 ({                          \
   uint32_t __RES, __ARG1 = (ARG1); \
   asm ("usat %0, %1, %2" : "=r" (__RES) :  "I" (ARG2), "r" (__ARG1) ); \
   __RES; \
  })
+#endif
 
 class Timbre;
 
@@ -103,8 +105,68 @@ public:
         return gliding;
     }
 
+    inline void updateWaveDecimationMode(int mode) {
+        bool enabled = true;
+        bool hqInterpolation = false;
+        uint8_t bits = 1;
+
+        if (mode <= FM_DECIMATION_1BIT) {
+            bits = 1;
+        } else if (mode == FM_DECIMATION_HQ) {
+            enabled = false;
+            hqInterpolation = true;
+            bits = 19;
+        } else if (mode >= FM_DECIMATION_FULL) {
+            enabled = false;
+            bits = 19;
+        } else {
+            bits = (uint8_t)(mode + 1);
+        }
+
+        oscState1_.waveDecimationEnabled = enabled;
+        oscState2_.waveDecimationEnabled = enabled;
+        oscState3_.waveDecimationEnabled = enabled;
+        oscState4_.waveDecimationEnabled = enabled;
+        oscState5_.waveDecimationEnabled = enabled;
+        oscState6_.waveDecimationEnabled = enabled;
+
+        oscState1_.waveInterpolationEnabled = hqInterpolation;
+        oscState2_.waveInterpolationEnabled = hqInterpolation;
+        oscState3_.waveInterpolationEnabled = hqInterpolation;
+        oscState4_.waveInterpolationEnabled = hqInterpolation;
+        oscState5_.waveInterpolationEnabled = hqInterpolation;
+        oscState6_.waveInterpolationEnabled = hqInterpolation;
+
+        oscState1_.waveDecimationBits = bits;
+        oscState2_.waveDecimationBits = bits;
+        oscState3_.waveDecimationBits = bits;
+        oscState4_.waveDecimationBits = bits;
+        oscState5_.waveDecimationBits = bits;
+        oscState6_.waveDecimationBits = bits;
+
+        float scale = (float)(1u << bits);
+        float invScale = 1.0f / scale;
+
+        oscState1_.waveDecimationScale = scale;
+        oscState2_.waveDecimationScale = scale;
+        oscState3_.waveDecimationScale = scale;
+        oscState4_.waveDecimationScale = scale;
+        oscState5_.waveDecimationScale = scale;
+        oscState6_.waveDecimationScale = scale;
+
+        oscState1_.waveDecimationInvScale = invScale;
+        oscState2_.waveDecimationInvScale = invScale;
+        oscState3_.waveDecimationInvScale = invScale;
+        oscState4_.waveDecimationInvScale = invScale;
+        oscState5_.waveDecimationInvScale = invScale;
+        oscState6_.waveDecimationInvScale = invScale;
+    }
+
     void updateAllModulationIndexes() {
-        int numberOfIMs = algoInformation[(int) (currentTimbre->getParamRaw()->engine1.algo)].im;
+        int algo = (int)(currentTimbre->getParamRaw()->engine1.algo);
+        int numberOfIMs = algoInformation[algo].im;
+        int decimationMode = (int) (currentTimbre->getParamRaw()->engineDecimation.decimation + 0.1f);
+        updateWaveDecimationMode(decimationMode);
 
         // Feedback range is [0:1] compared to [0:16] of other modulation, let's divide the modulation impact by 16 (* 0.0625)
         feedbackModulation = currentTimbre->getParamRaw()->engineIm3.modulationIndex6 + this->velIm6
@@ -114,7 +176,6 @@ public:
         } else if (unlikely(feedbackModulation > 1.0f)) {
             feedbackModulation = 1.0f;
         }
-
         modulationIndex1 = currentTimbre->getParamRaw()->engineIm1.modulationIndex1 + matrix.getDestination(INDEX_MODULATION1)
             + matrix.getDestination(INDEX_ALL_MODULATION) + this->velIm1;
         if (unlikely(modulationIndex1 < 0.0f)) {
@@ -331,6 +392,12 @@ public:
             }
 
             this->matrix.computeAllDestinations();
+            currentTimbre->osc1_.updateWarpWithMatrix(&oscState1_, &matrix);
+            currentTimbre->osc2_.updateWarpWithMatrix(&oscState2_, &matrix);
+            currentTimbre->osc3_.updateWarpWithMatrix(&oscState3_, &matrix);
+            currentTimbre->osc4_.updateWarpWithMatrix(&oscState4_, &matrix);
+            currentTimbre->osc5_.updateWarpWithMatrix(&oscState5_, &matrix);
+            currentTimbre->osc6_.updateWarpWithMatrix(&oscState6_, &matrix);
             updateAllModulationIndexes();
         }
     }
@@ -383,6 +450,8 @@ public:
 private:
     // private function for BP filter
     void recomputeBPValues(float q, float fSquare);
+    // Reinitialize all operator oscillators with per-operator phase offsets.
+    void applyOperatorStartPhases(float mainFrequency);
 
     // voice status
     bool released;

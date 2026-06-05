@@ -24,6 +24,8 @@
 
 class LfoStepSeq: public Lfo {
 public:
+	using Lfo::init;
+
 	void init(struct StepSequencerParams* stepSeqParam, struct StepSequencerSteps* stepSeqSteps, Matrix* matrix, SourceEnum source, DestinationEnum dest);
 	void valueChanged(int encoder);
 	void nextValueInMatrix();

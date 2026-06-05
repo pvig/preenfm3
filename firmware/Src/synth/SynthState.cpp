@@ -361,6 +361,8 @@ void SynthState::encoderTurned(int encoder, int ticks) {
         displaySequencer->encoderTurned(currentTimbre, encoder, ticks);
         break;
     }
+    default:
+        break;
     }
 }
 
@@ -386,7 +388,10 @@ void SynthState::loadDx7Patch(int timbre, PFM3File const *bank, int patchNumber,
     storeTestNote();
     propagateNoteOff();
     propagateBeforeNewParamsLoad(timbre);
-    hexter->loadHexterPatch(storage->getDX7SysexFile()->dx7LoadPatch(bank, patchNumber), params);
+    uint8_t* packedPatch = storage->getDX7SysexFile()->dx7LoadPatch(bank, patchNumber);
+    if (packedPatch != 0) {
+        hexter->loadHexterPatch(packedPatch, params);
+    }
     propagateAfterNewParamsLoad(timbre);
     restoreTestNote();
 }
@@ -460,6 +465,8 @@ void SynthState::buttonLongPressed(int button) {
             break;
         case SYNTH_MODE_EDIT_PFM3:
             displayEditor->buttonLongPressed(currentTimbre, button);
+            break;
+        default:
             break;
     }
 }
@@ -588,19 +595,62 @@ void SynthState::setParamsAndTimbre(struct OneSynthParams *newParams, int newCur
  */
 
 int getRandomInt(int max) {
+    if (max <= 1) {
+        return 0;
+    }
     uint32_t rnd;
-    HAL_RNG_GenerateRandomNumber(&hrng, &rnd);
-    return rnd % max;
+    if (HAL_RNG_GenerateRandomNumber(&hrng, &rnd) != HAL_OK) {
+        // Keep randomizer responsive even if hardware RNG is temporarily unavailable.
+        rnd = (HAL_GetTick() * 214013u) + 2531011u;
+    }
+    return rnd % (uint32_t) max;
 }
 
 float getRandomFloat(float min, float max) {
     uint32_t rnd;
-    HAL_RNG_GenerateRandomNumber(&hrng, &rnd);
+    if (HAL_RNG_GenerateRandomNumber(&hrng, &rnd) != HAL_OK) {
+        rnd = (HAL_GetTick() * 1103515245u) + 12345u;
+    }
     float f = ((float) (rnd % 100000)) / 100000.0f;
     return f * (max - min) + min;
 }
 
-float getRandomShape(int operatorRandom) {
+/*
+ * Returns a random oscillator waveform shape index based on Oper and EnvT.
+ *   soft(1): 0..6, forced to 0 if >2     → mostly sine / saw / square
+ *   medi(2): 0..7, skips index 6 (rand)  → varied palette, no OSC_SHAPE_RAND
+ *   high(3): 0..6, unrestricted           → full core palette (including rand)
+ * Perc EnvT can additionally pick user waveforms (USER1..USER6) with 10%
+ * probability to add more custom transient colors.
+ * Pad EnvT allows the full waveform palette with a strong sine bias:
+ *   85% sine, 15% distributed across all non-sine waveforms.
+ */
+float getRandomShape(int operatorRandom, int envelopeTypeRandom) {
+    if (envelopeTypeRandom == 1 && getRandomInt(10) == 0) {
+        return OSC_SHAPE_USER1 + getRandomInt(6);
+    }
+
+    if (envelopeTypeRandom == 2) {
+        if (getRandomInt(100) < 85) {
+            return OSC_SHAPE_SIN;
+        }
+        static const int padNonSineShapes[] = {
+                OSC_SHAPE_SAW,
+                OSC_SHAPE_SQUARE,
+                OSC_SHAPE_SIN_SQUARE,
+                OSC_SHAPE_SIN_ZERO,
+                OSC_SHAPE_SIN_POS,
+                OSC_SHAPE_RAND,
+                OSC_SHAPE_USER1,
+                OSC_SHAPE_USER2,
+                OSC_SHAPE_USER3,
+                OSC_SHAPE_USER4,
+                OSC_SHAPE_USER5,
+                OSC_SHAPE_USER6
+        };
+        return padNonSineShapes[getRandomInt(12)];
+    }
+
     int shape = getRandomInt(7);
     switch (operatorRandom) {
     case 1:
@@ -620,14 +670,35 @@ float getRandomShape(int operatorRandom) {
     return shape;
 }
 
+/*
+ * Returns frequency type: 0 = keyboard-tracked, 1 = fixed pitch.
+ * Probability of keyboard tracking by Oper level:
+ *   soft(1): 7/8 = 87.5%   medi(2): 6/8 = 75%   high(3): 4/8 = 50%
+ * Higher Oper allows more fixed-frequency modulators for richer FM texture.
+ */
 float getRandomFrequencyType(int operatorRandom) {
-    int freqType = getRandomInt(32);
-    if (freqType > 1) { // Keyboard 5 times out of 6
-        freqType = 0;
+    int keyboardRatio = 7;
+    switch (operatorRandom) {
+    case 1:
+        keyboardRatio = 7; // 7/8 keyboard
+        break;
+    case 2:
+        keyboardRatio = 6; // 6/8 keyboard
+        break;
+    case 3:
+        keyboardRatio = 4; // 4/8 keyboard
+        break;
     }
+    int freqType = (getRandomInt(8) < keyboardRatio) ? 0 : 1;
     return freqType;
 }
 
+/*
+ * Returns a frequency multiplier for the oscillator based on Oper level.
+ *   soft(1): {0.5, 1, 2, 4}              octave steps only (4 choices)
+ *   medi(2): {0.25, 0.5, 1, 1.5, 2, 3, 4}  adds 5th (1.5) and 3rd (3) (7 choices)
+ *   high(3): 0.25 to 6.25 in 0.25 steps  full inharmonic palette (24 choices)
+ */
 float getRandomFrequency(int operatorRandom) {
     float random1Frequency[] = { .5f, 1.0f, 2.0f, 4.0f };
     float random2Frequency[] = { .25, .5f, 1.0f, 1.5, 2.0f, 3.0f, 4.0f };
@@ -646,18 +717,24 @@ float getRandomFrequency(int operatorRandom) {
     return freq;
 }
 
+/*
+ * Returns a detune offset per Oper level (soft always returns 0).
+ * Values outside the inner band are zeroed so most operators land near unison:
+ *   medi(2): sample −0.05..+0.04 in 0.01 steps; keep only if within ±0.03
+ *   high(3): sample −0.05..+0.14 in 0.01 steps; keep only if within ±0.07
+ */
 float getFineTune(int operatorRandom) {
     float fineTune = 0;
     switch (operatorRandom) {
     case 2:
         fineTune = getRandomInt(10) * .01 - .05;
-        if (fineTune < 0.03 || fineTune > 0.03) {
+        if (fineTune < -0.03f || fineTune > 0.03f) {
             fineTune = 0;
         }
         break;
     case 3:
         fineTune = getRandomInt(20) * .01 - .05;
-        if (fineTune < 0.07 || fineTune > 0.07) {
+        if (fineTune < -0.07f || fineTune > 0.07f) {
             fineTune = 0;
         }
         break;
@@ -665,6 +742,193 @@ float getFineTune(int operatorRandom) {
     return fineTune;
 }
 
+/*
+ * Pick a matrix modulation destination appropriate for the given Modl level.
+ *
+ * safeDestinations (24):     IM indices, pan, mix, filter params, env times,
+ *                             matrix multipliers, LFO frequencies.
+ * advancedDestinations (16):  per-oscillator pitch, phase, warp, feedback —
+ *                             unlocked at Modl=3 with 1/3 probability.
+ *
+ * Destinations targeting inactive oscillators (mix + weighted IM < 0.03) are
+ * skipped via a wrapping scan; INDEX_ALL_MODULATION is the final fallback.
+ */
+DestinationEnum getRandomModDestination(int modulationRandom, const OneSynthParams* params) {
+    // Pick oscillator destinations only if that oscillator is currently audible.
+    auto absf = [](float v) { return v < 0.0f ? -v : v; };
+
+    auto getOscContribution = [absf](const OneSynthParams* params, int osc) {
+        float im1 = params->engineIm1.modulationIndex1 + 0.25f * params->engineIm1.modulationIndexVelo1;
+        float im2 = params->engineIm1.modulationIndex2 + 0.25f * params->engineIm1.modulationIndexVelo2;
+        float im3 = params->engineIm2.modulationIndex3 + 0.25f * params->engineIm2.modulationIndexVelo3;
+        float im4 = params->engineIm2.modulationIndex4 + 0.25f * params->engineIm2.modulationIndexVelo4;
+        float im5 = params->engineIm3.modulationIndex5 + 0.25f * params->engineIm3.modulationIndexVelo5;
+        float feedback = params->engineIm3.modulationIndex6 + 0.25f * params->engineIm3.modulationIndexVelo6;
+
+        float modContribution = 0.0f;
+        switch (osc) {
+        case 1:
+            modContribution = 0.0f;
+            return absf(params->engineMix1.mixOsc1) + modContribution;
+        case 2:
+            modContribution = absf(im1);
+            return absf(params->engineMix1.mixOsc2) + modContribution;
+        case 3:
+            modContribution = absf(im2);
+            return absf(params->engineMix2.mixOsc3) + modContribution;
+        case 4:
+            modContribution = absf(im3);
+            return absf(params->engineMix2.mixOsc4) + modContribution;
+        case 5:
+            modContribution = absf(im4);
+            return absf(params->engineMix3.mixOsc5) + modContribution;
+        case 6:
+            modContribution = absf(im5) + (0.5f * absf(feedback));
+            return absf(params->engineMix3.mixOsc6) + modContribution;
+        default: return 0.0f;
+        }
+    };
+
+    auto isDestinationRelevant = [&](DestinationEnum dest, const OneSynthParams* params) {
+        bool osc1Active = getOscContribution(params, 1) > 0.03f;
+        bool osc2Active = getOscContribution(params, 2) > 0.03f;
+        bool osc3Active = getOscContribution(params, 3) > 0.03f;
+        bool osc4Active = getOscContribution(params, 4) > 0.03f;
+        bool osc5Active = getOscContribution(params, 5) > 0.03f;
+        bool osc6Active = getOscContribution(params, 6) > 0.03f;
+        bool anyOscActive = osc1Active || osc2Active || osc3Active || osc4Active || osc5Active || osc6Active;
+
+        switch (dest) {
+        case OSC1_FREQ:
+        case PAN_OSC1:
+        case MIX_OSC1:
+        case OSC1_PHASE:
+        case OSC1_WARP:
+            return osc1Active;
+        case OSC2_FREQ:
+        case PAN_OSC2:
+        case MIX_OSC2:
+        case OSC2_PHASE:
+        case OSC2_WARP:
+            return osc2Active;
+        case OSC3_FREQ:
+        case PAN_OSC3:
+        case MIX_OSC3:
+        case OSC3_PHASE:
+        case OSC3_WARP:
+            return osc3Active;
+        case OSC4_FREQ:
+        case PAN_OSC4:
+        case MIX_OSC4:
+        case OSC4_PHASE:
+        case OSC4_WARP:
+            return osc4Active;
+        case OSC5_FREQ:
+        case OSC5_PHASE:
+        case OSC5_WARP:
+            return osc5Active;
+        case OSC6_FREQ:
+        case OSC6_PHASE:
+        case OSC6_WARP:
+            return osc6Active;
+        case ALL_OSC_FREQ:
+        case ALL_OSC_FREQ_HARM:
+        case ALL_PAN:
+        case ALL_MIX:
+            return anyOscActive;
+        case FILTER1_PARAM1:
+        case FILTER1_PARAM2:
+        case FILTER1_AMP:
+            // Only route to effect1 params when a filter is actually active
+            return params->effect1.type != (float) FILTER_OFF;
+        case FILTER2_PARAM1:
+        case FILTER2_PARAM2:
+        case FILTER2_AMP:
+            // Only route to effect2 params when a modulation effect is active
+            return params->effect2.type != (float) FILTER2_OFF;
+        default:
+            return true;
+        }
+    };
+
+    auto pickRelevantDestination = [&](const DestinationEnum* pool, int size, const OneSynthParams* params) {
+        int start = getRandomInt(size);
+        for (int i = 0; i < size; i++) {
+            DestinationEnum candidate = pool[(start + i) % size];
+            if (isDestinationRelevant(candidate, params)) {
+                return candidate;
+            }
+        }
+        return INDEX_ALL_MODULATION;
+    };
+
+    static const DestinationEnum safeDestinations[] = {
+            INDEX_ALL_MODULATION, INDEX_MODULATION1, INDEX_MODULATION2, INDEX_MODULATION3,
+            INDEX_MODULATION4, PAN_OSC1, PAN_OSC2, ALL_PAN,
+            FILTER1_PARAM1, FILTER1_PARAM2, FILTER2_PARAM1, FILTER2_PARAM2,
+            FILTER1_AMP, FILTER2_AMP, ALL_ENV_ATTACK, ALL_ENV_DECAY,
+            ALL_ENV_RELEASE, MTX1_MUL, MTX2_MUL, MTX3_MUL,
+            MTX4_MUL, LFO1_FREQ, LFO2_FREQ, LFO3_FREQ
+    };
+
+    static const DestinationEnum advancedDestinations[] = {
+            OSC1_FREQ, OSC2_FREQ, OSC3_FREQ, OSC4_FREQ,
+            OSC5_FREQ, OSC6_FREQ, ALL_OSC_FREQ_HARM,
+            OSC1_PHASE, OSC2_PHASE, OSC3_PHASE, OSC4_PHASE,
+            OSC1_WARP, OSC2_WARP, OSC3_WARP, OSC4_WARP,
+            MTX_DEST_FEEDBACK
+    };
+
+    int safeSize = sizeof(safeDestinations) / sizeof(safeDestinations[0]);
+    int advSize = sizeof(advancedDestinations) / sizeof(advancedDestinations[0]);
+
+    if (modulationRandom >= 3 && getRandomInt(3) == 0) {
+        return pickRelevantDestination(advancedDestinations, advSize, params);
+    }
+    return pickRelevantDestination(safeDestinations, safeSize, params);
+}
+
+/*
+ * Randomize the current preset based on the four encoder choices on the
+ * MENU_PRESET_RANDOMIZER screen. Each control is 0..3; 0 (--) skips that
+ * section. Controls cross-influence each other for coherent results.
+ *
+ * Oper  0=--  1=soft  2=medi  3=high   oscillator topology
+ *   mix:      IM=0: 0.60-1.00  IM=1: 0.53-0.93  IM=2: 0.46-0.86  IM=3: 0.39-0.79
+ *   algo:     perc biases toward lower indices; pad toward upper; else full range
+ *   shape:    see getRandomShape(Oper, EnvT):
+ *             - perc may add USER1..USER6 with 10% probability
+ *             - pad uses full palette with 85% sine / 15% non-sine mix
+ *             - high Oper can include OSC_SHAPE_RAND
+ *   freqMul:  soft={0.5,1,2,4}  medi=7 steps 0.25..4  high=0.25..6.25 (24 steps)
+ *   freqType: soft=7/8 kbd  medi=6/8 kbd  high=4/8 kbd  (remainder = fixed pitch)
+ *   detune:   soft=0  medi=0..±0.03  high=0..±0.07  (zeroed if outside inner band)
+ *   pan:      osc1=0  osc2=±0.3  osc3=±0.3  osc4=±0.5  osc5=±0.5  osc6=±0.7
+ *
+ * EnvT  0=--  1=perc  2=pad   3=rand   envelope character
+ *   perc: attack 0..0.3s   decay 0.05..0.5s   sustain 0.02..0.5s   release 0.1..2.5s
+ *   pad:  attack 0.5..3s   decay 0.5..3s      sustain 0.5..2s      release 1..5s
+ *   rand: all stages random (times 0..1s; release 0..4s), releaseLevel forced to 0
+ *   Cross-effects: biases algo range, osc shapes, LFO speed/shape, FX pool
+ *
+ * IM    0=--  1=soft  2=medi  3=high   FM modulation depth
+ *   im1-5:    soft=0.25..2   medi=0.5..3   high=1..5
+ *   velo1-5:  soft=0.2..1    medi=1..2     high=1..4
+ *   feedback: soft=0..0.8    medi=0..1.5   high=0..2.5  (velo up to 80% of max)
+ *   Cross-effect: carrier mix and FX gain scale down by 0.07 per IM step
+ *
+ * Modl  0=--  1=soft  2=medi  3=high   matrix routing + modulation sources
+ *   rows: Modl=1 -> 2 rows, Modl=2 -> +3 rows, Modl=3 -> +6 rows
+ *   destinations: oscillator/effect activity-aware, uniqueness preferred at low levels
+ *   mul ranges: pitch/phase/warp 0.03..0.45 (0.75 high), pan/mix 0.08..1.2 (1.8 high),
+ *               other 0.2..1.6 (2.4 medi, 3.5 high); negative only at high and non-perc
+ *   LFOs:
+ *     - perc: one-shot 1..8 cycles, freq 3..(10+3*Modl) Hz, bias 0
+ *     - pad: smooth shapes, freq 0.03..(1+0.5*Modl) Hz, 40% chance of internal multi-shot
+ *            (2..8 cycles), optional bias ±0.3 only when routed away from amplitude targets
+ *     - rand: continuous internal sync, bias 0
+ *   Rows 10-12 fixed: modwheel→allIM, pitchbend→allFreq, aftertouch→IM1
+ */
 void SynthState::randomizePreset() {
     int operatorRandom = fullState.randomizer.Oper;
     int envelopeTypeRandom = fullState.randomizer.EnvT;
@@ -675,13 +939,17 @@ void SynthState::randomizePreset() {
 
     params->engine1.velocity = 8;
 
+    // --- Oper: oscillator mix, pan, algorithm, shapes, frequencies, FX ---
     if (operatorRandom > 0) {
-        params->engineMix1.mixOsc1 = getRandomFloat(0.6f, 1.0f);
-        params->engineMix1.mixOsc2 = getRandomFloat(0.6f, 1.0f);
-        params->engineMix2.mixOsc3 = getRandomFloat(0.6f, 1.0f);
-        params->engineMix2.mixOsc4 = getRandomFloat(0.6f, 1.0f);
-        params->engineMix3.mixOsc5 = getRandomFloat(0.6f, 1.0f);
-        params->engineMix3.mixOsc6 = getRandomFloat(0.6f, 1.0f);
+        // High IM generates louder FM; scale carrier mix down to avoid clipping
+        float mixMin = 0.6f - imRandom * 0.07f;
+        float mixMax = 1.0f - imRandom * 0.07f;
+        params->engineMix1.mixOsc1 = getRandomFloat(mixMin, mixMax);
+        params->engineMix1.mixOsc2 = getRandomFloat(mixMin, mixMax);
+        params->engineMix2.mixOsc3 = getRandomFloat(mixMin, mixMax);
+        params->engineMix2.mixOsc4 = getRandomFloat(mixMin, mixMax);
+        params->engineMix3.mixOsc5 = getRandomFloat(mixMin, mixMax);
+        params->engineMix3.mixOsc6 = getRandomFloat(mixMin, mixMax);
 
         params->engineMix1.panOsc1 = 0.0;
         params->engineMix1.panOsc2 = getRandomFloat(-0.3f, 0.3f);
@@ -690,29 +958,106 @@ void SynthState::randomizePreset() {
         params->engineMix3.panOsc5 = getRandomFloat(-0.5f, 0.5f);
         params->engineMix3.panOsc6 = getRandomFloat(-0.7f, 0.7f);
 
-        params->engine1.algo = getRandomInt(ALGO_END);
+        // Bias algorithm toward envelope character:
+        // Perc → deep FM chains (lower indices, fewer carriers)
+        // Pad  → stacked carriers for lush output (higher indices)
+        int algoLow = 0, algoHigh = ALGO_END;
+        if (envelopeTypeRandom == 1) {
+            algoHigh = ALGO_END * 2 / 3;
+        } else if (envelopeTypeRandom == 2) {
+            algoLow = ALGO_END / 3;
+        }
+        params->engine1.algo = algoLow + getRandomInt(algoHigh - algoLow);
 
         for (int o = 0; o < 6; o++) {
             struct OscillatorParams* currentOsc = &((struct OscillatorParams*) &params->osc1)[o];
-            currentOsc->shape = getRandomShape(operatorRandom);
+            struct OperatorPhaseRowParams* currentPhase = &((struct OperatorPhaseRowParams*) &params->phaseOp1)[o];
+            currentOsc->shape = getRandomShape(operatorRandom, envelopeTypeRandom);
             currentOsc->frequencyMul = getRandomFrequency(operatorRandom);
             currentOsc->frequencyType = getRandomFrequencyType(operatorRandom);
             currentOsc->detune = getFineTune(operatorRandom);
+            currentPhase->unused1 = 0.0f;
         }
 
-        // FX
-        params->effect1.param1 = getRandomFloat(0.2f, 0.8f);
-        params->effect1.param2 = getRandomFloat(0.2f, 0.8f);
-        int effect = getRandomInt(15);
-        if (effect == 1 || effect > 6) {
-            params->effect1.param3 = 1.0;
-            params->effect1.type = 0;
-        } else {
-            params->effect1.param3 = 0.6;
-            params->effect1.type = effect;
+        // FX - filter and modulation effects tuned to envelope character and IM level
+        {
+            // Normalize output gain by carrier count.
+            // effect1.param3 drives mixerGain (applied to every voice sample), so
+            // dividing by numCarriers keeps the summed output at roughly fxBase*avgMix
+            // regardless of whether the algorithm has 1 or 6 carrier operators.
+            int numCarriers = algoInformation[(int)params->engine1.algo].mix;
+            float fxBase = 0.8f - imRandom * 0.07f;
+            float fxGain = fxBase / (float)(numCarriers > 0 ? numCarriers : 1);
+
+            // Curated filter pools per envelope type
+            // percFilters: HP/BP for transient clarity, distortion for punch,
+            //              and open LP variants to warm drums without muffling
+            const int percFilters[]    = { FILTER_HP, FILTER_HP2, FILTER_HP3,
+                                           FILTER_BASS, FILTER_BP,
+                                           FILTER_CRUSHER, FILTER_SAT, FILTER_FOLD,
+                                           FILTER_LP, FILTER_LP2, FILTER_LP3 };
+            const int padFilters[]     = { FILTER_LP, FILTER_LP2, FILTER_LP3,
+                                           FILTER_LPHP, FILTER_LOWSHELF,
+                                           FILTER_TILT, FILTER_STEREO, FILTER_BP };
+
+            int chosenType = FILTER_OFF;
+            float p1Min = 0.2f, p1Max = 0.8f;
+            float p2Min = 0.1f, p2Max = 0.6f;
+
+            if (envelopeTypeRandom == 1) {                   // perc: HP/distortion for punch + open LP
+                if (getRandomInt(10) < 6) {
+                    chosenType = percFilters[getRandomInt(11)];
+                    // LP variants get a high cutoff (0.55+) so drums stay open
+                    p1Min = (chosenType == FILTER_LP || chosenType == FILTER_LP2 || chosenType == FILTER_LP3)
+                            ? 0.55f : 0.3f;
+                    p1Max = 0.9f;
+                    p2Min = 0.1f; p2Max = 0.6f;
+                }
+            } else if (envelopeTypeRandom == 2) {            // pad: LP/shelf to smooth FM partials
+                if (getRandomInt(10) < 8) {
+                    chosenType = padFilters[getRandomInt(8)];
+                    p1Min = 0.25f; p1Max = 0.65f;
+                    p2Min = 0.0f;  p2Max = 0.35f;
+                }
+            } else {                                          // rand: any available filter
+                if (getRandomInt(10) < 5) {
+                    // Full range: skip FILTER_OFF(0) and FILTER_MIXER(1)
+                    chosenType = FILTER_MIXER + 1 + getRandomInt(FILTER_LAST - FILTER_MIXER - 1);
+                }
+            }
+
+            params->effect1.type   = (float) chosenType;
+            params->effect1.param1 = getRandomFloat(p1Min, p1Max);
+            params->effect1.param2 = getRandomFloat(p2Min, p2Max);
+            params->effect1.param3 = (chosenType == FILTER_OFF) ? 0.9f : fxGain;
+
+            // effect2: modulation effects (chorus/flange/stereo) scaled to EnvT and Modl
+            int chosenType2 = FILTER2_OFF;
+            if (envelopeTypeRandom == 2) {                   // pad: chorus/ensemble/widener
+                const int padFx2[] = { FILTER2_CHORUS, FILTER2_DIMENSION,
+                                       FILTER2_WIDE, FILTER2_DIFFUSER, FILTER2_DOUBLER };
+                if (getRandomInt(10) < (modulationRandom > 0 ? 9 : 6)) {
+                    chosenType2 = padFx2[getRandomInt(5)];
+                }
+            } else if (envelopeTypeRandom == 1) {            // perc: occasional flange/grain
+                if (getRandomInt(10) < 3) {
+                    const int percFx2[] = { FILTER2_FLANGE, FILTER2_GRAIN1 };
+                    chosenType2 = percFx2[getRandomInt(2)];
+                }
+            } else {                                          // rand: any modulation effect
+                if (getRandomInt(10) < (2 + modulationRandom * 2)) {
+                    // Full range: skip FILTER2_OFF(0)
+                    chosenType2 = FILTER2_FLANGE + getRandomInt(FILTER2_LAST - FILTER2_FLANGE);
+                }
+            }
+            params->effect2.type   = (float) chosenType2;
+            params->effect2.param1 = getRandomFloat(0.15f, 0.55f);
+            params->effect2.param2 = getRandomFloat(0.3f,  0.7f);
+            params->effect2.param3 = fxGain;
         }
     }
 
+    // --- EnvT: envelope shape applied uniformly to all 6 operators ----------
     for (int e = 0; e < 6; e++) {
         struct EnvelopeParamsA* enva = &((struct EnvelopeParamsA*) &params->env1Time)[e * 2];
         struct EnvelopeParamsB* envb = &((struct EnvelopeParamsB*) &params->env1Level)[e * 2];
@@ -725,22 +1070,21 @@ void SynthState::randomizePreset() {
             enva->decayTime = getRandomFloat(0.05, 0.5f);
 
             envb->sustainLevel = getRandomFloat(0.0f, 1.0f);
-            envb->sustainTime = getRandomFloat(0.02, 1.0f);
+            envb->sustainTime = getRandomFloat(0.02f, 0.5f);
             envb->releaseLevel = 0.0f;
-            envb->releaseTime = getRandomFloat(0.2, 5.0f);
-            ;
+            envb->releaseTime = getRandomFloat(0.1f, 2.5f);
 
             break;
         case 2:
             enva->attackLevel = getRandomFloat(0.25f, 1.0f);
             enva->attackTime = getRandomFloat(0.5f, 3.0f);
             enva->decayLevel = getRandomFloat(0.5f, 1.0f);
-            enva->decayTime = getRandomFloat(1.0f, 5.0f);
+            enva->decayTime = getRandomFloat(0.5f, 3.0f);
 
             envb->sustainLevel = getRandomFloat(0.0f, 1.0f);
-            envb->sustainTime = getRandomFloat(2.0f, 5.0f);
+            envb->sustainTime = getRandomFloat(0.5f, 2.0f);
             envb->releaseLevel = 0.0f;
-            envb->releaseTime = getRandomFloat(1.0f, 8.0f);
+            envb->releaseTime = getRandomFloat(1.0f, 5.0f);
             break;
         case 3:
             enva->attackLevel = getRandomFloat(0, 1.0f);
@@ -750,12 +1094,16 @@ void SynthState::randomizePreset() {
 
             envb->sustainLevel = getRandomFloat(0, 1.0f);
             envb->sustainTime = getRandomFloat(0, 1.0f);
-            envb->releaseLevel = getRandomFloat(0, 1.0f);
+            // Always decay fully to zero: a non-zero releaseLevel makes the voice die
+            // at non-zero amplitude (click) and can trigger the modulator loop trick
+            // (releaseLevel==1 && releaseTime==0 → envelope loops forever).
+            envb->releaseLevel = 0.0f;
             envb->releaseTime = getRandomFloat(0, 4.0f);
             break;
         }
     }
 
+    // --- IM: FM modulation indices (im1-im5) and feedback (im6) ------------
     if (imRandom > 0) {
         struct EngineIm1* im1 = (struct EngineIm1*) &params->engineIm1;
         struct EngineIm2* im2 = (struct EngineIm2*) &params->engineIm2;
@@ -796,9 +1144,27 @@ void SynthState::randomizePreset() {
         im2->modulationIndexVelo4 = getRandomFloat(minVelo, maxVelo);
         im3->modulationIndex5 = getRandomFloat(min, max);
         im3->modulationIndexVelo5 = getRandomFloat(minVelo, maxVelo);
+
+        // feedback / self-mod path used by many algorithms
+        float maxFeedback = 0.6f;
+        switch (imRandom) {
+        case 1:
+            maxFeedback = 0.8f;
+            break;
+        case 2:
+            maxFeedback = 1.5f;
+            break;
+        case 3:
+            maxFeedback = 2.5f;
+            break;
+        }
+        im3->modulationIndex6 = getRandomFloat(0.0f, maxFeedback);
+        im3->modulationIndexVelo6 = getRandomFloat(0.0f, maxFeedback * 0.8f);
     }
 
+    // --- Modl: matrix routing, LFOs, LFO envelopes, step sequencers --------
     if (modulationRandom > 0) {
+        bool percussiveEnvelope = envelopeTypeRandom == 1;
 
         params->matrixRowState1.source = MATRIX_SOURCE_LFO1;
         params->matrixRowState2.source = MATRIX_SOURCE_LFO1;
@@ -828,46 +1194,287 @@ void SynthState::randomizePreset() {
             matrixRow->dest1 = 0;
         }
 
-        float dest[] = { INDEX_ALL_MODULATION, OSC1_FREQ, ALL_PAN, OSC2_FREQ, INDEX_MODULATION1, PAN_OSC1, INDEX_ALL_MODULATION };
+        bool rowUsed[9] = { false, false, false, false, false, false, false, false, false };
+        bool destinationUsed[DESTINATION_MAX] = { false };
+
+        auto destinationIndex = [](DestinationEnum dest) {
+            int idx = (int) dest;
+            if (idx < 0 || idx >= DESTINATION_MAX) {
+                return 0;
+            }
+            return idx;
+        };
+
+        auto chooseDestination = [&](int level, bool preferUnique) {
+            DestinationEnum chosen = getRandomModDestination(level, params);
+            if (!preferUnique) {
+                destinationUsed[destinationIndex(chosen)] = true;
+                return chosen;
+            }
+            for (int attempt = 0; attempt < 6; attempt++) {
+                DestinationEnum candidate = getRandomModDestination(level, params);
+                if (!destinationUsed[destinationIndex(candidate)]) {
+                    chosen = candidate;
+                    break;
+                }
+            }
+            destinationUsed[destinationIndex(chosen)] = true;
+            return chosen;
+        };
+
+        auto getMatrixMulForDestination = [&](DestinationEnum dest, int level) {
+            bool pitchOrPhase = dest == OSC1_FREQ || dest == OSC2_FREQ || dest == OSC3_FREQ || dest == OSC4_FREQ
+                    || dest == OSC5_FREQ || dest == OSC6_FREQ || dest == ALL_OSC_FREQ || dest == ALL_OSC_FREQ_HARM
+                    || dest == OSC1_PHASE || dest == OSC2_PHASE || dest == OSC3_PHASE || dest == OSC4_PHASE
+                    || dest == OSC5_PHASE || dest == OSC6_PHASE || dest == OSC1_WARP || dest == OSC2_WARP
+                    || dest == OSC3_WARP || dest == OSC4_WARP || dest == OSC5_WARP || dest == OSC6_WARP;
+
+            bool mixOrPan = dest == PAN_OSC1 || dest == PAN_OSC2 || dest == PAN_OSC3 || dest == PAN_OSC4
+                    || dest == ALL_PAN || dest == MIX_OSC1 || dest == MIX_OSC2 || dest == MIX_OSC3
+                    || dest == MIX_OSC4 || dest == ALL_MIX;
+
+            float minAbs = 0.2f;
+            float maxAbs = 1.6f;
+            if (level >= 2) {
+                maxAbs = 2.4f;
+            }
+            if (level >= 3) {
+                maxAbs = 3.5f;
+            }
+
+            if (pitchOrPhase) {
+                minAbs = 0.03f;
+                maxAbs = (level >= 3) ? 0.75f : 0.45f;
+            } else if (mixOrPan) {
+                minAbs = 0.08f;
+                maxAbs = (level >= 3) ? 1.8f : 1.2f;
+            }
+
+            float mul = getRandomFloat(minAbs, maxAbs);
+            if (level >= 3 && !percussiveEnvelope && getRandomInt(4) == 0) {
+                mul = -mul;
+            }
+            return mul;
+        };
+
+        auto getRandomMatrixRow = [&](bool avoidReuse) {
+            if (!avoidReuse) {
+                return getRandomInt(9);
+            }
+
+            int available = 0;
+            for (int i = 0; i < 9; i++) {
+                if (!rowUsed[i]) {
+                    available++;
+                }
+            }
+            if (available == 0) {
+                return getRandomInt(9);
+            }
+
+            int nth = getRandomInt(available);
+            for (int i = 0; i < 9; i++) {
+                if (!rowUsed[i]) {
+                    if (nth == 0) {
+                        rowUsed[i] = true;
+                        return i;
+                    }
+                    nth--;
+                }
+            }
+            return getRandomInt(9);
+        };
+
+        // Modl=1: 2 base rows; level-1 depth; unique destination preference
         for (int i = 0; i < 2; i++) {
-            struct MatrixRowParams* matrixRow = &((struct MatrixRowParams*) &params->matrixRowState1)[getRandomInt(10)];
-            matrixRow->mul = getRandomFloat(0.2f, 3.0f);
-            matrixRow->dest1 = dest[getRandomInt(7)];
+            struct MatrixRowParams* matrixRow = &((struct MatrixRowParams*) &params->matrixRowState1)[getRandomMatrixRow(true)];
+            matrixRow->dest1 = chooseDestination(1, true);
+            matrixRow->mul = getMatrixMulForDestination((DestinationEnum) matrixRow->dest1, 1);
         }
 
+        // Modl>=2: +3 rows; Modl-level depth; unique destinations; safe pool
         if (modulationRandom >= 2) {
             for (int i = 0; i < 3; i++) {
-                struct MatrixRowParams* matrixRow = &((struct MatrixRowParams*) &params->matrixRowState1)[getRandomInt(10)];
-                matrixRow->mul = getRandomFloat(1.0f, 3.0f);
-                matrixRow->dest1 = getRandomInt(DESTINATION_MAX);
+                struct MatrixRowParams* matrixRow = &((struct MatrixRowParams*) &params->matrixRowState1)[getRandomMatrixRow(true)];
+                matrixRow->dest1 = chooseDestination(modulationRandom, true);
+                matrixRow->mul = getMatrixMulForDestination((DestinationEnum) matrixRow->dest1, modulationRandom);
             }
         }
 
+        // Modl=3: +6 rows; reuse allowed; advanced destinations unlocked (1/3 chance)
         if (modulationRandom >= 3) {
             for (int i = 0; i < 6; i++) {
-                struct MatrixRowParams* matrixRow = &((struct MatrixRowParams*) &params->matrixRowState1)[getRandomInt(10)];
-                float mm = getRandomFloat(2.0f, 5.0f);
-                matrixRow->mul = getRandomFloat(-mm, mm);
-                matrixRow->dest1 = getRandomInt(DESTINATION_MAX);
+                struct MatrixRowParams* matrixRow = &((struct MatrixRowParams*) &params->matrixRowState1)[getRandomMatrixRow(false)];
+                matrixRow->dest1 = chooseDestination(modulationRandom, false);
+                matrixRow->mul = getMatrixMulForDestination((DestinationEnum) matrixRow->dest1, modulationRandom);
             }
         }
 
+        if (percussiveEnvelope) {
+            // Force a couple of transient-oriented LFO routes in percussive mode.
+            params->matrixRowState1.mul = getRandomFloat(0.7f, 2.0f);
+            params->matrixRowState1.dest1 = INDEX_ALL_MODULATION;
+            params->matrixRowState3.mul = getRandomFloat(0.3f, 1.2f);
+            params->matrixRowState3.dest1 = FILTER1_PARAM1;
+        }
+
+        auto isAmplitudeDestination = [](DestinationEnum dest) {
+            return dest == MIX_OSC1 || dest == MIX_OSC2 || dest == MIX_OSC3 || dest == MIX_OSC4
+                    || dest == ALL_MIX || dest == FILTER1_AMP || dest == FILTER2_AMP;
+        };
+
+        const int lfoSourceRows[][2] = {
+                { 0, 1 }, // LFO1 -> rows 1,2
+                { 2, 3 }, // LFO2 -> rows 3,4
+                { 4, -1 } // LFO3 -> row 5
+        };
+
+        auto rowIsActive = [](const MatrixRowParams* matrixRow) {
+            return matrixRow->mul > 0.0001f || matrixRow->mul < -0.0001f;
+        };
+
+        auto ensureSafeOffsetRouting = [&](int lfoIndex, int level) {
+            const int* rows = lfoSourceRows[lfoIndex];
+            for (int r = 0; r < 2; r++) {
+                int rowIndex = rows[r];
+                if (rowIndex < 0) {
+                    continue;
+                }
+
+                struct MatrixRowParams* matrixRow = &((struct MatrixRowParams*) &params->matrixRowState1)[rowIndex];
+                if (!rowIsActive(matrixRow)) {
+                    continue;
+                }
+
+                DestinationEnum currentDest = (DestinationEnum) matrixRow->dest1;
+                if (!isAmplitudeDestination(currentDest)) {
+                    continue;
+                }
+
+                DestinationEnum replacement = INDEX_MODULATION1;
+                for (int attempt = 0; attempt < 10; attempt++) {
+                    DestinationEnum candidate = chooseDestination(level, false);
+                    if (!isAmplitudeDestination(candidate)) {
+                        replacement = candidate;
+                        break;
+                    }
+                }
+
+                matrixRow->dest1 = replacement;
+                matrixRow->mul = getMatrixMulForDestination(replacement, level);
+            }
+
+            for (int r = 0; r < 2; r++) {
+                int rowIndex = rows[r];
+                if (rowIndex < 0) {
+                    continue;
+                }
+                struct MatrixRowParams* matrixRow = &((struct MatrixRowParams*) &params->matrixRowState1)[rowIndex];
+                if (!rowIsActive(matrixRow)) {
+                    continue;
+                }
+                if (isAmplitudeDestination((DestinationEnum) matrixRow->dest1)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        // LFOs 1-3: shape, frequency, sync mode and phase vary by EnvT
         for (int o = 0; o < 3; o++) {
             struct LfoParams* osc = &((struct LfoParams*) &params->lfoOsc1)[o];
-            osc->shape = getRandomInt(5);
-            osc->freq = getRandomFloat(0.2, 3 + modulationRandom * 2);
-            if (getRandomInt(4) > 1) {
-                osc->bias = 0;
+            float* syncModes = &params->lfoSyncModes.lfo1;
+            float* lfoPhases = &params->lfoPhases.phaseLfo1;
+            if (percussiveEnvelope) {
+                // One-shot shapes for transient automation; 1-8 trigger cycles
+                // Speed: 3.0..(10+Modl×3) Hz so each shot completes in ≤0.33s —
+                // fast enough to fully unwind within the shorter percussive envelope
+                // (sustain max 0.5s, release max 2.5s). Higher Modl pushes toward
+                // near-audio-rate transients (pitch drops, filter sweeps on kicks).
+                // Phase 0..0.12 staggers triggers across LFOs.
+                // All shapes here have oneShotTerminalShapeValue = -1 (freeze at minimum)
+                // so they taper cleanly to zero when the shot completes (with bias=0).
+                // RISE_EXP and RISE_LOG are excluded: they freeze at +1, leaving a
+                // permanent positive DC offset on the destination after the shot.
+                const int percussiveShapes[] = {
+                    LFO_DECAY_EXP,         // exponential decay
+                    LFO_DECAY_LOG,         // logarithmic decay
+                    LFO_DECAY_S,           // S-curve (sigmoid) decay
+                    LFO_ATTACK_DECAY,      // attack then decay
+                    LFO_ATTACK_HOLD_DECAY, // attack, hold, then decay
+                    LFO_BUCHLA_PLONG,      // Buchla-style long pluck
+                    LFO_BUCHLA_PLONG2      // Buchla-style long pluck variant
+                };
+                osc->shape = percussiveShapes[getRandomInt(7)];
+                osc->freq = getRandomFloat(3.0f, 10.0f + modulationRandom * 3.0f);
+                // Bias must be 0: one-shot shapes taper to 0 then freeze;
+                // a non-zero bias leaves a permanent DC offset on the destination.
+                osc->bias = 0.0f;
+                osc->keybRamp = getRandomFloat(0.0f, 0.8f);
+                syncModes[o] = (float) (LFO_SYNC_ONESHOT_INTERNAL_1 + getRandomInt(8));
+                lfoPhases[o] = getRandomFloat(0.0f, 0.12f);
             } else {
-                osc->bias = getRandomFloat(-1.0f, 1.0f);
-            }
-            // PAD
-            if (envelopeTypeRandom == 2) {
-                osc->keybRamp = getRandomFloat(0.0f, 4.0f);
-            } else {
-                osc->keybRamp = getRandomFloat(0.0f, 1.0f);
+                if (envelopeTypeRandom == 2) {  // pad: slow smooth LFOs for subtle movement
+                    // Smooth, zero-mean shapes only. Excluded: SIN_POS/SIN_ZERO/SIN_SQUARE
+                    // (always-positive output = DC offset on destination).
+                    const int padShapes[] = {
+                        LFO_SIN,       // sine
+                        LFO_TRIANGLE,  // triangle
+                        LFO_SAW,       // ramp up
+                        LFO_SAW_DOWN,  // ramp down
+                        LFO_BROWNIAN,  // organic random walk
+                        LFO_WANDERING, // smooth wandering random
+                        LFO_FLOW       // smooth flowing random
+                    };
+                    osc->shape = padShapes[getRandomInt(7)];
+                    osc->freq = getRandomFloat(0.03f, 1.0f + modulationRandom * 0.5f);
+                    // Allow offset only when this LFO is not routed to amplitude controls.
+                    // This preserves safe pad loudness while still enabling asymmetric motion.
+                    bool wantsPadOffset = getRandomInt(3) == 0;
+                    bool canUseOffset = wantsPadOffset && ensureSafeOffsetRouting(o, modulationRandom);
+                    if (canUseOffset) {
+                        osc->bias = getRandomFloat(-0.3f, 0.3f);
+                    } else {
+                        osc->bias = 0.0f;
+                    }
+                    osc->keybRamp = getRandomFloat(0.0f, 4.0f);
+
+                    // Pads can use slow multi-shot sync so modulation evolves over a few
+                    // cycles, then settles.
+                    if (getRandomInt(100) < 40) {
+                        syncModes[o] = (float) (LFO_SYNC_ONESHOT_INTERNAL_1 + 1 + getRandomInt(7));
+                        lfoPhases[o] = getRandomFloat(0.0f, 0.2f);
+                    } else {
+                        syncModes[o] = LFO_SYNC_INTERNAL;
+                        lfoPhases[o] = 0.0f;
+                    }
+                } else {
+                    // --/rand: wide variety including stochastic shapes
+                    const int randShapes[] = {
+                        LFO_SIN,       // sine
+                        LFO_SAW,       // ramp up
+                        LFO_TRIANGLE,  // triangle
+                        LFO_SQUARE,    // square
+                        LFO_RANDOM,    // sample-and-hold random
+                        LFO_BROWNIAN,  // random walk
+                        LFO_WANDERING, // smooth wandering
+                        LFO_SAW_DOWN,  // ramp down
+                        LFO_FLOW       // smooth flowing random
+                    };
+                    osc->shape = randShapes[getRandomInt(9)];
+                    osc->freq = getRandomFloat(0.2f, 3.0f + modulationRandom * 2.0f);
+                    // Bias 0: a non-zero bias creates a DC offset on the destination.
+                    // When routed to ALL_ENV_RELEASE or an amplitude destination,
+                    // a positive bias can make notes sound much longer than intended.
+                    osc->bias = 0.0f;
+                    osc->keybRamp = getRandomFloat(0.0f, 1.0f);
+                    syncModes[o] = LFO_SYNC_INTERNAL;
+                    lfoPhases[o] = 0.0f;
+                }
             }
         }
+        params->lfoSyncModes.unused1 = 0.0f;
+        // LFO envelopes 1-2: all four stages 0.05..1s; lfoEnv2 loop count 1 or 2
         for (int e = 0; e < 2; e++) {
             struct EnvelopeLfoParams* env = &((struct EnvelopeLfoParams*) &params->lfoEnv1)[e];
             env->attack = getRandomFloat(0.05f, 1.0f);
@@ -880,6 +1487,7 @@ void SynthState::randomizePreset() {
             }
         }
 
+        // Step sequencers 1-2: shared BPM 60-180; gate 0.25-1; accents (11-15) on every 4th step
         int bpm = getRandomInt(120) + 60;
         for (int s = 0; s < 2; s++) {
             struct StepSequencerParams* stepSeq = &((struct StepSequencerParams*) &params->lfoSeq1)[s];

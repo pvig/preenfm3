@@ -18,6 +18,11 @@
 #include "Osc.h"
 #include "waves.h"
 
+#if defined(__GNUC__) && !defined(DEBUG)
+#pragma GCC push_options
+#pragma GCC optimize ("Ofast", "fast-math")
+#endif
+
 
 #define INV440 .002272727272727f
 
@@ -154,14 +159,22 @@ struct WaveTable waveTables[NUMBER_OF_WAVETABLES]  = {
 };
 
 
-void Osc::init(SynthState* synthState, struct OscillatorParams *oscParams, DestinationEnum df) {
+void Osc::init(SynthState* synthState, struct OscillatorParams *oscParams, struct OperatorPhaseRowParams* phaseParamsBase, DestinationEnum df) {
 
     this->synthState_ = synthState;
     silence[0] = 0;
 
     this->destFreq = df;
+    this->destWarp = DESTINATION_NONE;
     this->oscillator = oscParams;
 
+    phaseWarpFallback = 0.0f;
+    phaseWarpParam = &phaseWarpFallback;
+    int opIndex = ((int)df) - ((int)OSC1_FREQ);
+    if ((unsigned int)opIndex < 6u && phaseParamsBase != nullptr) {
+        phaseWarpParam = &phaseParamsBase[opIndex].unused1;
+        destWarp = (DestinationEnum)(((int)OSC1_WARP) + opIndex);
+    }
     if (waveTables[0].precomputedValue <= 0) {
         for (int k=0; k<NUMBER_OF_WAVETABLES; k++) {
             waveTables[k].precomputedValue = (waveTables[k].max + 1) * waveTables[k].useFreq * PREENFM_FREQUENCY_INVERSED;
@@ -183,6 +196,10 @@ void Osc::init(SynthState* synthState, struct OscillatorParams *oscParams, Desti
 void Osc::newNote(struct OscState* oscState, float newNoteFrequency, float phase) {
 
     oscState->index = waveTables[(int) oscillator->shape].max * phase;
+    oscState->effectiveWarp = 0.0f;
+    oscState->waveDecimationStepPhase = 0;
+    oscState->waveInterpolationEnabled = 0;
+    oscState->waveDecimationHeldSample = 0.0f;
     switch ((int)oscillator->frequencyType) {
     case OSC_FT_KEYBOARD:
         oscState->mainFrequency = newNoteFrequency * oscillator->frequencyMul * (1.0f + oscillator->detune * .05f) * (synthState_->mixerState.tuning_ * INV440);
@@ -446,3 +463,7 @@ float exp2_harm[] = {
         /*49.9*/ 17.85595428208357, /*50*/ 17.959392772949972, /*50.1*/ 18.063430476898098, /*50.2*/ 18.16807086513404, /*50.3*/ 18.27331742897234,
         /*50.4*/ 18.37917367995256, /*50.5*/ 18.485643149956363, /*50.6*/ 18.592729391325435, /*50.7*/ 18.700435976979936, /*50.8*/ 18.80876650053774,
         /*50.9*/ 18.917724576434363, /*51*/ 19.027313840043536, /*51.1*/ 19.137537947798467 };
+
+    #if defined(__GNUC__) && !defined(DEBUG)
+    #pragma GCC pop_options
+    #endif

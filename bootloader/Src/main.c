@@ -27,6 +27,7 @@
 #include "bootloader.h"
 #include "preenfm3lib.h"
 #include "flash_if.h"
+#include "fatfs.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,6 +65,7 @@ static void MX_DMA_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_DMA2D_Init(void);
+void MX_Deinit(void);
 
 /* USER CODE BEGIN PFP */
 
@@ -117,15 +119,15 @@ int main(void)
   if (buttonPressed == 9) {
       MX_Deinit();
       bootJumpToApplication(APPLICATION2_ADDRESS);
-      return;
+      return 0;
   } else if (buttonPressed == 10) {
       MX_Deinit();
       bootJumpToApplication(APPLICATION3_ADDRESS);
-      return;
+      return 0;
   } else if (buttonPressed != 6) {
       MX_Deinit();
       bootJumpToApplication(APPLICATION_ADDRESS);
-      return;
+      return 0;
   }
 
   MX_DMA_Init();

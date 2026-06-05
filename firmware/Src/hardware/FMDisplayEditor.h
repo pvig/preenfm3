@@ -71,7 +71,7 @@ public:
     void updateStepSequencer(int currentRow, int encoder, int oldValue, int newValue);
     void updateArpPattern(int currentRow, int encoder, int oldValue, int newValue);
     void displayPreset();
-    void displayPopup(TFT_COLOR color, char* text, uint8_t length);
+    void displayPopup(TFT_COLOR color, const char* text, uint8_t length);
 
     int getEditPageMultiplier();
 

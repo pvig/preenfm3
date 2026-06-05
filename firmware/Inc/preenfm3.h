@@ -29,6 +29,7 @@ bool isButton1Pressed();
 
 void preenfm3TftTic();
 void preenfm3_USART();
+void preenfm3_USART1_IRQHandler();
 void preenfm3_usbDataReceive(uint8_t *buffer);
 void preenfm3StartSai();
 

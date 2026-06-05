@@ -26,7 +26,9 @@
 extern const char* lfoSeqMidiClock[];
 extern const char* lfoOscMidiClock[];
 
+#ifndef MIN
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#endif
 #define CUSTOM_CHAR_NOTE (char)7
 
 
@@ -59,6 +61,7 @@ enum ParameterDisplayType {
     DISPLAY_TYPE_STEP_SEQ2,
     DISPLAY_TYPE_STEP_SEQ_BPM,
     DISPLAY_TYPE_LFO_KSYN,
+    DISPLAY_TYPE_LFO_DELAY,
     DISPLAY_TYPE_ARP_PATTERN,
     DISPLAY_TYPE_SCALA_SCALE
 };

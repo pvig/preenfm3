@@ -85,7 +85,7 @@
 #define PFM3_VERSIONS_H_
 
 // Patch/preset format version
-#define PFM3_PATCH_VERSION 1.1f
+#define PFM3_PATCH_VERSION 1.5f
 
 #endif /* PFM3_VERSIONS_H_ */
 
@@ -151,6 +151,8 @@ enum {
     BUTTONID_MENU_SETTINGS,
     BUTTONID_PERFORMANCE,
     BUTTONID_ENV_1,
+    // Dedicated state bucket for the Operator Osc page (Osc <-> Phase states).
+    BUTTONID_OP_OSC,
     NUMBER_OF_BUTTONIDS
 };
 
@@ -226,11 +228,19 @@ enum {
     ROW_ENV5_CURVE,
     ROW_ENV6_CURVE,
     ROW_EFFECT2,
+    // Operator phase rows (one 4-float row per operator for UI/editor indexing).
+    ROW_OP_PHASE1,
+    ROW_OP_PHASE2,
+    ROW_OP_PHASE3,
+    ROW_OP_PHASE4,
+    ROW_OP_PHASE5,
+    ROW_OP_PHASE6,
+    ROW_ENGINE_DECIMATION,
     ROW_NONE
 };
 
-#define NUMBER_OF_ROWS (ROW_EFFECT2+1)
-#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_EFFECT2+1)
+#define NUMBER_OF_ROWS (ROW_ENGINE_DECIMATION+1)
+#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_ENGINE_DECIMATION+1)
 
 
 enum {
@@ -304,6 +314,38 @@ struct Engine2Params {
     float unisonSpread;
     float unisonDetune;
     float pfm3Version;
+};
+
+enum {
+    FM_DECIMATION_1BIT = 0,
+    FM_DECIMATION_2BIT,
+    FM_DECIMATION_3BIT,
+    FM_DECIMATION_4BIT,
+    FM_DECIMATION_5BIT,
+    FM_DECIMATION_6BIT,
+    FM_DECIMATION_7BIT,
+    FM_DECIMATION_8BIT,
+    FM_DECIMATION_9BIT,
+    FM_DECIMATION_10BIT,
+    FM_DECIMATION_11BIT,
+    FM_DECIMATION_12BIT,
+    FM_DECIMATION_13BIT,
+    FM_DECIMATION_14BIT,
+    FM_DECIMATION_15BIT,
+    FM_DECIMATION_16BIT,
+    FM_DECIMATION_17BIT,
+    FM_DECIMATION_18BIT,
+    FM_DECIMATION_19BIT,
+    FM_DECIMATION_FULL,
+    FM_DECIMATION_HQ,
+    FM_DECIMATION_CURRENT = FM_DECIMATION_FULL
+};
+
+struct EngineDecimationParams {
+    float decimation;
+    float unused1;
+    float unused2;
+    float unused3;
 };
 
 //{ "Acti", "Clk ", "BPM ", "Dire" },
@@ -510,6 +552,22 @@ struct LfoParams {
     float keybRamp;
 };
 
+struct LfoSyncModes {
+    float lfo1;
+    float lfo2;
+    float lfo3;
+    float unused1;
+};
+
+enum LfoSyncMode {
+    LFO_SYNC_INTERNAL = 0,
+    LFO_SYNC_EXTERNAL = 1,
+    LFO_SYNC_ONESHOT_INTERNAL_1 = 2,
+    LFO_SYNC_ONESHOT_INTERNAL_8 = 9,
+    LFO_SYNC_ONESHOT_EXTERNAL_1 = 10,
+    LFO_SYNC_ONESHOT_EXTERNAL_8 = 17,
+};
+
 struct StepSequencerParams {
     float bpm;
     float gate;
@@ -547,6 +605,15 @@ struct MidiNoteCurveRowParams {
     float breakNote;
     float curveAfter;
     float unused1;
+};
+
+struct OperatorPhaseRowParams {
+    // Phase offset in degrees [0..360].
+    float phase;
+    // Reserved to keep row width aligned with 4-encoder editor storage.
+    float unused1;
+    float unused2;
+    float unused3;
 };
 
 struct OneSynthParams {
@@ -612,7 +679,17 @@ struct OneSynthParams {
     struct EnvelopeCurveParams env5Curve;
     struct EnvelopeCurveParams env6Curve;
     struct EffectRowParams effect2;
+    // Stored as rows so operator page editing can reuse the standard row*4 indexing path.
+    struct OperatorPhaseRowParams phaseOp1;
+    struct OperatorPhaseRowParams phaseOp2;
+    struct OperatorPhaseRowParams phaseOp3;
+    struct OperatorPhaseRowParams phaseOp4;
+    struct OperatorPhaseRowParams phaseOp5;
+    struct OperatorPhaseRowParams phaseOp6;
+    struct EngineDecimationParams engineDecimation;
     char presetName[13];
+    // Sync mode per LFO oscillator (Int/Ext/1Si..8Si/1Se..8Se).
+    struct LfoSyncModes lfoSyncModes;
 };
 
 enum SourceEnum {
@@ -702,6 +779,18 @@ enum DestinationEnum {
     FILTER2_PARAM1,
     FILTER2_PARAM2,
     FILTER2_AMP,
+    OSC1_PHASE,
+    OSC2_PHASE,
+    OSC3_PHASE,
+    OSC4_PHASE,
+    OSC5_PHASE,
+    OSC6_PHASE,
+    OSC1_WARP,
+    OSC2_WARP,
+    OSC3_WARP,
+    OSC4_WARP,
+    OSC5_WARP,
+    OSC6_WARP,
     DESTINATION_MAX
 };
 

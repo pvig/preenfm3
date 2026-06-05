@@ -25,10 +25,8 @@ extern USBD_HandleTypeDef hUsbDeviceFS;
 // Only one function to register
 void preenfm3_usbDataReceive(uint8_t *buffer);
 
-static int8_t dataReceived(uint8_t* buffer) {
+static void dataReceived(uint8_t* buffer) {
     preenfm3_usbDataReceive(buffer);
-
-    return USBD_OK;
 }
 
 

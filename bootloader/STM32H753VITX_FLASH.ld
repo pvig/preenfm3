@@ -75,6 +75,12 @@ MEMORY
     FLASH	(rx)	: ORIGIN = 0x8000000,	LENGTH = 128K
 }
 
+PHDRS
+{
+  text PT_LOAD FLAGS(5);
+  data PT_LOAD FLAGS(6);
+}
+
 /* Sections */
 SECTIONS
 {
@@ -84,7 +90,7 @@ SECTIONS
     . = ALIGN(4);
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   /* The program code and other data into "FLASH" Rom type memory */
   .text :
@@ -101,7 +107,7 @@ SECTIONS
 
     . = ALIGN(4);
     _etext = .;        /* define a global symbols at end of code */
-  } >FLASH
+  } >FLASH :text
 
   /* Constant data into "FLASH" Rom type memory */
   .rodata :
@@ -110,13 +116,13 @@ SECTIONS
     *(.rodata)         /* .rodata sections (constants, strings, etc.) */
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   .ARM.extab   : { 
   	. = ALIGN(4);
   	*(.ARM.extab* .gnu.linkonce.armextab.*)
   	. = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
   
   .ARM : {
     . = ALIGN(4);
@@ -124,7 +130,7 @@ SECTIONS
     *(.ARM.exidx*)
     __exidx_end = .;
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   .preinit_array     :
   {
@@ -133,7 +139,7 @@ SECTIONS
     KEEP (*(.preinit_array*))
     PROVIDE_HIDDEN (__preinit_array_end = .);
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
   
   .init_array :
   {
@@ -143,7 +149,7 @@ SECTIONS
     KEEP (*(.init_array*))
     PROVIDE_HIDDEN (__init_array_end = .);
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
   
   .fini_array :
   {
@@ -153,7 +159,7 @@ SECTIONS
     KEEP (*(.fini_array*))
     PROVIDE_HIDDEN (__fini_array_end = .);
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   /* Used by the startup to initialize data */
   _sidata = LOADADDR(.data);
@@ -169,7 +175,7 @@ SECTIONS
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
     
-  } >DTCMRAM AT> FLASH
+  } >DTCMRAM AT> FLASH :data
   
   /* Uninitialized data section into "RAM_D1" Ram type memory */
   . = ALIGN(4);
@@ -185,26 +191,26 @@ SECTIONS
     . = ALIGN(4);
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
-  } >DTCMRAM
+  } >DTCMRAM :data
 
 
   .ram_d1 : 
   {
     *(.ram_d1)
-  } >RAM_D1
+  } >RAM_D1 :data
   
   .ram_d2 : 
   {
     *(.ram_d2)
-  } >RAM_D2
+  } >RAM_D2 :data
   
   .ram_d2b : 
   {
     *(.ram_d2b)
-  } >RAM_D2B
+  } >RAM_D2B :data
   
   /* User_heap_stack section, used to check that there is enough "RAM_D1" Ram  type memory left */
-  ._user_heap_stack :
+  ._user_heap_stack (NOLOAD) :
   {
     . = ALIGN(8);
     PROVIDE ( end = . );
@@ -222,5 +228,5 @@ SECTIONS
     libgcc.a ( * )
   }
 
-  .ARM.attributes 0 : { *(.ARM.attributes) }
+  .ARM.attributes 0 : { *(.ARM.attributes) } :text
 }
