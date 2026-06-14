@@ -1439,7 +1439,7 @@ struct ParameterRowDisplay oscPhaseParameterRow = {
             0,
             360,
             361,
-            DISPLAY_TYPE_FLOAT,
+            DISPLAY_TYPE_INT,
             nullNames,
             nullNamesOrder,
             nullNamesOrder },

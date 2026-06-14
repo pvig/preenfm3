@@ -64,6 +64,9 @@ enum AllControlChange {
     CC_PAN4,
     CC_IM_FEEDBACK = 30,
     CC_BANK_SELECT_LSB = 32,
+    CC_OSC1_WARP = 33,  // moved from 97 (was conflicting with NRPN data decrement CC)
+    CC_OSC2_WARP = 34,  // moved from 98 (was conflicting with NRPN param LSB CC)
+    CC_OSC3_WARP = 35,  // moved from 99 (was conflicting with NRPN param MSB CC)
     CC_MFX_PRESET = 40,
     CC_MFX_PREDELAYTIME,
     CC_MFX_PREDELAYMIX,
@@ -118,12 +121,10 @@ enum AllControlChange {
     CC_LFO1_BIAS,
     CC_LFO2_BIAS,
     CC_LFO3_BIAS,
-    CC_LFO1_SHAPE,
-    CC_LFO2_SHAPE,
-    CC_LFO3_SHAPE,
-    CC_OSC1_WARP,
-    CC_OSC2_WARP,
-    CC_OSC3_WARP,
+    CC_LFO1_SHAPE,  // 94
+    CC_LFO2_SHAPE,  // 95
+    CC_LFO3_SHAPE,  // 96
+    // 97, 98, 99 : reserved by NRPN protocol
     CC_ARP_CLOCK = 100,
     CC_ARP_DIRECTION,
     CC_ARP_OCTAVE,
