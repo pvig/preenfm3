@@ -273,7 +273,7 @@ void Timbre::noteOffMPE(uint8_t channel, uint8_t note, uint8_t velocityOff) {
 }
 
 
-void Timbre::preenNoteOn(char note, char velocity) {
+void Timbre::preenNoteOn(char note, char velocity, bool restored) {
     // NumberOfVoice = 0 or no mapping in scala frequencies
     if (unlikely(numberOfVoices_ == 0 || mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[(int) note] == 0.0f)) {
         return;
@@ -290,9 +290,9 @@ void Timbre::preenNoteOn(char note, char velocity) {
             unavailable[k] = voices_[voiceNumber_[k]]->isNewNotePending()
                     && (voice_allocator_pool_[k] & 0x80);
         }
-        uint8_t voiceIndex = voice_allocator_.NoteOn((uint8_t) note, unavailable);
+        uint8_t voiceIndex = voice_allocator_.NoteOn((uint8_t) note, unavailable, restored);
         if (voiceIndex == 0xff) {
-            voiceIndex = voice_allocator_.NoteOn((uint8_t) note);
+            voiceIndex = voice_allocator_.NoteOn((uint8_t) note, 0, restored);
             if (voiceIndex == 0xff) {
                 return;
             }
@@ -423,9 +423,9 @@ void Timbre::restoreHeldNotes(uint8_t numberOfVoices) {
     while (numberOfVoices > 0) {
         bool restored = false;
         for (uint8_t k = 0; k < held_note_stack_.size(); k++) {
-            const NoteEntry& candidate = held_note_stack_.played_note(held_note_stack_.size() - k - 1);
+            const NoteEntry& candidate = held_note_stack_.sorted_note(held_note_stack_.size() - k - 1);
             if (voice_allocator_.FindActive(candidate.note) == 0xff) {
-                preenNoteOn(candidate.note, candidate.velocity);
+                preenNoteOn(candidate.note, candidate.velocity, true);
                 if (voice_allocator_.FindActive(candidate.note) != 0xff) {
                     --numberOfVoices;
                     restored = true;

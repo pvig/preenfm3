@@ -32,7 +32,7 @@ public:
         Clear();
     }
 
-    uint8_t NoteOn(uint8_t note, const uint8_t* unavailable = 0) {
+    uint8_t NoteOn(uint8_t note, const uint8_t* unavailable = 0, bool restored = false) {
         if (size_ == 0) {
             return 0xff;
         }
@@ -78,7 +78,11 @@ public:
             return 0xff;
         }
         pool_[voice] = 0x80 | note;
-        Touch(voice);
+        if (restored) {
+            SendToBack(voice);
+        } else {
+            Touch(voice);
+        }
         return voice;
     }
 
@@ -137,6 +141,18 @@ private:
             --source;
         }
         lru_[0] = voice;
+    }
+
+    void SendToBack(uint8_t voice) {
+        uint8_t source = 0;
+        uint8_t destination = 0;
+        while (source < size_) {
+            if (lru_[source] != voice) {
+                lru_[destination++] = lru_[source];
+            }
+            ++source;
+        }
+        lru_[size_ - 1] = voice;
     }
 
     uint8_t* pool_;

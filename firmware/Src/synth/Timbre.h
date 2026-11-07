@@ -82,7 +82,7 @@ public:
     void noteOnMPE(uint8_t channel, uint8_t note, uint8_t velocity);
     void noteOffMPE(uint8_t channel, uint8_t note, uint8_t velocityOff);
 
-    void preenNoteOn(char note, char velocity);
+    void preenNoteOn(char note, char velocity, bool restored = false);
     inline void preenNoteOnUpdateMatrix(int voiceToUse, int note, int velocity);
     void preenNoteOff(char note, bool restoreHeldNotes = false);
 
