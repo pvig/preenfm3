@@ -1300,12 +1300,16 @@ void Timbre::fxAfterBlock()
 
         param1S = 0.005f * (this->params_.effect2.param1) + .995f * param1S;
         matrixFilterFrequencyS = 0.02f * (matrixFilterFrequency * matrixFilterFrequency) + .98f * matrixFilterFrequencyS;
-        param2S = 0.05f * (this->params_.effect2.param2 + matrixFilterParam2) + .95f * param2S;
 
-        param2S = clamp(param2S, 0, 1.f);
+        // Interpolation linéaire de param2S sur le bloc pour éviter l'aliasing
+        // lors d'une modulation rapide (enveloppe). La valeur cible est calculée
+        // une fois, puis param2S est incrémenté sample par sample dans la boucle.
+        float param2Target = clamp(0.05f * (this->params_.effect2.param2 + matrixFilterParam2) + .95f * param2S, 0.f, 1.f);
+        float param2SInc = (param2Target - param2S) * INV_BLOCK_SIZE;
+
+        // Calcul des paramètres du filtre à partir de la valeur courante de param2S
+        // (sera mis à jour chaque sample dans la boucle)
         float param2Square = param2S * param2S;
-
-        feedback = param2S * 1.22f;
 
         const float sampleRateDivide = 4;
         const float sampleRateDivideInv = 1 / sampleRateDivide;
@@ -1319,11 +1323,11 @@ void Timbre::fxAfterBlock()
         delaySize2 = delaySize1 * 0.5f;
         float delaySizeInc2 = (delaySize2 - currentDelaySize2) * sampleRateDivideInv * INV_BLOCK_SIZE;
 
-        // hp 1
-        const float filterB2 = 0.1f + param2Square * 0.43f;
-        const float filterB = (filterB2 * filterB2 * 0.5f);
-        const float _in2_b1 = (1 - filterB);
-        const float _in2_a0 = (1 + _in2_b1 * _in2_b1 * _in2_b1) * 0.5f;
+        // hp 1 — coefficients calculés avant la boucle, stables sur le bloc
+        float filterB2 = 0.1f + param2Square * 0.43f;
+        float filterB = (filterB2 * filterB2 * 0.5f);
+        float _in2_b1 = (1 - filterB);
+        float _in2_a0 = (1 + _in2_b1 * _in2_b1 * _in2_b1) * 0.5f;
 
         // hp 2
         float filterC2 = 0.1f + param2Square * 0.33f;
@@ -1332,7 +1336,7 @@ void Timbre::fxAfterBlock()
         float _in3_b1 = (1 - filterC);
         float _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
 
-        const float f = 0.8f + param2Square * 0.198f;
+        float f = 0.8f + param2Square * 0.198f;
         float airAttn = (param2Square + param2Square + param1S) * 0.03f;
         float f2 = 0.85f - airAttn;
         float f3 = f2 - 0.03f;
@@ -1343,6 +1347,25 @@ void Timbre::fxAfterBlock()
 
         for (int k = 0; k < BLOCK_SIZE; k++)
         {
+            // Lissage sample par sample de param2S pour éviter l'aliasing
+            param2S += param2SInc;
+            param2Square = param2S * param2S;
+            feedback = param2S * 1.22f;
+
+            // Mise à jour des coefficients de filtre dépendant de param2S
+            filterB2 = 0.1f + param2Square * 0.43f;
+            filterB = (filterB2 * filterB2 * 0.5f);
+            _in2_b1 = (1 - filterB);
+            _in2_a0 = (1 + _in2_b1 * _in2_b1 * _in2_b1) * 0.5f;
+            filterC2 = 0.1f + param2Square * 0.33f;
+            filterC = (filterC2 * filterC2 * 0.5f);
+            _in3_b1 = (1 - filterC);
+            _in3_a0 = (1 + _in3_b1 * _in3_b1 * _in3_b1) * 0.5f;
+            f = 0.8f + param2Square * 0.198f;
+            airAttn = (param2Square + param2Square + param1S) * 0.03f;
+            f2 = 0.85f - airAttn;
+            f3 = f2 - 0.03f;
+
 
             if (++inputIncCount >= sampleRateDivide)
             {
