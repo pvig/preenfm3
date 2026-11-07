@@ -794,10 +794,6 @@ enum DestinationEnum {
     DESTINATION_MAX
 };
 
-int strcmp(const char *s1, const char *s2);
-
-
-
 enum {
     SCALA_MAPPING_KEYB = 0,
     SCALA_MAPPING_CONT,

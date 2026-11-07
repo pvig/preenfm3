@@ -29,6 +29,7 @@
 #include "LfoStepSeq.h"
 #include "Matrix.h"
 #include "note_stack.h"
+#include "voice_allocator.h"
 #include "event_scheduler.h"
 
 extern float panTable[];
@@ -83,7 +84,7 @@ public:
 
     void preenNoteOn(char note, char velocity);
     inline void preenNoteOnUpdateMatrix(int voiceToUse, int note, int velocity);
-    void preenNoteOff(char note);
+    void preenNoteOff(char note, bool restoreHeldNotes = false);
 
     void numberOfVoicesChanged(uint8_t newNumberOfVoices) {
         if (likely(newNumberOfVoices > 0)) {
@@ -92,6 +93,7 @@ public:
             numberOfVoiceInverse_ = 1.0f;
         }
         numberOfVoices_ = newNumberOfVoices;
+        voice_allocator_.Init(newNumberOfVoices, false, voice_allocator_pool_, voice_allocator_lru_);
     }
 
     void lfoValueChange(int currentRow, int encoder, float newValue);
@@ -168,6 +170,7 @@ public:
     }
 
 private:
+    void restoreHeldNotes(uint8_t numberOfVoices);
 
     // MiniPal Arpegiator
     void SendLater(uint8_t note, uint8_t velocity, uint8_t when, uint8_t tag);
@@ -181,69 +184,12 @@ private:
     void SendNote(uint8_t note, uint8_t velocity);
 
     /** --------------FX conf--------------  */
-    // --- Structure d’un mode résonant ---
-    struct ModeState {
-        float freq;        // fréquence du mode
-        float gain;        // amplitude relative
-        float damping;     // facteur de perte
-        float dispersion;  // pour un effet métallique ou tubulaire
-        float a1, a2;      // coefficients du biquad (pré-calculés)
-        float x1, x2;      // états internes du biquad
-        float y1, y2;      // états internes du biquad
-    };
-    struct ResonatorPreset {
-        float ratios[4];
-        float gains[4];
-        float damping[4];
-        float dispersion[4];
-    };
-
-    const ResonatorPreset cymbalPreset = {
-        {0.50f, 1.40f, 2.80f, 4.90f},
-        {0.20f, 0.65f, 0.85f, 0.30f},
-        {0.01f, 0.02f, 0.03f, 0.05f},
-        {0.35f, 0.45f, 0.65f, 0.75f}
-    };
-    
-    const ResonatorPreset glassPreset = {
-        {1.00f, 3.10f, 6.50f, 10.50f},
-        {1.00f, 0.9f, 0.7f, 0.5f},
-        {0.01f, 0.015f, 0.025f, 0.03f},
-        {0.15f, 0.30f, 0.45f, 0.55f}
-    };
-
-    const ResonatorPreset stringPreset = {
-        {1.00f, 2.01f, 3.02f, 4.03f},
-        {1.00f, 0.85f, 0.60f, 0.40f},
-        {0.05f, 0.07f, 0.09f, 0.12f},
-        {0.00f, 0.02f, 0.03f, 0.04f}
-    };
-
-    const ResonatorPreset woodPreset = {
-        {1.00f, 1.59f, 2.14f, 2.30f},
-        {1.00f, 0.75f, 0.55f, 0.40f},
-        {0.03f, 0.05f, 0.07f, 0.09f},
-        {0.01f, 0.05f, 0.10f, 0.15f}
-    };
-
-    const ResonatorPreset gongPreset = {
-        {1.00f, 2.50f, 4.80f, 7.90f},
-        {0.90f, 0.60f, 0.50f, 0.35f},
-        {0.02f, 0.03f, 0.04f, 0.06f},
-        {0.05f, 0.20f, 0.30f, 0.40f}
-    };
-
-
-    ModeState modes[8];
-
     void fxAfterBlock();
     void initFx();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
     float hermiteInterpolation(float frac, float xm1, float x0, float x1, float x2);
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2);
-    float modalResonator(float in, float b0, float b1, float b2, float a1, float a2, float *s1, float *s2) ;
-    void prepareResonatorModes(float baseFreq, float morph);
 
     int prevFx2Type         = 0;
 
@@ -312,11 +258,11 @@ private:
     int inputWritePos3     = 0;
     int inputWritePos4     = 0;
     int inputWritePos5     = 0;
-    const int inputBufferLen1 = 126;
-    const int inputBufferLen2 = 180;
-    const int inputBufferLen3 = 204;
-    const int inputBufferLen4 = 245;
-    const int inputBufferLen5 = 269;
+    static constexpr int inputBufferLen1 = 126;
+    static constexpr int inputBufferLen2 = 180;
+    static constexpr int inputBufferLen3 = 204;
+    static constexpr int inputBufferLen4 = 245;
+    static constexpr int inputBufferLen5 = 269;
 
     // granulator
     enum GRAIN_PARAMS {
@@ -397,6 +343,10 @@ private:
 
     float arpegiatorStep_;
     NoteStack note_stack_;
+    NoteStack held_note_stack_;
+    ambika::VoiceAllocator voice_allocator_;
+    uint8_t voice_allocator_pool_[MAX_NUMBER_OF_VOICES];
+    uint8_t voice_allocator_lru_[MAX_NUMBER_OF_VOICES];
     EventScheduler event_scheduler_;
 
     uint8_t running_;

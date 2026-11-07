@@ -408,6 +408,7 @@ void Voice::init() {
     this->midiVelocity = 0;
     this->holdedByPedal = false;
     this->newNotePlayed = false;
+    this->noteAlreadyFinished = 0;
     this->nextMainFrequency = 0.0f;
 }
 
@@ -433,17 +434,24 @@ void Voice::noteOnWithoutPop(short newNote, float newNoteFrequency, short veloci
     // Update index : so that few chance to be chosen again during the quick dying
     this->index = index;
     // We can glide in mono and unison
-    if (!this->released &&  currentTimbre->params_.engine1.playMode != PLAY_MODE_POLY && currentTimbre->params_.engine2.glideType != GLIDE_TYPE_OFF) {
+    if (!this->released && !this->newNotePending && currentTimbre->params_.engine1.playMode != PLAY_MODE_POLY && currentTimbre->params_.engine2.glideType != GLIDE_TYPE_OFF) {
         // Keep phase continuity on overlap glide: only pitch glides to the new note.
         glideToNote(newNote, newNoteFrequency);
+        this->note = newNote;
+        this->midiVelocity = velocity;
+        this->noteFrequency = newNoteFrequency;
+        this->nextMainFrequency = newNoteFrequency;
+        this->nextGlidingNote = 0;
         this->holdedByPedal = false;
-        newGlide=false;
+        this->noteAlreadyFinished = 0;
+        newGlide = true;
     } else {
         // update note now so that the noteOff is triggered by the new note
         this->note = newNote;
         this->midiVelocity = velocity;
         this->noteFrequency = newNoteFrequency;
         // Quick dead !
+        bool alreadyPending = this->newNotePending;
         this->newNotePending = true;
         this->pendingNoteVelocity = velocity;
         this->pendingNote = newNote;
@@ -452,13 +460,17 @@ void Voice::noteOnWithoutPop(short newNote, float newNoteFrequency, short veloci
 
         // Not release anymore... not available for new notes...
         this->released = false;
+        this->holdedByPedal = false;
+        this->noteAlreadyFinished = 0;
 
-        this->currentTimbre->env1_.noteOffQuick(&envState1_);
-        this->currentTimbre->env2_.noteOffQuick(&envState2_);
-        this->currentTimbre->env3_.noteOffQuick(&envState3_);
-        this->currentTimbre->env4_.noteOffQuick(&envState4_);
-        this->currentTimbre->env5_.noteOffQuick(&envState5_);
-        this->currentTimbre->env6_.noteOffQuick(&envState6_);
+        if (!alreadyPending) {
+            this->currentTimbre->env1_.noteOffQuick(&envState1_);
+            this->currentTimbre->env2_.noteOffQuick(&envState2_);
+            this->currentTimbre->env3_.noteOffQuick(&envState3_);
+            this->currentTimbre->env4_.noteOffQuick(&envState4_);
+            this->currentTimbre->env5_.noteOffQuick(&envState5_);
+            this->currentTimbre->env6_.noteOffQuick(&envState6_);
+        }
         // We don't want noteOnAfterMatrixCompute to restart the env or => Hanging note !!!
         this->newNotePlayed = false;
     }
@@ -578,6 +590,7 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
     this->pendingNote = 0;
     this->newNotePending = false;
     this->holdedByPedal = false;
+    this->noteAlreadyFinished = 0;
     this->index = index;
     this->fdbLastValue[0] = 0.0f;
     this->fdbLastValue[1] = 0.0f;
@@ -655,7 +668,9 @@ void Voice::noteOff() {
         lfoNoteOff();
     } else {
         // We receive a note off before the note actually started, let's flag it
-        this->pendingNote += 128;
+        if (this->pendingNote <= 127) {
+            this->pendingNote += 128;
+        }
     }
 }
 
@@ -693,6 +708,8 @@ void Voice::killNow() {
     this->nextGlidingNote = 0;
     this->gliding = false;
     this->released = false;
+    this->holdedByPedal = false;
+    this->noteAlreadyFinished = 0;
     this->env1ValueMem = 0;
     this->env2ValueMem = 0;
     this->env3ValueMem = 0;

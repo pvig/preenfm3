@@ -165,6 +165,8 @@ Timbre::Timbre() {
     ignore_note_off_messages_ = 0;
     recording_ = 0;
     note_stack_.Init();
+    held_note_stack_.Init();
+    voice_allocator_.Init(0, false, voice_allocator_pool_, voice_allocator_lru_);
     event_scheduler_.Init();
     // Arpeggiator start
     Start();
@@ -232,6 +234,11 @@ void Timbre::noteOn(char note, char velocity) {
     if (params_.engineArp1.clock) {
         arpeggiatorNoteOn(note, velocity);
     } else {
+        uint8_t midiNote = (uint8_t) note;
+        if (velocity > 0 && midiNote < 128 && numberOfVoices_ > 0
+                && mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[midiNote] != 0.0f) {
+            held_note_stack_.NoteOn(midiNote, (uint8_t) velocity);
+        }
         preenNoteOn(note, velocity);
     }
 }
@@ -240,7 +247,9 @@ void Timbre::noteOff(char note) {
     if (params_.engineArp1.clock) {
         arpeggiatorNoteOff(note);
     } else {
-        preenNoteOff(note);
+        uint8_t previousSize = held_note_stack_.size();
+        held_note_stack_.NoteOff((uint8_t) note);
+        preenNoteOff(note, held_note_stack_.size() != previousSize);
     }
 }
 
@@ -287,6 +296,37 @@ void Timbre::preenNoteOn(char note, char velocity) {
 
     // Frequency depends on the current instrument scale
     float noteFrequency = mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[(int) note];
+
+    if (params_.engine1.playMode == PLAY_MODE_POLY) {
+        uint8_t unavailable[MAX_NUMBER_OF_VOICES];
+        for (int k = 0; k < numberOfVoices_; ++k) {
+            unavailable[k] = voices_[voiceNumber_[k]]->isNewNotePending()
+                    && (voice_allocator_pool_[k] & 0x80);
+        }
+        uint8_t voiceIndex = voice_allocator_.NoteOn((uint8_t) note, unavailable);
+        if (voiceIndex == 0xff) {
+            voiceIndex = voice_allocator_.NoteOn((uint8_t) note);
+            if (voiceIndex == 0xff) {
+                return;
+            }
+        }
+
+        int voiceToUse = voiceNumber_[voiceIndex];
+        preenNoteOnUpdateMatrix(voiceToUse, note, velocity);
+        if (voices_[voiceToUse]->isPlaying()) {
+            voices_[voiceToUse]->noteOnWithoutPop(note, noteFrequency, velocity, voiceIndex_++);
+        } else {
+            voices_[voiceToUse]->noteOn(note, noteFrequency, velocity, voiceIndex_++);
+        }
+
+        lastPlayedNote_ = voiceToUse;
+        if (note <= lowerNote_ || lowerNoteReleased_) {
+            lowerNote_ = note;
+            lowerNoteReleased_ = false;
+            lowerNoteFrequency = voices_[voiceToUse]->getNoteRealFrequencyEstimation(noteFrequency);
+        }
+        return;
+    }
 
     uint32_t indexMin = UINT32_MAX;
     int voiceToUse = -1;
@@ -351,9 +391,19 @@ void Timbre::preenNoteOn(char note, char velocity) {
             }
         }
     }
+    if (voiceToUse == -1) {
+        for (int k = 0; k < iNov; k++) {
+            int n = voiceNumber_[k];
+            unsigned int indexVoice = voices_[n]->getIndex();
+            if (indexVoice < indexMin) {
+                newNoteType = NEW_NOTE_OLD;
+                indexMin = indexVoice;
+                voiceToUse = n;
+            }
+        }
+    }
     // All voices in newnotepending state ?
     if (voiceToUse != -1) {
-
         if (likely(params_.engine1.playMode != PLAY_MODE_UNISON)) {
             preenNoteOnUpdateMatrix(voiceToUse, note, velocity);
 
@@ -388,7 +438,6 @@ void Timbre::preenNoteOn(char note, char velocity) {
                 noteFrequencyUnison += noteFrequencyUnisonInc;
             }
         }
-
         lastPlayedNote_ = voiceToUse;
         if (note <= lowerNote_ || lowerNoteReleased_ || iNov == 1) {
             lowerNote_ = note;
@@ -407,12 +456,35 @@ void Timbre::preenNoteOnUpdateMatrix(int voiceToUse, int note, int velocity) {
     voices_[voiceToUse]->matrix.setSource(MATRIX_SOURCE_RANDOM, noise[voiceToUse]);
 }
 
-void Timbre::preenNoteOff(char note) {
+void Timbre::preenNoteOff(char note, bool restoreNotes) {
     bool isUnison = params_.engine1.playMode == PLAY_MODE_UNISON;
-
 
     if (note == lowerNote_) {
         lowerNoteReleased_ = true;
+    }
+
+    if (params_.engine1.playMode == PLAY_MODE_POLY) {
+        if (unlikely(holdPedal_)) {
+            for (int k = 0; k < numberOfVoices_; k++) {
+                int n = voiceNumber_[k];
+                if (voices_[n]->isPlaying() && !voices_[n]->isReleased() && voices_[n]->getNote() == note) {
+                    voices_[n]->setHoldedByPedal(true);
+                    return;
+                }
+            }
+            return;
+        }
+
+        uint8_t releasedVoice = voice_allocator_.NoteOff((uint8_t) note);
+        if (releasedVoice != 0xff) {
+            int n = voiceNumber_[releasedVoice];
+            bool wasActive = voices_[n]->isPlaying() && !voices_[n]->isReleased();
+            voices_[n]->noteOff();
+            if (restoreNotes && wasActive) {
+                restoreHeldNotes(1);
+            }
+        }
+        return;
     }
 
     // Unison we must check all voices.... (different from noteOn)
@@ -421,43 +493,47 @@ void Timbre::preenNoteOff(char note) {
         // voice number k of timbre
         int n = voiceNumber_[k];
 
-        // Not playing = free CPU
-        if (unlikely(!voices_[n]->isPlaying())) {
+        if (unlikely(!voices_[n]->isPlaying() || voices_[n]->isReleased())) {
             continue;
         }
 
-        if (likely(voices_[n]->getNextGlidingNote() == 0 || voices_[n]->isNewGlide())) {
-            if (voices_[n]->getNote() == note) {
-                if (unlikely(holdPedal_)) {
-                    voices_[n]->setHoldedByPedal(true);
-                    if (likely(!isUnison)) {
-                        return;
-                    }
-                } else {
-                    voices_[n]->noteOff();
-                    if (likely(!isUnison)) {
-                        return;
-                    }
+        if (voices_[n]->getNote() == note) {
+            if (unlikely(holdPedal_)) {
+                voices_[n]->setHoldedByPedal(true);
+                if (likely(!isUnison)) {
+                    return;
                 }
-            }
-        } else {
-            // if gliding and releasing first note
-            if (voices_[n]->getNote() == note) {
-                voices_[n]->glideFirstNoteOff();
+            } else {
+                if (restoreNotes && held_note_stack_.size() > 0) {
+                    const NoteEntry& previousNote = held_note_stack_.most_recent_note();
+                    preenNoteOn(previousNote.note, previousNote.velocity);
+                    return;
+                }
+                voices_[n]->noteOff();
                 if (likely(!isUnison)) {
                     return;
                 }
             }
-            // if gliding and releasing next note
-            if (voices_[n]->getNextGlidingNote() == note) {
-                voices_[n]->glideToNote(voices_[n]->getNote(), voices_[n]->getNoteFrequency());
-                voices_[n]->glideFirstNoteOff();
-                // Sync Osccilo
-                lowerNoteFrequency = voices_[n]->getNoteRealFrequencyEstimation(voices_[n]->getNoteFrequency());
-                if (likely(!isUnison)) {
-                    return;
+        }
+    }
+}
+
+void Timbre::restoreHeldNotes(uint8_t numberOfVoices) {
+    while (numberOfVoices > 0) {
+        bool restored = false;
+        for (uint8_t k = 0; k < held_note_stack_.size(); k++) {
+            const NoteEntry& candidate = held_note_stack_.played_note(held_note_stack_.size() - k - 1);
+            if (voice_allocator_.FindActive(candidate.note) == 0xff) {
+                preenNoteOn(candidate.note, candidate.velocity);
+                if (voice_allocator_.FindActive(candidate.note) != 0xff) {
+                    --numberOfVoices;
+                    restored = true;
+                    break;
                 }
             }
+        }
+        if (!restored) {
+            return;
         }
     }
 }
@@ -477,12 +553,25 @@ void Timbre::setHoldPedal(int value) {
     if (value < 64) {
         holdPedal_ = false;
         int nVoices = numberOfVoices_;
+        int releasedVoices = 0;
         for (int k = 0; k < nVoices; k++) {
             // voice number k of timbre
             int n = voiceNumber_[k];
             if (voices_[n]->isHoldedByPedal()) {
+                if (params_.engine1.playMode == PLAY_MODE_POLY) {
+                    voice_allocator_.NoteOff((uint8_t) voices_[n]->getNote());
+                }
                 voices_[n]->noteOff();
+                if (voices_[n]->isReleased()) {
+                    releasedVoices++;
+                }
             }
+        }
+        if (params_.engine1.playMode == PLAY_MODE_POLY) {
+            restoreHeldNotes((uint8_t) releasedVoices);
+        } else if (releasedVoices > 0 && held_note_stack_.size() > 0) {
+            const NoteEntry& previousNote = held_note_stack_.most_recent_note();
+            preenNoteOn(previousNote.note, previousNote.velocity);
         }
         arpeggiatorSetHoldPedal(0);
     } else {

@@ -162,6 +162,8 @@ void Synth::setHoldPedal(int timbre, int value) {
 }
 
 void Synth::allNoteOffQuick(int timbre) {
+    timbres_[timbre].held_note_stack_.Clear();
+    timbres_[timbre].voice_allocator_.Clear();
     int numberOfVoices = this->synthState_->mixerState.instrumentState_[timbre].numberOfVoices;
     for (int k = 0; k < numberOfVoices; k++) {
         // voice number k of timbre
@@ -178,6 +180,8 @@ void Synth::stopArpegiator(int timbre) {
 
 
 void Synth::allNoteOff(int timbre) {
+    timbres_[timbre].held_note_stack_.Clear();
+    timbres_[timbre].voice_allocator_.ClearNotes();
     int numberOfVoices = this->synthState_->mixerState.instrumentState_[timbre].numberOfVoices;
     for (int k = 0; k < numberOfVoices; k++) {
         // voice number k of timbre
@@ -189,6 +193,8 @@ void Synth::allNoteOff(int timbre) {
 }
 
 void Synth::allSoundOff(int timbre) {
+    timbres_[timbre].held_note_stack_.Clear();
+    timbres_[timbre].voice_allocator_.Clear();
     int numberOfVoices = this->synthState_->mixerState.instrumentState_[timbre].numberOfVoices;
     for (int k = 0; k < numberOfVoices; k++) {
         // voice number k of timbre
@@ -198,6 +204,10 @@ void Synth::allSoundOff(int timbre) {
 }
 
 void Synth::allSoundOff() {
+    for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
+        timbres_[t].held_note_stack_.Clear();
+        timbres_[t].voice_allocator_.Clear();
+    }
     for (int k = 0; k < MAX_NUMBER_OF_VOICES; k++) {
         voices_[k].killNow();
     }

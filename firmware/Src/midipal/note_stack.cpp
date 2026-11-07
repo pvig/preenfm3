@@ -99,16 +99,15 @@ void NoteStack::NoteOff(uint8_t note) {
 
 void NoteStack::Clear() {
     size_ = 0;
-    //  memset(pool_ + 1, 0, sizeof(NoteEntry) * kNoteStackSize);
-    //  memset(sorted_ptr_ + 1, 0, kNoteStackSize);
-    for (int k = 1; k < kNoteStackSize; k++) {
+    for (int k = 1; k <= kNoteStackSize; k++) {
         pool_[k].note = 0;
         pool_[k].velocity = 0;
         pool_[k].next_ptr = 0;
         sorted_ptr_[k] = 0;
     }
     root_ptr_ = 0;
-    for (uint8_t i = 0; i <= kNoteStackSize; ++i) {
+    for (uint8_t i = 1; i <= kNoteStackSize; ++i) {
         pool_[i].note = kFreeSlot;
     }
+    pool_[0].note = kFreeSlot;
 }
