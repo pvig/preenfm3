@@ -388,7 +388,6 @@ Voice::Voice(void) {
     freqBi = freqBo = 0.0f;
     freqHarm = 1.0f;
     targetFreqHarm = 0.0f;
-    index = 0;
 
     // Init FX variables
     v0L = v1L = v2L = v3L = v4L = v5L = v6L = v7L = v8L = v0R = v1R = v2R = v3R = v4R = v5R = v6R = v7R = v8R = v8R = 0.0f;
@@ -412,15 +411,10 @@ void Voice::init() {
     this->nextMainFrequency = 0.0f;
 }
 
-void Voice::glideToNote(short newNote, float newNoteFrequency) {
+void Voice::glideToNote(float newNoteFrequency) {
     // Must glide...
     this->gliding = true;
     this->glidePhase = 0.0f;
-    this->nextGlidingNote = newNote;
-    this->nextGlidingNoteFrequency = newNoteFrequency;
-    if (this->holdedByPedal) {
-        glideFirstNoteOff();
-    }
 
     currentTimbre->osc1_.glideToNote(&oscState1_, newNoteFrequency);
     currentTimbre->osc2_.glideToNote(&oscState2_, newNoteFrequency);
@@ -430,21 +424,17 @@ void Voice::glideToNote(short newNote, float newNoteFrequency) {
     currentTimbre->osc6_.glideToNote(&oscState6_, newNoteFrequency);
 }
 
-void Voice::noteOnWithoutPop(short newNote, float newNoteFrequency, short velocity, uint32_t index, float phase) {
-    // Update index : so that few chance to be chosen again during the quick dying
-    this->index = index;
+void Voice::noteOnWithoutPop(short newNote, float newNoteFrequency, short velocity, float phase) {
     // We can glide in mono and unison
     if (!this->released && !this->newNotePending && currentTimbre->params_.engine1.playMode != PLAY_MODE_POLY && currentTimbre->params_.engine2.glideType != GLIDE_TYPE_OFF) {
         // Keep phase continuity on overlap glide: only pitch glides to the new note.
-        glideToNote(newNote, newNoteFrequency);
+        glideToNote(newNoteFrequency);
         this->note = newNote;
         this->midiVelocity = velocity;
         this->noteFrequency = newNoteFrequency;
         this->nextMainFrequency = newNoteFrequency;
-        this->nextGlidingNote = 0;
         this->holdedByPedal = false;
         this->noteAlreadyFinished = 0;
-        newGlide = true;
     } else {
         // update note now so that the noteOff is triggered by the new note
         this->note = newNote;
@@ -552,7 +542,7 @@ void Voice::applyOperatorStartPhases(float mainFrequency) {
     currentTimbre->osc6_.newNote(&oscState6_, mainFrequency, oscPhase6);
 }
 
-void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32_t index, float phase) {
+void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, float phase) {
 
     (void)phase;
 
@@ -569,8 +559,7 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
             this->noteFrequency = newNoteFrequency;
         }
         // Keep phase continuity in glide-always mode: glide changes pitch only.
-        glideToNote(newNote, newNoteFrequency);
-        newGlide=true;
+        glideToNote(newNoteFrequency);
         this->note = newNote;
         this->nextMainFrequency = newNoteFrequency;
         // In glide mode, overlapping notes are slides and should not retrigger one-shot LFO.
@@ -591,7 +580,6 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, uint32
     this->newNotePending = false;
     this->holdedByPedal = false;
     this->noteAlreadyFinished = 0;
-    this->index = index;
     this->fdbLastValue[0] = 0.0f;
     this->fdbLastValue[1] = 0.0f;
     this->fdbLastValue[2] = 0.0f;
@@ -620,9 +608,9 @@ void Voice::endNoteOrBeginNextOne() {
     if (this->newNotePending) {
         // pendingNote can be 255 : see Voice:noteOff
         if (pendingNote <= 127) {
-            noteOn(pendingNote, pendingNoteFrequency, pendingNoteVelocity, index, phase_);
+            noteOn(pendingNote, pendingNoteFrequency, pendingNoteVelocity, phase_);
         } else {
-            noteOn(pendingNote - 128, pendingNoteFrequency, pendingNoteVelocity, index, phase_);
+            noteOn(pendingNote - 128, pendingNoteFrequency, pendingNoteVelocity, phase_);
             this->noteAlreadyFinished = 1;
         }
     } else {
@@ -633,13 +621,6 @@ void Voice::endNoteOrBeginNextOne() {
     this->freqAo = 0.0f;
     this->freqBi = 0.0f;
     this->freqBo = 0.0f;
-}
-
-void Voice::glideFirstNoteOff() {
-    // while gliding the first note was released
-    this->note = this->nextGlidingNote;
-    this->noteFrequency = this->nextGlidingNoteFrequency;
-    this->nextGlidingNote = 0;
 }
 
 void Voice::noteOff() {
@@ -705,7 +686,6 @@ void Voice::killNow() {
     this->playing = false;
     this->newNotePending = false;
     this->pendingNote = 0;
-    this->nextGlidingNote = 0;
     this->gliding = false;
     this->released = false;
     this->holdedByPedal = false;

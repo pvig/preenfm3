@@ -53,13 +53,12 @@ public:
     void endNoteOrBeginNextOne();
     void setNewEffectParam(int encoder);
 
-    void noteOnWithoutPop(short note, float newNoteFrequency, short velocity, uint32_t index, float phase = 0.25f);
-    void noteOn(short note, float newNoteFrequency, short velocity, uint32_t index, float phase = 0.25f);
-    void glideToNote(short newNote, float newNoteFrequency);
+    void noteOnWithoutPop(short note, float newNoteFrequency, short velocity, float phase = 0.25f);
+    void noteOn(short note, float newNoteFrequency, short velocity, float phase = 0.25f);
+    void glideToNote(float newNoteFrequency);
     void killNow();
     void noteOff();
     void noteOffQuick();
-    void glideFirstNoteOff();
     void glide();
 
     bool isReleased() {
@@ -71,9 +70,6 @@ public:
     bool isNewNotePending() {
         return this->newNotePending;
     }
-    uint32_t getIndex() {
-        return this->index;
-    }
     char getNote() {
         return this->note;
     }
@@ -84,12 +80,6 @@ public:
         return this->noteFrequency;
     }
     float getNoteRealFrequencyEstimation(float newNoteFrequency);
-    char getNextPendingNote() {
-        return this->pendingNote;
-    }
-    char getNextGlidingNote() {
-        return this->nextGlidingNote;
-    }
     bool isHoldedByPedal() {
         return this->holdedByPedal;
     }
@@ -443,10 +433,6 @@ public:
         return sampleBlock;
     }
 
-    bool isNewGlide() {
-        return newGlide;
-    }
-
 private:
     // private function for BP filter
     void recomputeBPValues(float q, float fSquare);
@@ -457,7 +443,6 @@ private:
     bool released;
     bool playing;
     bool isFullOfZero;
-    uint32_t index;
     char note;
     char midiVelocity;
     float noteFrequency;
@@ -490,7 +475,6 @@ private:
     char pendingNote;
     char pendingNoteVelocity;
     float pendingNoteFrequency;
-    unsigned int nextIndex;
     float phase_;
     
     float prevPhase;
@@ -498,9 +482,6 @@ private:
     // Gliding ?
     bool gliding;
     float glidePhase;
-    char nextGlidingNote;
-    float nextGlidingNoteFrequency;
-    bool newGlide; // Firs gliding note in "Always" mode
     // Used by 'glide always'
     float nextMainFrequency;
     // Used when note Off is received during Quick Release

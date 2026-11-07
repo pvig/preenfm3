@@ -366,8 +366,6 @@ private:
     uint8_t lowerNote_;
     float lowerNoteFrequency;
     bool lowerNoteReleased_;
-    // static
-    static uint32_t voiceIndex_;
 
     // Unison phase
     static float unisonPhase[14];

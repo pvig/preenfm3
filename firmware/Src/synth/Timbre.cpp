@@ -30,9 +30,6 @@ float Timbre::delayBuffer[NUMBER_OF_TIMBRES][delayBufferSize] __attribute__ ((se
 
 #define CALLED_PER_SECOND (PREENFM_FREQUENCY / 32.0f)
 
-// Static to all 6 instrument
-uint32_t Timbre::voiceIndex_;
-
 enum ArpeggiatorDirection {
     ARPEGGIO_DIRECTION_UP = 0,
     ARPEGGIO_DIRECTION_DOWN,
@@ -86,14 +83,6 @@ inline static int __canTranspose( int _direction ) {
         return 0;
     }
 }
-
-enum NewNoteType {
-    NEW_NOTE_FREE = 0,
-    NEW_NOTE_RELEASE,
-    NEW_NOTE_OLD,
-    NEW_NOTE_NONE
-};
-
 
 arp_pattern_t lut_res_arpeggiator_patterns[ ARPEGGIATOR_PRESET_PATTERN_COUNT ]  = {
   ARP_PATTERN(21845), ARP_PATTERN(62965), ARP_PATTERN(46517), ARP_PATTERN(54741),
@@ -263,11 +252,11 @@ void Timbre::noteOnMPE(uint8_t channel, uint8_t note, uint8_t velocity)  {
     preenNoteOnUpdateMatrix(voiceToUse, note, velocity);
     float noteFrequency = mixerState_->instrumentState_[0].scaleFrequencies[(int) note];
 
-	if (voices_[voiceToUse]->isPlaying()) {
-        voices_[voiceToUse]->noteOnWithoutPop(note, noteFrequency, velocity, voiceIndex_++);
-	} else {
-        voices_[voiceToUse]->noteOn(note, noteFrequency, velocity, voiceIndex_++);
-	}
+    if (voices_[voiceToUse]->isPlaying()) {
+        voices_[voiceToUse]->noteOnWithoutPop(note, noteFrequency, velocity);
+    } else {
+        voices_[voiceToUse]->noteOn(note, noteFrequency, velocity);
+    }
 }
 
 
@@ -292,8 +281,6 @@ void Timbre::preenNoteOn(char note, char velocity) {
 
     note &= 0x7f;
 
-    int iNov = params_.engine1.playMode == PLAY_MODE_POLY ? (int) numberOfVoices_ : 1;
-
     // Frequency depends on the current instrument scale
     float noteFrequency = mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[(int) note];
 
@@ -314,9 +301,9 @@ void Timbre::preenNoteOn(char note, char velocity) {
         int voiceToUse = voiceNumber_[voiceIndex];
         preenNoteOnUpdateMatrix(voiceToUse, note, velocity);
         if (voices_[voiceToUse]->isPlaying()) {
-            voices_[voiceToUse]->noteOnWithoutPop(note, noteFrequency, velocity, voiceIndex_++);
+            voices_[voiceToUse]->noteOnWithoutPop(note, noteFrequency, velocity);
         } else {
-            voices_[voiceToUse]->noteOn(note, noteFrequency, velocity, voiceIndex_++);
+            voices_[voiceToUse]->noteOn(note, noteFrequency, velocity);
         }
 
         lastPlayedNote_ = voiceToUse;
@@ -328,124 +315,38 @@ void Timbre::preenNoteOn(char note, char velocity) {
         return;
     }
 
-    uint32_t indexMin = UINT32_MAX;
-    int voiceToUse = -1;
-
-    int newNoteType = NEW_NOTE_NONE;
-
-    for (int k = 0; k < iNov; k++) {
-        // voice number k of timbre
-        int n = voiceNumber_[k];
-
-        if (unlikely(voices_[n]->isNewNotePending())) {
-            continue;
-        }
-
-        // same note = priority 1 : take the voice immediatly
-        if (unlikely(voices_[n]->isPlaying() && voices_[n]->getNote() == note)) {
-            if (likely(params_.engine1.playMode != PLAY_MODE_UNISON)) {
-                preenNoteOnUpdateMatrix(n, note, velocity);
-                voices_[n]->noteOnWithoutPop(note, noteFrequency, velocity, voiceIndex_++);
-            } else {
-                // Unison !!
-                float noteFrequencyUnison = noteFrequency  + noteFrequency * params_.engine2.unisonDetune * .05f;
-                float noteFrequencyUnisonInc = noteFrequency * params_.engine2.unisonDetune * numberOfVoiceInverse_ * .1f;
-                for (int k = 0; k < numberOfVoices_; k++) {
-                    int n = voiceNumber_[k];
-                    preenNoteOnUpdateMatrix(n, note, velocity);
-                    voices_[n]->noteOnWithoutPop(note, noteFrequencyUnison, velocity, voiceIndex_++, unisonPhase[k]);
-                    noteFrequencyUnison += noteFrequencyUnisonInc;
-                }
-            }
-            lastPlayedNote_ = n;
-            // Just in case we tune Osc Freq/Ftune while playing the same note
-            lowerNoteFrequency = voices_[n]->getNoteRealFrequencyEstimation(noteFrequency);
-            return;
-        }
-
-        // unlikely because if it true, CPU is not full
-        if (unlikely(newNoteType > NEW_NOTE_FREE)) {
-            if (!voices_[n]->isPlaying()) {
-                voiceToUse = n;
-                newNoteType = NEW_NOTE_FREE;
-            } else if (voices_[n]->isReleased()) {
-                uint32_t indexVoice = voices_[n]->getIndex();
-                if (indexVoice < indexMin) {
-                    indexMin = indexVoice;
-                    voiceToUse = n;
-                    newNoteType = NEW_NOTE_RELEASE;
-                }
-            }
-        }
+    int voiceToUse = voiceNumber_[0];
+    if (unlikely(voiceToUse == -1)) {
+        return;
     }
 
-    if (voiceToUse == -1) {
-        for (int k = 0; k < iNov; k++) {
-            // voice number k of timbre
-            int n = voiceNumber_[k];
-            unsigned int indexVoice = voices_[n]->getIndex();
-            if (indexVoice < indexMin && !voices_[n]->isNewNotePending()) {
-                newNoteType = NEW_NOTE_OLD;
-                indexMin = indexVoice;
-                voiceToUse = n;
-            }
-        }
-    }
-    if (voiceToUse == -1) {
-        for (int k = 0; k < iNov; k++) {
-            int n = voiceNumber_[k];
-            unsigned int indexVoice = voices_[n]->getIndex();
-            if (indexVoice < indexMin) {
-                newNoteType = NEW_NOTE_OLD;
-                indexMin = indexVoice;
-                voiceToUse = n;
-            }
-        }
-    }
-    // All voices in newnotepending state ?
-    if (voiceToUse != -1) {
-        if (likely(params_.engine1.playMode != PLAY_MODE_UNISON)) {
-            preenNoteOnUpdateMatrix(voiceToUse, note, velocity);
-
-            switch (newNoteType) {
-                case NEW_NOTE_FREE:
-                    voices_[voiceToUse]->noteOn(note, noteFrequency, velocity, voiceIndex_++);
-                    break;
-                case NEW_NOTE_OLD:
-                case NEW_NOTE_RELEASE:
-                    voices_[voiceToUse]->noteOnWithoutPop(note, noteFrequency, velocity, voiceIndex_++);
-                    break;
-            }
+    bool isPlaying = voices_[voiceToUse]->isPlaying();
+    if (likely(params_.engine1.playMode != PLAY_MODE_UNISON)) {
+        preenNoteOnUpdateMatrix(voiceToUse, note, velocity);
+        if (isPlaying) {
+            voices_[voiceToUse]->noteOnWithoutPop(note, noteFrequency, velocity);
         } else {
-            // Unisons : we start all voices with different frequency
-            float noteFrequencyUnison = noteFrequency  + noteFrequency * params_.engine2.unisonDetune * .05f;
-            float noteFrequencyUnisonInc = noteFrequency * params_.engine2.unisonDetune * numberOfVoiceInverse_ * .1f;
-
-            for (int k = 0; k < numberOfVoices_; k++) {
-                int n = voiceNumber_[k];
-
-                preenNoteOnUpdateMatrix(n, note, velocity);
-
-                switch (newNoteType) {
-                    case NEW_NOTE_FREE:
-                        voices_[n]->noteOn(note, noteFrequencyUnison, velocity, voiceIndex_++, unisonPhase[k]);
-                        break;
-                    case NEW_NOTE_OLD:
-                    case NEW_NOTE_RELEASE:
-                        voices_[n]->noteOnWithoutPop(note, noteFrequencyUnison, velocity, voiceIndex_++, unisonPhase[k]);
-                        break;
-                }
-                noteFrequencyUnison += noteFrequencyUnisonInc;
+            voices_[voiceToUse]->noteOn(note, noteFrequency, velocity);
+        }
+    } else {
+        float noteFrequencyUnison = noteFrequency + noteFrequency * params_.engine2.unisonDetune * .05f;
+        float noteFrequencyUnisonInc = noteFrequency * params_.engine2.unisonDetune * numberOfVoiceInverse_ * .1f;
+        for (int k = 0; k < numberOfVoices_; k++) {
+            int n = voiceNumber_[k];
+            preenNoteOnUpdateMatrix(n, note, velocity);
+            if (isPlaying) {
+                voices_[n]->noteOnWithoutPop(note, noteFrequencyUnison, velocity, unisonPhase[k]);
+            } else {
+                voices_[n]->noteOn(note, noteFrequencyUnison, velocity, unisonPhase[k]);
             }
+            noteFrequencyUnison += noteFrequencyUnisonInc;
         }
-        lastPlayedNote_ = voiceToUse;
-        if (note <= lowerNote_ || lowerNoteReleased_ || iNov == 1) {
-            lowerNote_ = note;
-            lowerNoteReleased_ = false;
-            lowerNoteFrequency = voices_[voiceToUse]->getNoteRealFrequencyEstimation(noteFrequency);
-        }
-
     }
+
+    lastPlayedNote_ = voiceToUse;
+    lowerNote_ = note;
+    lowerNoteReleased_ = false;
+    lowerNoteFrequency = voices_[voiceToUse]->getNoteRealFrequencyEstimation(noteFrequency);
 }
 
 void Timbre::preenNoteOnUpdateMatrix(int voiceToUse, int note, int velocity) {
