@@ -96,6 +96,11 @@ public:
     }
 
     inline void updateWaveDecimationMode(int mode) {
+        if (likely(mode == lastDecimationMode_)) {
+            return;
+        }
+        lastDecimationMode_ = (int8_t)mode;
+
         bool enabled = true;
         bool hqInterpolation = false;
         uint8_t bits = 1;
@@ -200,7 +205,7 @@ public:
     }
 
     void updateAllMixOscsAndPans() {
-        float inv65535 = .0000152587890625; // 1/ 65535
+        float inv65535 = .0000152587890625f; // 1/ 65535
         int pan;
         int numberOfMix = algoInformation[(int) (currentTimbre->getParamRaw()->engine1.algo)].mix;
         // add a LP on mix when MPE to mitigate noise dur to midi CC being [0-127]
@@ -212,7 +217,7 @@ public:
         if (likely(notMPE)) {
             mix1 = __USAT((int)(mix1 * 65536) , 16) * inv65535;
         } else {
-            mix1 = __USAT((int)((mix1 * .05 + mix1Previous * .95) * 65536) , 16) * inv65535;
+            mix1 = __USAT((int)((mix1 * .05f + mix1Previous * .95f) * 65536) , 16) * inv65535;
             mix1Previous = mix1;
         }
         float pan1 = currentTimbre->getParamRaw()->engineMix1.panOsc1 + matrix.getDestination(PAN_OSC1) + matrix.getDestination(ALL_PAN) + 1.0f;
@@ -229,7 +234,7 @@ public:
         if (likely(notMPE)) {
             mix2 = __USAT((int)(mix2 * 65535) , 16) * inv65535;
         } else {
-            mix2 = __USAT((int)((mix2 * .05 + mix2Previous * .95) * 65535) , 16) * inv65535;
+            mix2 = __USAT((int)((mix2 * .05f + mix2Previous * .95f) * 65535) , 16) * inv65535;
             mix2Previous = mix2;
         }
         float pan2 = currentTimbre->getParamRaw()->engineMix1.panOsc2 + matrix.getDestination(PAN_OSC2) + matrix.getDestination(ALL_PAN) + 1.0f;
@@ -245,7 +250,7 @@ public:
         if (likely(notMPE)) {
             mix3 = __USAT((int)(mix3 * 65535) , 16) * inv65535;
         } else {
-            mix3 = __USAT((int)((mix3 * .05 + mix3Previous * .95) * 65535) , 16) * inv65535;
+            mix3 = __USAT((int)((mix3 * .05f + mix3Previous * .95f) * 65535) , 16) * inv65535;
             mix3Previous = mix3;
         }
         float pan3 = currentTimbre->getParamRaw()->engineMix2.panOsc3 + matrix.getDestination(PAN_OSC3) + matrix.getDestination(ALL_PAN) + 1.0f;
@@ -262,7 +267,7 @@ public:
         if (likely(notMPE)) {
             mix4 = __USAT((int)(mix4 * 65535) , 16) * inv65535;
         } else {
-            mix4 = __USAT((int)((mix4 * .05 + mix4Previous * .95) * 65535) , 16) * inv65535;
+            mix4 = __USAT((int)((mix4 * .05f + mix4Previous * .95f) * 65535) , 16) * inv65535;
             mix4Previous = mix4;
         }
         float pan4 = currentTimbre->getParamRaw()->engineMix2.panOsc4 + matrix.getDestination(PAN_OSC4) + matrix.getDestination(ALL_PAN) + 1.0f;
@@ -278,7 +283,7 @@ public:
         if (likely(notMPE)) {
             mix5 = __USAT((int)(mix5 * 65535) , 16) * inv65535;
         } else {
-            mix5 = __USAT((int)((mix5 * .05 + mix5Previous * .95) * 65535) , 16) * inv65535;
+            mix5 = __USAT((int)((mix5 * .05f + mix5Previous * .95f) * 65535) , 16) * inv65535;
             mix5Previous = mix5;
         }
 
@@ -291,7 +296,7 @@ public:
         if (likely(notMPE)) {
             mix6 = __USAT((int)(mix6 * 65535) , 16) * inv65535;
         } else {
-            mix6 = __USAT((int)((mix6 * .05 + mix6Previous * .95) * 65535) , 16) * inv65535;
+            mix6 = __USAT((int)((mix6 * .05f + mix6Previous * .95f) * 65535) , 16) * inv65535;
             mix6Previous = mix6;
         }
 
@@ -382,12 +387,17 @@ public:
             }
 
             this->matrix.computeAllDestinations();
+            int numberOfOscs = algoInformation[(int)(currentTimbre->getParamRaw()->engine1.algo)].osc;
             currentTimbre->osc1_.updateWarpWithMatrix(&oscState1_, &matrix);
             currentTimbre->osc2_.updateWarpWithMatrix(&oscState2_, &matrix);
             currentTimbre->osc3_.updateWarpWithMatrix(&oscState3_, &matrix);
-            currentTimbre->osc4_.updateWarpWithMatrix(&oscState4_, &matrix);
-            currentTimbre->osc5_.updateWarpWithMatrix(&oscState5_, &matrix);
-            currentTimbre->osc6_.updateWarpWithMatrix(&oscState6_, &matrix);
+            if (numberOfOscs > 3) {
+                currentTimbre->osc4_.updateWarpWithMatrix(&oscState4_, &matrix);
+                if (numberOfOscs > 4) {
+                    currentTimbre->osc5_.updateWarpWithMatrix(&oscState5_, &matrix);
+                    currentTimbre->osc6_.updateWarpWithMatrix(&oscState6_, &matrix);
+                }
+            }
             updateAllModulationIndexes();
         }
     }
@@ -486,6 +496,7 @@ private:
     float nextMainFrequency;
     // Used when note Off is received during Quick Release
     uint8_t noteAlreadyFinished;
+    int8_t lastDecimationMode_;
 
 
     // env Value

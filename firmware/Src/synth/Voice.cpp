@@ -37,10 +37,10 @@ float Voice::glidePhaseInc[13];
 float Voice::mpeBitchBend[6];
 
 //for bitwise manipulations
-#define FLOAT2SHORT 32768.f
-#define SHORT2FLOAT 1./32768.f
+#define FLOAT2SHORT 32768.0f
+#define SHORT2FLOAT (1.0f / 32768.0f)
 
-#define RATIOINV 1./131072.f
+#define RATIOINV (1.0f / 131072.0f)
 
 #define SVFRANGE 1.23f
 #define SVFOFFSET 0.151f
@@ -126,6 +126,7 @@ float sigmoidPos(float x)
     //x : 0 -> 1
     return (sigmoid((x * 2) - 1) + 1) * 0.5f;
 }
+inline
 float fold(float x4) {
     // https://www.desmos.com/calculator/ge2wvg2wgj
     // x4 = x / 4
@@ -388,6 +389,7 @@ Voice::Voice(void) {
     freqBi = freqBo = 0.0f;
     freqHarm = 1.0f;
     targetFreqHarm = 0.0f;
+    lastDecimationMode_ = -1;
 
     // Init FX variables
     v0L = v1L = v2L = v3L = v4L = v5L = v6L = v7L = v8L = v0R = v1R = v2R = v3R = v4R = v5R = v6R = v7R = v8R = v8R = 0.0f;
@@ -408,6 +410,7 @@ void Voice::init() {
     this->holdedByPedal = false;
     this->newNotePlayed = false;
     this->noteAlreadyFinished = 0;
+    this->lastDecimationMode_ = -1;
     this->nextMainFrequency = 0.0f;
 }
 
@@ -540,6 +543,7 @@ void Voice::applyOperatorStartPhases(float mainFrequency) {
     currentTimbre->osc4_.newNote(&oscState4_, mainFrequency, oscPhase4);
     currentTimbre->osc5_.newNote(&oscState5_, mainFrequency, oscPhase5);
     currentTimbre->osc6_.newNote(&oscState6_, mainFrequency, oscPhase6);
+    this->lastDecimationMode_ = -1;
 }
 
 void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, float phase) {
@@ -743,12 +747,15 @@ void Voice::nextBlock() {
     float inv32 = .03125f;
 
 
-    if (unlikely( matrix.getDestination(ALL_OSC_FREQ_HARM) != targetFreqHarm) || currentTimbre->getMPESetting() > 0) {
-        // * 20 so that we have a full tone for full pitchbend
-        targetFreqHarm = matrix.getDestination(ALL_OSC_FREQ_HARM) * 20;
-        targetFreqHarm += (matrix.getSource(MATRIX_SOURCE_PITCHBEND_MPE) * mpeBitchBend[currentTimbre->getMPESetting()]);
+    // * 20 so that we have a full tone for full pitchbend
+    float newTargetFreqHarm = matrix.getDestination(ALL_OSC_FREQ_HARM) * 20.0f;
+    if (unlikely(currentTimbre->getMPESetting() > 0)) {
+        newTargetFreqHarm += (matrix.getSource(MATRIX_SOURCE_PITCHBEND_MPE) * mpeBitchBend[currentTimbre->getMPESetting()]);
+    }
+    if (unlikely(newTargetFreqHarm != targetFreqHarm)) {
+        targetFreqHarm = newTargetFreqHarm;
 
-        float findex = 512 + targetFreqHarm;
+        float findex = 512.0f + targetFreqHarm;
         int index = findex;
         // Max = 1024
         index &= 0x3ff;
@@ -4213,31 +4220,13 @@ void Voice::fxAfterBlock() {
                 localv0L = pattern * localv0L - (fxParam1) * localv1L + (fxParam1) * (*sp);
                 localv1L = pattern * localv1L + (fxParam1) * localv0L;
 
-                *sp = localv1L * mixerGain;
-
-                if (unlikely(*sp > ratioTimbres)) {
-                    *sp = ratioTimbres;
-                }
-                if (unlikely(*sp < -ratioTimbres)) {
-                    *sp = -ratioTimbres;
-                }
-
-                sp++;
+                *sp++ = clamp(localv1L * mixerGain, -ratioTimbres, ratioTimbres);
 
                 // Right voice
                 localv0R = pattern * localv0R - (fxParam1) * localv1R + (fxParam1) * (*sp);
                 localv1R = pattern * localv1R + (fxParam1) * localv0R;
 
-                *sp = localv1R * mixerGain;
-
-                if (unlikely(*sp > ratioTimbres)) {
-                    *sp = ratioTimbres;
-                }
-                if (unlikely(*sp < -ratioTimbres)) {
-                    *sp = -ratioTimbres;
-                }
-
-                sp++;
+                *sp++ = clamp(localv1R * mixerGain, -ratioTimbres, ratioTimbres);
             }
             v0L = localv0L;
             v1L = localv1L;
@@ -4253,8 +4242,8 @@ void Voice::fxAfterBlock() {
 
             // Low pass... on the Frequency
             fxParam1 = (fxParamTmp + 9.0f * fxParam1) * .1f;
-            if (unlikely(fxParam1 > 1.0)) {
-                fxParam1 = 1.0;
+            if (unlikely(fxParam1 > 1.0f)) {
+                fxParam1 = 1.0f;
             }
             if (unlikely(fxParam1 < 0.0f)) {
                 fxParam1 = 0.0f;
@@ -4273,31 +4262,13 @@ void Voice::fxAfterBlock() {
                 localv0L = pattern * localv0L - (fxParam1) * localv1L + (fxParam1) * (*sp);
                 localv1L = pattern * localv1L + (fxParam1) * localv0L;
 
-                *sp = (*sp - localv1L) * mixerGain;
-
-                if (unlikely(*sp > ratioTimbres)) {
-                    *sp = ratioTimbres;
-                }
-                if (unlikely(*sp < -ratioTimbres)) {
-                    *sp = -ratioTimbres;
-                }
-
-                sp++;
+                *sp++ = clamp((*sp - localv1L) * mixerGain, -ratioTimbres, ratioTimbres);
 
                 // Right voice
                 localv0R = pattern * localv0R - (fxParam1) * localv1R + (fxParam1) * (*sp);
                 localv1R = pattern * localv1R + (fxParam1) * localv0R;
 
-                *sp = (*sp - localv1R) * mixerGain;
-
-                if (unlikely(*sp > ratioTimbres)) {
-                    *sp = ratioTimbres;
-                }
-                if (unlikely(*sp < -ratioTimbres)) {
-                    *sp = -ratioTimbres;
-                }
-
-                sp++;
+                *sp++ = clamp((*sp - localv1R) * mixerGain, -ratioTimbres, ratioTimbres);
             }
             v0L = localv0L;
             v1L = localv1L;
@@ -4335,28 +4306,10 @@ void Voice::fxAfterBlock() {
             for (int k = 0; k < BLOCK_SIZE; k++) {
 
                 localv0L = ((*sp) + localv0L * fxParam1) * fxParam3;
-                (*sp) = ((*sp) + localv0L * fxParam2) * mixerGain;
-
-                if (unlikely(*sp > ratioTimbres)) {
-                    *sp = ratioTimbres;
-                }
-                if (unlikely(*sp < -ratioTimbres)) {
-                    *sp = -ratioTimbres;
-                }
-
-                sp++;
+                *sp++ = clamp(((*sp) + localv0L * fxParam2) * mixerGain, -ratioTimbres, ratioTimbres);
 
                 localv0R = ((*sp) + localv0R * fxParam1) * fxParam3;
-                (*sp) = ((*sp) + localv0R * fxParam2) * mixerGain;
-
-                if (unlikely(*sp > ratioTimbres)) {
-                    *sp = ratioTimbres;
-                }
-                if (unlikely(*sp < -ratioTimbres)) {
-                    *sp = -ratioTimbres;
-                }
-
-                sp++;
+                *sp++ = clamp(((*sp) + localv0R * fxParam2) * mixerGain, -ratioTimbres, ratioTimbres);
             }
             v0L = localv0L;
             v0R = localv0R;
@@ -4520,24 +4473,12 @@ void Voice::fxAfterBlock() {
 
             for (int k = 0; k < BLOCK_SIZE; k++) {
                 float localV = fxParam1 /* k */* (*sp) - fxParamA1 * localv0L - fxParamA2 * localv1L;
-                *sp++ = (localV + /* fxParamB1 (==0) * localv0L  + */fxParamB2 * localv1L) * mixerGain;
-                if (unlikely(*sp > ratioTimbres)) {
-                    *sp = ratioTimbres;
-                }
-                if (unlikely(*sp < -ratioTimbres)) {
-                    *sp = -ratioTimbres;
-                }
+                *sp++ = clamp((localV + /* fxParamB1 (==0) * localv0L  + */fxParamB2 * localv1L) * mixerGain, -ratioTimbres, ratioTimbres);
                 localv1L = localv0L;
                 localv0L = localV;
 
                 localV = fxParam1 /* k */* (*sp) - fxParamA1 * localv0R - fxParamA2 * localv1R;
-                *sp++ = (localV + /* fxParamB1 (==0) * localv0R + */fxParamB2 * localv1R) * mixerGain;
-                if (unlikely(*sp > ratioTimbres)) {
-                    *sp = ratioTimbres;
-                }
-                if (unlikely(*sp < -ratioTimbres)) {
-                    *sp = -ratioTimbres;
-                }
+                *sp++ = clamp((localV + /* fxParamB1 (==0) * localv0R + */fxParamB2 * localv1R) * mixerGain, -ratioTimbres, ratioTimbres);
                 localv1R = localv0R;
                 localv0R = localV;
 
@@ -5842,7 +5783,7 @@ void Voice::fxAfterBlock() {
                     localv0L = (*sp) - pos * (localv0L + pos * (*sp));
                     digitsA = FLOAT2SHORT * (*sp);
                     digitsB = FLOAT2SHORT * localv0L;
-                    localv0L = SHORT2FLOAT * roundf(digitsA ^ (digitsB & 0xfff));
+                    localv0L = SHORT2FLOAT * (float)(digitsA ^ (digitsB & 0xfff));
                 } else {
                     localv0L = *sp;
                 }
@@ -5859,7 +5800,7 @@ void Voice::fxAfterBlock() {
                     localv0R = (*sp) - pos * (localv0R + pos * (*sp));
                     digitsA = FLOAT2SHORT * (*sp);
                     digitsB = FLOAT2SHORT * localv0R;
-                    localv0R = SHORT2FLOAT * roundf(digitsA ^ (digitsB & 0xfff));
+                    localv0R = SHORT2FLOAT * (float)(digitsA ^ (digitsB & 0xfff));
                 } else {
                     localv0R = *sp;
                 }
@@ -7667,17 +7608,18 @@ void Voice::fxAfterBlock() {
             float _ly2L = v6L, _ly2R = v6R;
             float _lx2L = v7L, _lx2R = v7R;
 
-            const float f1 = clamp(0.5f + sqrt3(f) * 0.6f, filterWindowMin, filterWindowMax);
+            const float sqrtF = sqrt3(f);
+            const float f1 = clamp(0.5f + sqrtF * 0.6f, filterWindowMin, filterWindowMax);
             float coef1 = (1.0f - f1) / (1.0f + f1);
 
-            const float f2 = clamp(0.33f + sqrt3(f) * 0.43f, filterWindowMin, filterWindowMax);
+            const float f2 = clamp(0.33f + sqrtF * 0.43f, filterWindowMin, filterWindowMax);
             float coef2 = (1.0f - f2) / (1.0f + f2);
 
             float sat = 1 + filterParam2 * 0.33f;
 
             float theta = 1 - fxParam1 * filterParam2 * 0.3f;
-            float arghp = (1 + 2 * cosf(theta));
-            float p = (1 + 2 * cosf(theta)) - sqrtf(arghp * arghp - 1);
+            float arghp = 1.0f + 2.0f * cosf(theta);
+            float p = arghp - sqrtf(arghp * arghp - 1.0f);
             //0 < theta < Pi/2
 
             float hpCoef1 = 1 / (1 + p);
@@ -7874,10 +7816,14 @@ void Voice::fxAfterBlock() {
 
         case FILTER_OFF: {
             // Filter off has gain...
-            float *sp = this->sampleBlock;
-            for (int k = 0; k < BLOCK_SIZE; k++) {
-                *sp++ = (*sp) * mixerGain;
-                *sp++ = (*sp) * mixerGain;
+            if (unlikely(mixerGain != 1.0f)) {
+                float *sp = this->sampleBlock;
+                for (int k = 0; k < BLOCK_SIZE; k++) {
+                    *sp = (*sp) * mixerGain;
+                    sp++;
+                    *sp = (*sp) * mixerGain;
+                    sp++;
+                }
             }
         }
             break;

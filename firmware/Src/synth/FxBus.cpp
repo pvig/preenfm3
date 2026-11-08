@@ -35,9 +35,21 @@ int modulo(int d, int max) {
     return unlikely(d >= max) ? d - max : d;
 }
 inline
+int moduloNeg(int d, int max) {
+    return unlikely(d < 0) ? d + max : d;
+}
+inline
 float modulo2(float readPos, int bufferLen) {
-    if( unlikely(readPos < 0) )
-        readPos += bufferLen;
+    float fLen = (float)bufferLen;
+    if (unlikely(readPos < 0.0f)) {
+        readPos += fLen;
+    }
+    if (unlikely(readPos >= fLen)) {
+        readPos -= fLen;
+        if (unlikely(readPos >= fLen)) {
+            readPos = 0.0f;
+        }
+    }
     return readPos;
 }
 inline
@@ -59,13 +71,17 @@ float sqrt3(const float x)
     return u.x;
 }
 inline
-float fastroot(float f,int n)
+float fastroot(float f, int n)
 {
-    long *lp,l;
-    lp=(long*)(&f);
-    l=*lp;l-=0x3F800000l;l>>=(n-1);l+=0x3F800000l;
-    *lp=l;
-    return f;
+    union {
+        float f;
+        int32_t i;
+    } u;
+    u.f = f;
+    u.i -= 0x3F800000;
+    u.i >>= (n - 1);
+    u.i += 0x3F800000;
+    return u.f;
 }
 inline
 float sigmoid(float x)
@@ -137,6 +153,7 @@ void FxBus::init() {
         diffuserBuffer4[ s ] = 0;
     }
     setDefaultValue();
+    paramChanged();
 }
 
 
@@ -162,7 +179,18 @@ void FxBus::setDefaultValue() {
  */
 void FxBus::mixSumInit() {
 
-    if(totalSent == 0.0f) {
+    if (somethingChanged) {
+        if (waitCountBeforeChange-- <= 0) {
+            somethingChanged = false;
+            if (currentPresetNum != nextPresetNum) {
+                presetChanged(nextPresetNum);
+            } else {
+                paramChanged();
+            }
+        }
+    }
+
+    if (totalSent == 0.0f) {
         return;
     }
 
@@ -180,17 +208,6 @@ void FxBus::mixSumInit() {
     }
 
     totalSent = 0.0f;
-
-    if (somethingChanged) {
-        if (waitCountBeforeChange-- == 0 ) {
-            somethingChanged = false;
-            if (currentPresetNum != nextPresetNum) {
-                presetChanged(nextPresetNum);
-            } else {
-                paramChanged();
-            }
-        }
-    }
 }
 
 void FxBus::slowParamChange() {
@@ -370,8 +387,8 @@ void FxBus::paramChanged() {
         _in_a1 = -_in_a0;
 
         // input lp coefs calc :
-        filterBase = clamp(filterBase + inputWidth, 0, 1);
-        float filterA2     = filterBase * filterBase;
+        float lpFilterBase = clamp(filterBase + inputWidth, 0, 1);
+        float filterA2     = lpFilterBase * lpFilterBase;
         float filterA     = (filterA2 * filterA2 * 0.5f);
 
         _in_lp_b = 1 - filterA;
@@ -415,13 +432,13 @@ void FxBus::paramChanged() {
     }
     prevLfoSpeedLinear = lfoSpeedLinear;
 
-    temp = masterfxConfig[GLOBALFX_LFODEPTH];
-    temp = temp * (1 - lfoSpeedLinear * 0.5f) * (1 - sizeParam * 0.5f);
-    lfoDepth = temp;
-
     // ------ page 2
 
     sizeParam     = clamp(masterfxConfig[GLOBALFX_SIZE], 0.03f, 1);
+
+    temp = masterfxConfig[GLOBALFX_LFODEPTH];
+    temp = temp * (1 - lfoSpeedLinear * 0.5f) * (1 - sizeParam * 0.5f);
+    lfoDepth = temp;
 
     diffusion         =     masterfxConfig[GLOBALFX_DIFFUSION];
     damping         =     masterfxConfig[GLOBALFX_DAMPING];
@@ -433,8 +450,11 @@ void FxBus::paramChanged() {
     //------- some process
 
     if(damping != prevDamping) {
-        damp_b = 1 - damping  * damping;
-        damp_a = 1 - damp_b;
+        // Pre-combine the two cascaded 1-pole evaluations on the same state variable:
+        // y'' = a*x + b*(a*x + b*y) = (1 - b^2)*x + b^2*y
+        float b = 1.0f - damping * damping;
+        damp_b = b * b;
+        damp_a = 1.0f - damp_b;
     }
     prevDamping = damping;
 
@@ -470,15 +490,15 @@ void FxBus::paramChanged() {
         float sizeSqrt = sqrt3(sizeParam);
 
         float sizeParamInpt = 0.1f + sizeSqrt * 0.9f;
-        inputBuffer1ReadLen = inputBufferLen1 * sizeParamInpt;
-        inputBuffer2ReadLen = inputBufferLen2 * sizeParamInpt;
-        inputBuffer3ReadLen = inputBufferLen3 * sizeParamInpt;
-        inputBuffer4ReadLen = inputBufferLen4 * sizeParamInpt;
+        inputBuffer1ReadLen = (int)((inputBufferLen1 - 1) * sizeParamInpt);
+        inputBuffer2ReadLen = (int)((inputBufferLen2 - 1) * sizeParamInpt);
+        inputBuffer3ReadLen = (int)((inputBufferLen3 - 1) * sizeParamInpt);
+        inputBuffer4ReadLen = (int)((inputBufferLen4 - 1) * sizeParamInpt);
 
-        delay1ReadLen = 1 + delay1BufferSizeM1 * (1 - sizeParam);
-        delay2ReadLen = 1 + delay2BufferSizeM1 * (1 - sizeParam);
-        delay3ReadLen = 1 + delay3BufferSizeM1 * (1 - sizeParam);
-        delay4ReadLen = 1 + delay4BufferSizeM1 * (1 - sizeParam);
+        delay1ReadLen = (int)(1 + delay1BufferSizeM1 * (1 - sizeParam));
+        delay2ReadLen = (int)(1 + delay2BufferSizeM1 * (1 - sizeParam));
+        delay3ReadLen = (int)(1 + delay3BufferSizeM1 * (1 - sizeParam));
+        delay4ReadLen = (int)(1 + delay4BufferSizeM1 * (1 - sizeParam));
 
         diffuserBuffer1ReadLen = -1 + diffuserBufferLen1M1 * sizeParam;
         diffuserBuffer2ReadLen = -1 + diffuserBufferLen2M1 * sizeParam;
@@ -517,6 +537,36 @@ void FxBus::mixAdd(float *inStereo, float send, float reverbLevel) {
     }
 }
 
+inline float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
+    //v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
+    int readPosInt = (int)readPos;
+    float y1 = buffer[readPosInt];
+    float y0 = buffer[(unlikely(readPosInt <= 0) ? readPosInt + bufferLenM1 : readPosInt - 1)];
+    float x = 1.0f - (readPos - (float)readPosInt);
+    return y1 + x * (y0 - prevVal);
+}
+
+inline float FxBus::delayInterpolation(float readPos, float buffer[], int bufferLenM1) {
+    int readPosInt = (int)readPos;
+    float y1 = buffer[readPosInt];
+    float y0 = buffer[(unlikely(readPosInt <= 0) ? readPosInt + bufferLenM1 : readPosInt - 1)];
+    float x = 1.0f - (readPos - (float)readPosInt);
+    return y0 + x * (y1 - y0);
+}
+
+inline void FxBus::lfoProcess(float *lfo, float *lfotri, float *lfoInc) {
+    *lfotri += *lfoInc * lfoSpeed;
+    if (unlikely(*lfotri >= 1.0f)) {
+        *lfotri = 1.0f;
+        *lfoInc = -*lfoInc;
+    }
+    if (unlikely(*lfotri <= 0.0f)) {
+        *lfotri = 0.0f;
+        *lfoInc = -*lfoInc;
+    }
+    *lfo = (*lfo * lfoLpCoef1 + *lfotri) * lfoLpCoef2;
+}
+
 /**
  * process fx on bus mix
  */
@@ -527,6 +577,19 @@ void FxBus::processBlock(int32_t *outBuff) {
     }
 
     sample = getSampleBlock();
+
+    const float oneMinusPredelayMixAttn = 1.0f - predelayMixAttn;
+    const float oneMinusDiffusion = 1.0f - diffusion;
+
+    const float diff1Base = (float)diffuserBufferLen1 - diffuserBuffer1ReadLen;
+    const float diff2Base = (float)diffuserBufferLen2 - diffuserBuffer2ReadLen;
+    const float diff3Base = (float)diffuserBufferLen3 - diffuserBuffer3ReadLen;
+    const float diff4Base = (float)diffuserBufferLen4 - diffuserBuffer4ReadLen;
+
+    const float diff1Mod = lfoDepth * diffuserBuffer1ReadLen_b;
+    const float diff2Mod = lfoDepth * diffuserBuffer2ReadLen_b;
+    const float diff3Mod = lfoDepth * diffuserBuffer3ReadLen_b;
+    const float diff4Mod = lfoDepth * diffuserBuffer4ReadLen_b;
 
     for (int s = 0; s < BLOCK_SIZE; s++) {
 
@@ -574,41 +637,41 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         predelayBuffer[predelayWritePos] = monoIn;
 
-        predelayReadPos = modulo2(predelayWritePos - predelaySize, predelayBufferSize);
-        preDelayOut = delayInterpolation(predelayReadPos, predelayBuffer, predelayBufferSizeM1);
-        monoIn = predelayMixAttn * preDelayOut + (1 - predelayMixAttn) * monoIn;
+        int predelayReadIdx = moduloNeg(predelayWritePos - predelaySize, predelayBufferSize);
+        preDelayOut = predelayBuffer[predelayReadIdx];
+        monoIn = predelayMixAttn * preDelayOut + oneMinusPredelayMixAttn * monoIn;
 
         // --- input diffuser
 
         // ---- diffuser 1
 
-        inputReadPos1     = modulo2(inputWritePos1 - inputBuffer1ReadLen, inputBufferLen1);
+        inputReadPos1     = moduloNeg(inputWritePos1 - inputBuffer1ReadLen, inputBufferLen1);
         float in_apSum1 = monoIn + inputBuffer1[inputReadPos1] * inputCoef1;
         diff1Out         = inputBuffer1[inputReadPos1] - in_apSum1 * inputCoef1;
         inputBuffer1[inputWritePos1] = in_apSum1;
 
         // ---- diffuser 2
 
-        inputReadPos2     = modulo2(inputWritePos2 - inputBuffer2ReadLen, inputBufferLen2);
+        inputReadPos2     = moduloNeg(inputWritePos2 - inputBuffer2ReadLen, inputBufferLen2);
         float in_apSum2 = diff1Out + inputBuffer2[inputReadPos2] * inputCoef1;
         diff2Out         = inputBuffer2[inputReadPos2] - in_apSum2 * inputCoef1;
         inputBuffer2[inputWritePos2]         = in_apSum2;
 
         // ---- diffuser 3
 
-        inputReadPos3     = modulo2(inputWritePos3 - inputBuffer3ReadLen, inputBufferLen3);
+        inputReadPos3     = moduloNeg(inputWritePos3 - inputBuffer3ReadLen, inputBufferLen3);
         float in_apSum3 = diff2Out + inputBuffer3[inputReadPos3] * inputCoef2;
         diff3Out         = inputBuffer3[inputReadPos3] - in_apSum3 * inputCoef2;
         inputBuffer3[inputWritePos3]         = in_apSum3;
 
         // ---- diffuser 4
 
-        inputReadPos4     = modulo2(inputWritePos4 - inputBuffer4ReadLen, inputBufferLen4);
+        inputReadPos4     = moduloNeg(inputWritePos4 - inputBuffer4ReadLen, inputBufferLen4);
         float in_apSum4 = diff3Out + inputBuffer4[inputReadPos4] * inputCoef2;
         diff4Out         = inputBuffer4[inputReadPos4] - in_apSum4 * inputCoef2;
         inputBuffer4[inputWritePos4]         = in_apSum4;
 
-        monoIn = monoIn * (1 - diffusion) + diff4Out * diffusion;
+        monoIn = monoIn * oneMinusDiffusion + diff4Out * diffusion;
 
         // ---- ap 1
 
@@ -634,9 +697,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         hp1_x1     = hp1_x0;
         ap2In     = hp1_y0;
 
-        tankLp1a =  damp_a * ap2In + tankLp1a * damp_b;            // lowpass
-        tankLp1a =  damp_a * ap2In + tankLp1a * damp_b;            // lowpass
-        //tankLp1b =  damp_a * tankLp1a + tankLp1b * damp_b;        // lowpass
+        tankLp1a = damp_a * ap2In + tankLp1a * damp_b;            // lowpass (pre-combined 2x)
 
         ap2In     = tankLp1a * decayFdbck;
 
@@ -679,9 +740,7 @@ void FxBus::processBlock(int32_t *outBuff) {
         hp2_x1     = hp2_x0;
         ap4In     = hp2_y0;
 
-        tankLp2a =  damp_a * ap4In + tankLp2a * damp_b;            // lowpass
-        tankLp2a =  damp_a * ap4In + tankLp2a * damp_b;            // lowpass
-        //tankLp2b =  damp_a * tankLp2b + tankLp2b * damp_b;        // lowpass
+        tankLp2a = damp_a * ap4In + tankLp2a * damp_b;            // lowpass (pre-combined 2x)
 
         ap4In = tankLp2a * decayFdbck;                // decay
 
@@ -763,42 +822,12 @@ void FxBus::processBlock(int32_t *outBuff) {
 
         // -------- mods :
 
-        timeCvControl1 = clamp(diffuserBufferLen1 - diffuserBuffer1ReadLen      +      lfo1      * lfoDepth * diffuserBuffer1ReadLen_b, -diffuserBufferLen1M1, diffuserBufferLen1);
-        timeCvControl2 = clamp(diffuserBufferLen2 - diffuserBuffer2ReadLen      +     lfo2     * lfoDepth * diffuserBuffer2ReadLen_b, -diffuserBufferLen2M1, diffuserBufferLen2);
-        timeCvControl3 = clamp(diffuserBufferLen3 - diffuserBuffer3ReadLen      +      lfo3    * lfoDepth * diffuserBuffer3ReadLen_b, -diffuserBufferLen3M1, diffuserBufferLen3);
-        timeCvControl4 = clamp(diffuserBufferLen4 - diffuserBuffer4ReadLen      +     lfo4    * lfoDepth * diffuserBuffer4ReadLen_b, -diffuserBufferLen4M1, diffuserBufferLen4);
+        timeCvControl1 = clamp(diff1Base + lfo1 * diff1Mod, -diffuserBufferLen1M1, diffuserBufferLen1M1);
+        timeCvControl2 = clamp(diff2Base + lfo2 * diff2Mod, -diffuserBufferLen2M1, diffuserBufferLen2M1);
+        timeCvControl3 = clamp(diff3Base + lfo3 * diff3Mod, -diffuserBufferLen3M1, diffuserBufferLen3M1);
+        timeCvControl4 = clamp(diff4Base + lfo4 * diff4Mod, -diffuserBufferLen4M1, diffuserBufferLen4M1);
     }
 
-}
-
-float FxBus::delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal) {
-    //v[n] = VoiceL[i + 1] + (1 - frac)  * VoiceL[i] - (1 - frac)  * v[n - 1]
-    int readPosInt = readPos;
-    float y1 = buffer[readPosInt];
-    float y0 = buffer[(unlikely(readPosInt <= 0) ? readPosInt + bufferLenM1 : readPosInt - 1)];
-    float x = 1 - (readPos - floorf(readPos));
-    return y1 + x * (y0 - prevVal);
-}
-
-float FxBus::delayInterpolation(float readPos, float buffer[], int bufferLenM1) {
-    int readPosInt = readPos;
-    float y1 = buffer[readPosInt];
-    float y0 = buffer[(unlikely(readPosInt <= 0) ? readPosInt + bufferLenM1 : readPosInt - 1)];
-    float x = 1 - (readPos - floorf(readPos));
-    return y0 + x * (y1 - y0);
-}
-
-void FxBus::lfoProcess(float *lfo, float *lfotri, float *lfoInc) {
-    *lfotri += *lfoInc * lfoSpeed;
-    if(unlikely(*lfotri >= 1)) {
-        *lfotri = 1;
-        *lfoInc = -*lfoInc;
-    }
-    if(unlikely(*lfotri <= 0)) {
-        *lfotri = 0;
-        *lfoInc = -*lfoInc;
-    }
-    *lfo = (*lfo * lfoLpCoef1 + *lfotri ) * lfoLpCoef2;
 }
 
 #if defined(__GNUC__) && !defined(DEBUG)

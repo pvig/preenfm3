@@ -72,7 +72,9 @@ public:
     void newNote(struct OscState* oscState, float newNoteFrequency, float phase);
     float getNoteRealFrequencyEstimation(struct OscState* oscState, float newNoteFrequency);
     void glideToNote(struct OscState* oscState, float newNoteFrequency);
-    void glideStep(struct OscState* oscState, float phase);
+    inline void glideStep(struct OscState* oscState, float phase) {
+        oscState->mainFrequency = oscState->fromFrequency + (oscState->nextFrequency - oscState->fromFrequency) * phase;
+    }
 
     inline __attribute__((always_inline)) void updateWarpWithMatrix(struct OscState *oscState, Matrix* matrix) {
         float warp = *phaseWarpParam;
@@ -244,32 +246,31 @@ public:
 
     // Block renderer for Full mode. If HQ interpolation is requested, this function
     // delegates to getNextBlockHQ so the HQ path stays centralized.
-	inline __attribute__((always_inline)) float* getNextBlock(struct OscState *oscState)  {
+    inline __attribute__((always_inline)) float* getNextBlock(struct OscState *oscState)  {
 
         if (unlikely(oscState->waveInterpolationEnabled != 0)) {
             return getNextBlockHQ(oscState);
         }
 
         int shape = (int) oscillator->shape;
-   		int max = waveTables[shape].max;
-        int size = max + 1;
-        int halfSize = size >> 1;
-   		float *wave = waveTables[shape].table;
+        int max = waveTables[shape].max;
+        float *wave = waveTables[shape].table;
         float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
-		float freq2 = freq + freq;
         float warp = oscState->effectiveWarp;
         bool warpEnabled = warp != 0.0f;
         bool waveDecimationEnabled = oscState->waveDecimationEnabled != 0;
-        float slopeFirstHalf = 1.0f + warp;
-        float slopeSecondHalf = 1.0f - warp;
-        float secondHalfOffset = ((float)size) * warp;
-   		float fIndex = oscState->index;
-   		int iIndex;
-   		float* oscValuesToFill = oscValues[oscValuesCpt];
-    	oscValuesCpt++;
-    	oscValuesCpt &= 0x3;
+        float fIndex = oscState->index;
+        if (unlikely(freq < 0.0f)) {
+            int shift = ((int)(-32.0f * freq) | max) + 1;
+            fIndex += (float)shift;
+        }
+        int iIndex;
+        float* oscValuesToFill = oscValues[oscValuesCpt];
+        oscValuesCpt++;
+        oscValuesCpt &= 0x3;
 
-        if (waveDecimationEnabled) {
+        if (unlikely(waveDecimationEnabled)) {
+            float freq2 = freq + freq;
             int k = 0;
             if (oscState->waveDecimationStepPhase != 0) {
                 oscValuesToFill[k++] = oscState->waveDecimationHeldSample;
@@ -277,12 +278,14 @@ public:
             }
 
             if (warpEnabled) {
+                int size = max + 1;
+                int halfSize = size >> 1;
+                float slopeFirstHalf = 1.0f + warp;
+                float slopeSecondHalf = 1.0f - warp;
+                float secondHalfOffset = ((float)size) * warp;
                 for (; k + 1 < BLOCK_SIZE; k += 2) {
                     fIndex += freq2;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
+                    iIndex = ((int)fIndex) & max;
                     iIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
                     float sample = quantizeWaveSample(oscState, wave[iIndex]);
                     oscState->waveDecimationHeldSample = sample;
@@ -291,10 +294,7 @@ public:
                 }
                 if (k < BLOCK_SIZE) {
                     fIndex += freq2;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
+                    iIndex = ((int)fIndex) & max;
                     iIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
                     float sample = quantizeWaveSample(oscState, wave[iIndex]);
                     oscState->waveDecimationHeldSample = sample;
@@ -304,10 +304,7 @@ public:
             } else {
                 for (; k + 1 < BLOCK_SIZE; k += 2) {
                     fIndex += freq2;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
+                    iIndex = ((int)fIndex) & max;
                     float sample = quantizeWaveSample(oscState, wave[iIndex]);
                     oscState->waveDecimationHeldSample = sample;
                     oscValuesToFill[k] = sample;
@@ -315,101 +312,73 @@ public:
                 }
                 if (k < BLOCK_SIZE) {
                     fIndex += freq2;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
+                    iIndex = ((int)fIndex) & max;
                     float sample = quantizeWaveSample(oscState, wave[iIndex]);
                     oscState->waveDecimationHeldSample = sample;
                     oscValuesToFill[k] = sample;
                     oscState->waveDecimationStepPhase = 1;
                 }
             }
-			oscState->index = fIndex;
-			return oscValuesToFill;
-		}
+            iIndex = (int)fIndex;
+            oscState->index = (fIndex - iIndex) + (iIndex & max);
+            return oscValuesToFill;
+        }
 
-		if (!warpEnabled) {
-			for (int k=0; k<32; ) {
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                float sample = wave[iIndex];
-                oscValuesToFill[k++] = sample;
+        if (likely(!warpEnabled)) {
+            for (int k = 0; k < 32; ) {
+                fIndex += freq;
+                iIndex = ((int)fIndex) & max;
+                oscValuesToFill[k++] = wave[iIndex];
 
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                sample = wave[iIndex];
-                oscValuesToFill[k++] = sample;
+                fIndex += freq;
+                iIndex = ((int)fIndex) & max;
+                oscValuesToFill[k++] = wave[iIndex];
 
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                sample = wave[iIndex];
-                oscValuesToFill[k++] = sample;
+                fIndex += freq;
+                iIndex = ((int)fIndex) & max;
+                oscValuesToFill[k++] = wave[iIndex];
 
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                sample = wave[iIndex];
-                oscValuesToFill[k++] = sample;
+                fIndex += freq;
+                iIndex = ((int)fIndex) & max;
+                oscValuesToFill[k++] = wave[iIndex];
+            }
 
-			}
+            iIndex = (int)fIndex;
+            oscState->index = (fIndex - iIndex) + (iIndex & max);
+            return oscValuesToFill;
+        }
 
-	    	oscState->index = fIndex;
-	    	return oscValuesToFill;
-		}
+        int size = max + 1;
+        int halfSize = size >> 1;
+        float slopeFirstHalf = 1.0f + warp;
+        float slopeSecondHalf = 1.0f - warp;
+        float secondHalfOffset = ((float)size) * warp;
 
-		for (int k=0; k<32; ) {
-            fIndex +=  freq;
-            iIndex = fIndex;
-            fIndex -= iIndex;
-            iIndex &=  max;
-            fIndex += iIndex;
+        for (int k = 0; k < 32; ) {
+            fIndex += freq;
+            iIndex = ((int)fIndex) & max;
             int tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-            float sample = wave[tableIndex];
-            oscValuesToFill[k++] = sample;
+            oscValuesToFill[k++] = wave[tableIndex];
 
-            fIndex +=  freq;
-            iIndex = fIndex;
-            fIndex -= iIndex;
-            iIndex &=  max;
-            fIndex += iIndex;
+            fIndex += freq;
+            iIndex = ((int)fIndex) & max;
             tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-            sample = wave[tableIndex];
-            oscValuesToFill[k++] = sample;
+            oscValuesToFill[k++] = wave[tableIndex];
 
-            fIndex +=  freq;
-            iIndex = fIndex;
-            fIndex -= iIndex;
-            iIndex &=  max;
-            fIndex += iIndex;
+            fIndex += freq;
+            iIndex = ((int)fIndex) & max;
             tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-            sample = wave[tableIndex];
-            oscValuesToFill[k++] = sample;
+            oscValuesToFill[k++] = wave[tableIndex];
 
-            fIndex +=  freq;
-            iIndex = fIndex;
-            fIndex -= iIndex;
-            iIndex &=  max;
-            fIndex += iIndex;
+            fIndex += freq;
+            iIndex = ((int)fIndex) & max;
             tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-            sample = wave[tableIndex];
-            oscValuesToFill[k++] = sample;
+            oscValuesToFill[k++] = wave[tableIndex];
+        }
 
-   		}
-
-    	oscState->index = fIndex;
-    	return oscValuesToFill;
+        iIndex = (int)fIndex;
+        oscState->index = (fIndex - iIndex) + (iIndex & max);
+        return oscValuesToFill;
     };
 
     // Feedback-capable block renderer used by feedback operator paths.
@@ -418,25 +387,25 @@ public:
     inline __attribute__((always_inline)) float* getNextBlockWithFeedbackAndEnveloppe(struct OscState *oscState, float feedback, float& env, float envInc, float freqMultiplier, float* lastValue) {
         int shape = (int) oscillator->shape;
         int max = waveTables[shape].max;
-        int size = max + 1;
-        int halfSize = size >> 1;
         float *wave = waveTables[shape].table;
         float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
         float fIndex = oscState->index;
+        if (unlikely(freq < 0.0f)) {
+            int shift = ((int)(-32.0f * freq) | max) + 1;
+            fIndex += (float)shift;
+        }
         int iIndex;
         float* oscValuesToFill = oscValues[4];
 
         float warp = oscState->effectiveWarp;
         bool warpEnabled = warp != 0.0f;
+        bool decimationEnabled = oscState->waveDecimationEnabled != 0;
     #if PFM3_FAST_FEEDBACK_INTERP
         // Speed-first mode: skip feedback-path interpolation to reduce per-sample math.
         bool interpolationEnabled = false;
     #else
-        bool interpolationEnabled = (oscState->waveInterpolationEnabled != 0) && (oscState->waveDecimationEnabled == 0);
+        bool interpolationEnabled = (oscState->waveInterpolationEnabled != 0) && !decimationEnabled;
     #endif
-        float slopeFirstHalf = 1.0f + warp;
-        float slopeSecondHalf = 1.0f - warp;
-        float secondHalfOffset = ((float)size) * warp;
 
         lastValue[2] = .95f * lastValue[2] + feedback * .05f;
         float phaseModulationAmplitude = lastValue[2] * ((float) max) * .5f;
@@ -447,93 +416,118 @@ public:
         // Optimisation to avoid multiple freqMultiplier in the loop
         float localEnvM = env * freqMultiplier;
         float envIncM   = envInc   * freqMultiplier;
-        if (!warpEnabled) {
+        if (likely(!warpEnabled)) {
             if (interpolationEnabled) {
                 for (int k = 0; k < 32; k++) {
                     fIndex += freq;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
+                    iIndex = ((int)fIndex) & max;
 
                     float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
-                    int index = iIndex + (int)phaseModulationOffset;
-                    index &= max;
+                    int index = (iIndex + (int)phaseModulationOffset) & max;
 
                     float currentValue = wave[index];
                     float newValue = 0.5f * (currentValue + localLastValue1);
                     localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
                     localLastValue1 = newValue;
 
-                    float outputSample = quantizeOscOutputBeforeEnvelope(oscState, localLastValue0);
-                    oscValuesToFill[k] = outputSample * localEnvM;
+                    oscValuesToFill[k] = localLastValue0 * localEnvM;
                     localEnvM += envIncM;
                 }
-            } else {
+            } else if (unlikely(decimationEnabled)) {
+                float decimationScale = oscState->waveDecimationScale;
+                localEnvM *= oscState->waveDecimationInvScale;
+                envIncM *= oscState->waveDecimationInvScale;
                 for (int k = 0; k < 32; k++) {
                     fIndex += freq;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
+                    iIndex = ((int)fIndex) & max;
 
                     float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
-                    int index = iIndex + (int)phaseModulationOffset;
-                    index &= max;
+                    int index = (iIndex + (int)phaseModulationOffset) & max;
 
                     float newValue = wave[index];
                     localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
                     localLastValue1 = newValue;
 
-                    float outputSample = quantizeOscOutputBeforeEnvelope(oscState, localLastValue0);
-                    oscValuesToFill[k] = outputSample * localEnvM;
+                    int q = (int)(localLastValue0 * decimationScale);
+                    oscValuesToFill[k] = (float)q * localEnvM;
+                    localEnvM += envIncM;
+                }
+            } else {
+                for (int k = 0; k < 32; k++) {
+                    fIndex += freq;
+                    iIndex = ((int)fIndex) & max;
+
+                    float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
+                    int index = (iIndex + (int)phaseModulationOffset) & max;
+
+                    float newValue = wave[index];
+                    localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
+                    localLastValue1 = newValue;
+
+                    oscValuesToFill[k] = localLastValue0 * localEnvM;
                     localEnvM += envIncM;
                 }
             }
         } else {
+            int size = max + 1;
+            int halfSize = size >> 1;
+            float slopeFirstHalf = 1.0f + warp;
+            float slopeSecondHalf = 1.0f - warp;
+            float secondHalfOffset = ((float)size) * warp;
             if (interpolationEnabled) {
                 for (int k = 0; k < 32; k++) {
                     fIndex += freq;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
+                    iIndex = ((int)fIndex) & max;
 
                     int warpedIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
 
                     float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
-                    int index = warpedIndex + (int)phaseModulationOffset;
-                    index &= max;
+                    int index = (warpedIndex + (int)phaseModulationOffset) & max;
 
                     float currentValue = wave[index];
                     float newValue = 0.5f * (currentValue + localLastValue1);
                     localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
                     localLastValue1 = newValue;
 
-                    float outputSample = quantizeOscOutputBeforeEnvelope(oscState, localLastValue0);
-                    oscValuesToFill[k] = outputSample * localEnvM;
+                    oscValuesToFill[k] = localLastValue0 * localEnvM;
                     localEnvM += envIncM;
                 }
-            } else {
+            } else if (unlikely(decimationEnabled)) {
+                float decimationScale = oscState->waveDecimationScale;
+                localEnvM *= oscState->waveDecimationInvScale;
+                envIncM *= oscState->waveDecimationInvScale;
                 for (int k = 0; k < 32; k++) {
                     fIndex += freq;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
+                    iIndex = ((int)fIndex) & max;
 
                     int warpedIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
 
                     float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
-                    int index = warpedIndex + (int)phaseModulationOffset;
-                    index &= max;
+                    int index = (warpedIndex + (int)phaseModulationOffset) & max;
 
                     float newValue = wave[index];
                     localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
                     localLastValue1 = newValue;
 
-                    float outputSample = quantizeOscOutputBeforeEnvelope(oscState, localLastValue0);
-                    oscValuesToFill[k] = outputSample * localEnvM;
+                    int q = (int)(localLastValue0 * decimationScale);
+                    oscValuesToFill[k] = (float)q * localEnvM;
+                    localEnvM += envIncM;
+                }
+            } else {
+                for (int k = 0; k < 32; k++) {
+                    fIndex += freq;
+                    iIndex = ((int)fIndex) & max;
+
+                    int warpedIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
+
+                    float phaseModulationOffset = localLastValue0 * phaseModulationAmplitude;
+                    int index = (warpedIndex + (int)phaseModulationOffset) & max;
+
+                    float newValue = wave[index];
+                    localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
+                    localLastValue1 = newValue;
+
+                    oscValuesToFill[k] = localLastValue0 * localEnvM;
                     localEnvM += envIncM;
                 }
             }
@@ -544,194 +538,104 @@ public:
         // update env
         env += envInc * 32;
 
-        oscState->index = fIndex;
+        iIndex = (int)fIndex;
+        oscState->index = (fIndex - iIndex) + (iIndex & max);
         return oscValuesToFill;
     }
 
-    // HQ block renderer. Uses interpolation when decimation is off; when decimation
-    // is on it intentionally falls back to decimated hold+quantized output behavior.
-	inline __attribute__((always_inline)) float* getNextBlockHQ(struct OscState *oscState)  {
+    // HQ block renderer. Called when waveInterpolationEnabled != 0 (decimation is off).
+    inline __attribute__((always_inline)) float* getNextBlockHQ(struct OscState *oscState)  {
         int shape = (int) oscillator->shape;
-   		int max = waveTables[shape].max;
-        int size = max + 1;
-        int halfSize = size >> 1;
-   		float *wave = waveTables[shape].table;
+        int max = waveTables[shape].max;
+        float *wave = waveTables[shape].table;
         float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
-        float freq2 = freq + freq;
         float warp = oscState->effectiveWarp;
         bool warpEnabled = warp != 0.0f;
-        bool waveDecimationEnabled = oscState->waveDecimationEnabled != 0;
-        float slopeFirstHalf = 1.0f + warp;
-        float slopeSecondHalf = 1.0f - warp;
-        float secondHalfOffset = ((float)size) * warp;
-   		float fIndex = oscState->index;
-   		int iIndex;
-   		float fp;
-   		float* oscValuesToFill = oscValues[oscValuesCpt];
-    	oscValuesCpt++;
-    	oscValuesCpt &= 0x3;
+        float fIndex = oscState->index;
+        if (unlikely(freq < 0.0f)) {
+            int shift = ((int)(-32.0f * freq) | max) + 1;
+            fIndex += (float)shift;
+        }
+        int iIndex;
+        float* oscValuesToFill = oscValues[oscValuesCpt];
+        oscValuesCpt++;
+        oscValuesCpt &= 0x3;
 
-        if (waveDecimationEnabled) {
-            int k = 0;
-            if (oscState->waveDecimationStepPhase != 0) {
-                oscValuesToFill[k++] = oscState->waveDecimationHeldSample;
-                oscState->waveDecimationStepPhase = 0;
+        if (likely(!warpEnabled)) {
+            float previousValue = oscState->waveDecimationHeldSample;
+            for (int k = 0; k < 32; ) {
+                fIndex += freq;
+                iIndex = ((int)fIndex) & max;
+                float currentValue = wave[iIndex];
+                oscValuesToFill[k++] = 0.5f * (currentValue + previousValue);
+                previousValue = currentValue;
+
+                fIndex += freq;
+                iIndex = ((int)fIndex) & max;
+                currentValue = wave[iIndex];
+                oscValuesToFill[k++] = 0.5f * (currentValue + previousValue);
+                previousValue = currentValue;
+
+                fIndex += freq;
+                iIndex = ((int)fIndex) & max;
+                currentValue = wave[iIndex];
+                oscValuesToFill[k++] = 0.5f * (currentValue + previousValue);
+                previousValue = currentValue;
+
+                fIndex += freq;
+                iIndex = ((int)fIndex) & max;
+                currentValue = wave[iIndex];
+                oscValuesToFill[k++] = 0.5f * (currentValue + previousValue);
+                previousValue = currentValue;
             }
 
-            if (warpEnabled) {
-                for (; k + 1 < BLOCK_SIZE; k += 2) {
-                    fIndex += freq2;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
-                    iIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-                    float sample = quantizeWaveSample(oscState, wave[iIndex]);
-                    oscState->waveDecimationHeldSample = sample;
-                    oscValuesToFill[k] = sample;
-                    oscValuesToFill[k + 1] = sample;
-                }
-                if (k < BLOCK_SIZE) {
-                    fIndex += freq2;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
-                    iIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-                    float sample = quantizeWaveSample(oscState, wave[iIndex]);
-                    oscState->waveDecimationHeldSample = sample;
-                    oscValuesToFill[k] = sample;
-                    oscState->waveDecimationStepPhase = 1;
-                }
-            } else {
-                for (; k + 1 < BLOCK_SIZE; k += 2) {
-                    fIndex += freq2;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
-                    float sample = quantizeWaveSample(oscState, wave[iIndex]);
-                    oscState->waveDecimationHeldSample = sample;
-                    oscValuesToFill[k] = sample;
-                    oscValuesToFill[k + 1] = sample;
-                }
-                if (k < BLOCK_SIZE) {
-                    fIndex += freq2;
-                    iIndex = fIndex;
-                    fIndex -= iIndex;
-                    iIndex &= max;
-                    fIndex += iIndex;
-                    float sample = quantizeWaveSample(oscState, wave[iIndex]);
-                    oscState->waveDecimationHeldSample = sample;
-                    oscValuesToFill[k] = sample;
-                    oscState->waveDecimationStepPhase = 1;
-                }
-            }
-            oscState->index = fIndex;
+            oscState->waveDecimationHeldSample = previousValue;
+            iIndex = (int)fIndex;
+            oscState->index = (fIndex - iIndex) + (iIndex & max);
             return oscValuesToFill;
         }
 
-		if (!warpEnabled) {
-			float previousValue = oscState->waveDecimationHeldSample;
-			for (int k=0; k<32; ) {
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-        float currentValue = wave[iIndex];
-        float sample = 0.5f * (currentValue + previousValue);
-        previousValue = currentValue;
-                oscValuesToFill[k++] = sample;
+        int size = max + 1;
+        int halfSize = size >> 1;
+        float slopeFirstHalf = 1.0f + warp;
+        float slopeSecondHalf = 1.0f - warp;
+        float secondHalfOffset = ((float)size) * warp;
 
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                currentValue = wave[iIndex];
-                sample = 0.5f * (currentValue + previousValue);
-                previousValue = currentValue;
-                oscValuesToFill[k++] = sample;
+        float previousValue = oscState->waveDecimationHeldSample;
+        for (int k = 0; k < 32; ) {
+            fIndex += freq;
+            iIndex = ((int)fIndex) & max;
+            int tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
+            float currentValue = wave[tableIndex];
+            oscValuesToFill[k++] = 0.5f * (currentValue + previousValue);
+            previousValue = currentValue;
 
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                currentValue = wave[iIndex];
-                sample = 0.5f * (currentValue + previousValue);
-                previousValue = currentValue;
-                oscValuesToFill[k++] = sample;
+            fIndex += freq;
+            iIndex = ((int)fIndex) & max;
+            tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
+            currentValue = wave[tableIndex];
+            oscValuesToFill[k++] = 0.5f * (currentValue + previousValue);
+            previousValue = currentValue;
 
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                currentValue = wave[iIndex];
-                sample = 0.5f * (currentValue + previousValue);
-                previousValue = currentValue;
-                oscValuesToFill[k++] = sample;
-			}
+            fIndex += freq;
+            iIndex = ((int)fIndex) & max;
+            tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
+            currentValue = wave[tableIndex];
+            oscValuesToFill[k++] = 0.5f * (currentValue + previousValue);
+            previousValue = currentValue;
 
-			oscState->waveDecimationHeldSample = previousValue;
+            fIndex += freq;
+            iIndex = ((int)fIndex) & max;
+            tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
+            currentValue = wave[tableIndex];
+            oscValuesToFill[k++] = 0.5f * (currentValue + previousValue);
+            previousValue = currentValue;
+        }
 
-	    	oscState->index = fIndex;
-	    	return oscValuesToFill;
-		}
-
-			float previousValue = oscState->waveDecimationHeldSample;
-			for (int k=0; k<32; ) {
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                int tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-                float currentValue = wave[tableIndex];
-                float sample = 0.5f * (currentValue + previousValue);
-                previousValue = currentValue;
-                oscValuesToFill[k++] = sample;
-
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-                currentValue = wave[tableIndex];
-                sample = 0.5f * (currentValue + previousValue);
-                previousValue = currentValue;
-                oscValuesToFill[k++] = sample;
-
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-                currentValue = wave[tableIndex];
-                sample = 0.5f * (currentValue + previousValue);
-                previousValue = currentValue;
-                oscValuesToFill[k++] = sample;
-
-                fIndex +=  freq;
-                iIndex = fIndex;
-                fIndex -= iIndex;
-                iIndex &=  max;
-                fIndex += iIndex;
-                tableIndex = getWarpedIndexFast(iIndex, max, halfSize, slopeFirstHalf, slopeSecondHalf, secondHalfOffset);
-                currentValue = wave[tableIndex];
-                sample = 0.5f * (currentValue + previousValue);
-                previousValue = currentValue;
-                oscValuesToFill[k++] = sample;
-			}
-
-			oscState->waveDecimationHeldSample = previousValue;
-
-    	oscState->index = fIndex;
-    	return oscValuesToFill;
+        oscState->waveDecimationHeldSample = previousValue;
+        iIndex = (int)fIndex;
+        oscState->index = (fIndex - iIndex) + (iIndex & max);
+        return oscValuesToFill;
     };
 
 

@@ -235,25 +235,23 @@ void Osc::glideToNote(struct OscState* oscState, float newNoteFrequency) {
 
 
 float Osc::getNoteRealFrequencyEstimation(struct OscState* oscState, float newNoteFrequency) {
-    float realNoteFrequencyEstimation = 0;
+    float realNoteFrequencyEstimation = 0.0f;
     switch ((int)oscillator->frequencyType) {
     case OSC_FT_KEYBOARD:
-        realNoteFrequencyEstimation = newNoteFrequency *  oscillator->frequencyMul * (1.0f + oscillator->detune * .05f) * (synthState_->mixerState.tuning_ * INV440);
+        realNoteFrequencyEstimation = newNoteFrequency * oscillator->frequencyMul * (1.0f + oscillator->detune * .05f) * (synthState_->mixerState.tuning_ * INV440);
+        break;
     case OSC_FT_FIXE:
         realNoteFrequencyEstimation = oscState->mainFrequency;
+        break;
     case OSC_FT_KEYHZ:
-        realNoteFrequencyEstimation = newNoteFrequency *  oscillator->frequencyMul * (synthState_->mixerState.tuning_ * INV440) + oscillator->detune;
+        realNoteFrequencyEstimation = newNoteFrequency * oscillator->frequencyMul * (synthState_->mixerState.tuning_ * INV440) + oscillator->detune;
+        break;
     }
-    if (unlikely(realNoteFrequencyEstimation < 1)) {
-        return 1;
+    if (unlikely(realNoteFrequencyEstimation < 1.0f)) {
+        return 1.0f;
     } else {
         return realNoteFrequencyEstimation;
     }
-}
-
-
-void Osc::glideStep(struct OscState* oscState, float phase) {
-    oscState->mainFrequency = oscState->fromFrequency * (1 - phase) + oscState->nextFrequency * phase;
 }
 
 float exp2_harm[] = {
