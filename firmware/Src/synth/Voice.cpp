@@ -86,11 +86,56 @@ float tanh4(float x)
     return x / sqrt3(x * x + 1);
 }
 inline
+float tanh4ADAA1_F(float x)
+{
+    return sqrtf(x * x + 1.0f);
+}
+inline
+float tanh4ADAA(float x, float &prevX, float &prevF)
+{
+    const float f = tanh4ADAA1_F(x);
+    const float diff = x - prevX;
+    float out;
+    if (likely(fabsf(diff) > 1e-5f)) {
+        out = (f - prevF) / diff;
+    } else {
+        const float mid = 0.5f * (x + prevX);
+        out = mid / sqrtf(mid * mid + 1.0f);
+    }
+    prevX = x;
+    prevF = f;
+    return out;
+}
+inline
 float sat25(float x)
 {
     if (unlikely(fabsf(x) > 4))
         return 0;
     return x * (1.f - fabsf(x * 0.25f));
+}
+inline
+float sat25ADAA1_F(float x)
+{
+    const float ax = fabsf(x);
+    if (unlikely(ax > 4.0f)) {
+        return 2.6666667f;
+    }
+    return x * x * (0.5f - 0.083333336f * ax);
+}
+inline
+float sat25ADAA(float x, float &prevX, float &prevF)
+{
+    const float f = sat25ADAA1_F(x);
+    const float diff = x - prevX;
+    float out;
+    if (likely(fabsf(diff) > 1e-5f)) {
+        out = (f - prevF) / diff;
+    } else {
+        out = sat25(0.5f * (x + prevX));
+    }
+    prevX = x;
+    prevF = f;
+    return out;
 }
 inline
 float sat66(float x)
@@ -121,6 +166,27 @@ float sigmoid(float x)
     return x * (1.5f - 0.5f * x * x);
 }
 inline
+float sigmoidADAA1_F(float x)
+{
+    const float x2 = x * x;
+    return x2 * (0.75f - 0.125f * x2);
+}
+inline
+float sigmoidADAA(float x, float &prevX, float &prevF)
+{
+    const float f = sigmoidADAA1_F(x);
+    const float diff = x - prevX;
+    float out;
+    if (likely(fabsf(diff) > 1e-4f)) {
+        out = (f - prevF) / diff;
+    } else {
+        out = sigmoid(0.5f * (x + prevX));
+    }
+    prevX = x;
+    prevF = f;
+    return out;
+}
+inline
 float sigmoidPos(float x)
 {
     //x : 0 -> 1
@@ -133,8 +199,28 @@ float fold(float x4) {
     return (fabsf(x4 + 0.25f - roundf(x4 + 0.25f)) - 0.25f);
 }
 inline
+float foldADAA1_F(float x4) {
+    const float u = x4 + 0.25f;
+    const float d = u - roundf(u);
+    return d * (0.5f * fabsf(d) - 0.25f);
+}
+inline
+float foldADAA(float x4, float &prevX4, float &prevF) {
+    const float f = foldADAA1_F(x4);
+    const float diff = x4 - prevX4;
+    float out;
+    if (likely(fabsf(diff) > 1e-5f)) {
+        out = (f - prevF) / diff;
+    } else {
+        out = fold(0.5f * (x4 + prevX4));
+    }
+    prevX4 = x4;
+    prevF = f;
+    return out;
+}
+inline
 float wrap(float x) {
-    return x - floorf(x);
+    return (x - floorf(x)) * 2.0f - 1.0f;
 }
 enum NewNoteType {
     NEW_NOTE_FREE = 0,
@@ -5551,6 +5637,8 @@ void Voice::fxAfterBlock() {
 
             float localv0L = v0L;
             float localv0R = v0R;
+            float prevXL = v1L, prevXR = v1R;
+            float prevFL = sigmoidADAA1_F(prevXL), prevFR = sigmoidADAA1_F(prevXR);
 
             const float a = 0.95f - filterParam2 * 0.599999f;
             const float b = 1.f - a;
@@ -5561,7 +5649,7 @@ void Voice::fxAfterBlock() {
 
             for (int k = BLOCK_SIZE; k--;) {
                 //LEFT
-                localv0L = sigmoid(*sp);
+                localv0L = sigmoidADAA(*sp, prevXL, prevFL);
                 if (fabsf(localv0L) > threshold) {
                     localv0L = localv0L > 1 ? thresTop : localv0L * invT;
                 }
@@ -5569,7 +5657,7 @@ void Voice::fxAfterBlock() {
                 *sp++ = clamp((*sp - localv0L) * mixerGain, -ratioTimbres, ratioTimbres);
 
                 //RIGHT
-                localv0R = sigmoid(*sp);
+                localv0R = sigmoidADAA(*sp, prevXR, prevFR);
                 if (fabsf(localv0R) > threshold) {
                     localv0R = localv0R > 1 ? thresTop : localv0R * invT;
                 }
@@ -5578,6 +5666,8 @@ void Voice::fxAfterBlock() {
             }
             v0L = localv0L;
             v0R = localv0R;
+            v1L = prevXL;
+            v1R = prevXR;
         }
             break;
         case FILTER_SIGMOID: {
@@ -5653,6 +5743,8 @@ void Voice::fxAfterBlock() {
 
             float _ly1L = v2L, _ly1R = v2R;
             float _lx1L = v3L, _lx1R = v3R;
+            float prevX4L = v4L, prevX4R = v4R;
+            float prevFL = foldADAA1_F(prevX4L), prevFR = foldADAA1_F(prevX4R);
             const float f1 = clamp(0.57f - fxParam1 * 0.43f, filterWindowMin, filterWindowMax);
             float coef1 = (1.0f - f1) / (1.0f + f1);
 
@@ -5661,7 +5753,7 @@ void Voice::fxAfterBlock() {
                 _ly1L = coef1 * (_ly1L + *sp) - _lx1L; // allpass
                 _lx1L = *sp;
 
-                localv0L = pattern * localv0L - f * localv1L + f4 * fold(_ly1L * gain);
+                localv0L = pattern * localv0L - f * localv1L + f4 * foldADAA(_ly1L * gain, prevX4L, prevFL);
                 localv1L = pattern * localv1L + f * localv0L;
 
                 *sp++ = clamp(localv1L * finalGain, -ratioTimbres, ratioTimbres);
@@ -5670,7 +5762,7 @@ void Voice::fxAfterBlock() {
                 _ly1R = coef1 * (_ly1R + *sp) - _lx1R; // allpass
                 _lx1R = *sp;
 
-                localv0R = pattern * localv0R - f * localv1R + f4 * fold(_ly1R * gain);
+                localv0R = pattern * localv0R - f * localv1R + f4 * foldADAA(_ly1R * gain, prevX4R, prevFR);
                 localv1R = pattern * localv1R + f * localv0R;
 
                 *sp++ = clamp(localv1R * finalGain, -ratioTimbres, ratioTimbres);
@@ -5685,6 +5777,8 @@ void Voice::fxAfterBlock() {
             v2R = _ly1R;
             v3L = _lx1L;
             v3R = _lx1R;
+            v4L = prevX4L;
+            v4R = prevX4R;
         }
             break;
         case FILTER_WRAP: {
@@ -6053,6 +6147,8 @@ void Voice::fxAfterBlock() {
 
             float _ly1L = v2L, _ly1R = v2R;
             float _lx1L = v3L, _lx1R = v3R;
+            float prevX4L = v4L, prevX4R = v4R;
+            float prevFL = foldADAA1_F(prevX4L), prevFR = foldADAA1_F(prevX4R);
             const float f1 = clamp(0.27f + fxParam1 * 0.2f, filterWindowMin, filterWindowMax);
             float coef1 = (1.0f - f1) / (1.0f + f1);
 
@@ -6062,7 +6158,7 @@ void Voice::fxAfterBlock() {
                 // Left voice
                 *sp = _ly1L + ((-_ly1L + *sp) * r);
 
-                digitsAL = FLOAT2SHORT * fold(localv0L * gain);
+                digitsAL = FLOAT2SHORT * foldADAA(localv0L * gain, prevX4L, prevFL);
                 digitsBL = FLOAT2SHORT * (*sp);
                 digitized = (float) (digitsAL ^ (digitsBL & bitmask));
                 localv0L = (*sp * b) + (digitized * a2f);
@@ -6075,7 +6171,7 @@ void Voice::fxAfterBlock() {
                 // Right voice
                 *sp = _ly1R + ((-_ly1R + *sp) * r);
 
-                digitsAR = FLOAT2SHORT * fold(localv0R * gain);
+                digitsAR = FLOAT2SHORT * foldADAA(localv0R * gain, prevX4R, prevFR);
                 digitsBR = FLOAT2SHORT * (*sp);
                 digitized = (float) (digitsAR ^ (digitsBR & bitmask));
                 localv0R = (*sp * b) + (digitized * a2f);
@@ -6092,6 +6188,8 @@ void Voice::fxAfterBlock() {
             v2R = _ly1R;
             v3L = _lx1L;
             v3R = _lx1R;
+            v4L = prevX4L;
+            v4R = prevX4R;
         }
             break;
         case FILTER_LPXOR2: {
@@ -6126,6 +6224,8 @@ void Voice::fxAfterBlock() {
 
             float _ly1L = v2L, _ly1R = v2R;
             float _lx1L = v3L, _lx1R = v3R;
+            float prevX4L = v4L, prevX4R = v4R;
+            float prevFL = foldADAA1_F(prevX4L), prevFR = foldADAA1_F(prevX4R);
             const float f1 = clamp(0.27f + fxParam1 * 0.2f, filterWindowMin, filterWindowMax);
             float coef1 = (1.0f - f1) / (1.0f + f1);
 
@@ -6136,7 +6236,7 @@ void Voice::fxAfterBlock() {
                 *sp = _ly1L + ((-_ly1L + *sp) * r);
 
                 digitsAL = FLOAT2SHORT * localv0L;
-                digitsBL = FLOAT2SHORT * fold(*sp * gain);
+                digitsBL = FLOAT2SHORT * foldADAA(*sp * gain, prevX4L, prevFL);
                 digitized = ((digitsAL | (digitsBL & bitmask)));
                 localv0L = (*sp * b) + (digitized * a2f);
 
@@ -6149,7 +6249,7 @@ void Voice::fxAfterBlock() {
                 *sp = _ly1R + ((-_ly1R + *sp) * r);
 
                 digitsAR = FLOAT2SHORT * localv0R;
-                digitsBR = FLOAT2SHORT * fold(*sp * gain);
+                digitsBR = FLOAT2SHORT * foldADAA(*sp * gain, prevX4R, prevFR);
                 digitized = ((digitsAR | (digitsBR & bitmask)));
                 localv0R = (*sp * b) + (digitized * a2f);
 
@@ -6165,6 +6265,8 @@ void Voice::fxAfterBlock() {
             v2R = _ly1R;
             v3L = _lx1L;
             v3R = _lx1R;
+            v4L = prevX4L;
+            v4R = prevX4R;
         }
             break;
         case FILTER_LPSIN: {
@@ -6932,6 +7034,8 @@ void Voice::fxAfterBlock() {
 
             float sat = 1.45f;
             float sat2 = 1.65f;
+            float prevSatX = v7L, prevTanhX = v8R;
+            float prevSatF = sat25ADAA1_F(prevSatX), prevTanhF = tanh4ADAA1_F(prevTanhX);
 
             for (int k = BLOCK_SIZE; k--;) {
                 nz = noise[k] * 0.013f;
@@ -6951,7 +7055,7 @@ void Voice::fxAfterBlock() {
                 low3 += f3 * band3;
                 band3 += f3 * (scale3 * in - low3 - fb3 * band3);
 
-                out = sat25(band * sat) + tanh4((band2 * sat2) + band3 * 0.75f) * 0.5f;
+                out = sat25ADAA(band * sat, prevSatX, prevSatF) + tanh4ADAA((band2 * sat2) + band3 * 0.75f, prevTanhX, prevTanhF) * 0.5f;
 
                 // ----------- Left voice
                 _ly1L = coef1 * (_ly1L + out) - _lx1L; // allpass
@@ -6975,6 +7079,7 @@ void Voice::fxAfterBlock() {
             v4L = low3;
             v5L = band3;
             v6L = nexDrift;
+            v7L = prevSatX;
 
             v0R = _ly1L;
             v1R = _lx1L;
@@ -6985,6 +7090,7 @@ void Voice::fxAfterBlock() {
             v5R = _lx2L;
             v6R = _ly2R;
             v7R = _lx2R;
+            v8R = prevTanhX;
 
             break;
         }
@@ -7020,6 +7126,8 @@ void Voice::fxAfterBlock() {
 
             float _ly1L = v3L, _ly1R = v3R;
             float _lx1L = v7L, _lx1R = v7R;
+            float prevXL = v8L, prevXR = v8R;
+            float prevFL = tanh4ADAA1_F(prevXL), prevFR = tanh4ADAA1_F(prevXR);
 
             const float f1 = clamp(0.37f + cut * cut * 0.047f, filterWindowMin, filterWindowMax);
             float coef1 = (1.0f - f1) / (1.0f + f1);
@@ -7033,7 +7141,7 @@ void Voice::fxAfterBlock() {
                 // Left voice
                 *sp = buf3L + ((-buf3L + *sp) * r);
 
-                *sp = tanh4(*sp - (buf3L) * (fb));
+                *sp = tanh4ADAA(*sp - (buf3L) * (fb), prevXL, prevFL);
                 *sp *= attn;
                 buf1L = (*sp) + inAtn * buf1inL + invCut * buf1L; // Pole 1
                 buf1inL = (*sp);
@@ -7050,7 +7158,7 @@ void Voice::fxAfterBlock() {
                 // Right voice
                 *sp = buf3R + ((-buf3R + *sp) * r);
 
-                *sp = tanh4(*sp - (buf3R) * (fb));
+                *sp = tanh4ADAA(*sp - (buf3R) * (fb), prevXR, prevFR);
                 *sp *= attn;
                 buf1R = (*sp) + inAtn * buf1inR + invCut * buf1R; // Pole 1
                 buf1inR = (*sp);
@@ -7085,6 +7193,8 @@ void Voice::fxAfterBlock() {
             v3R = _ly1R;
             v7L = _lx1L;
             v7R = _lx1R;
+            v8L = prevXL;
+            v8R = prevXR;
 
             break;
         }
@@ -7199,6 +7309,8 @@ void Voice::fxAfterBlock() {
 
             float _ly2L = v6L, _ly2R = v6R;
             float _lx2L = v7L, _lx2R = v7R;
+            float prevXL = v8L, prevXR = v8R;
+            float prevFL = sat25ADAA1_F(prevXL), prevFR = sat25ADAA1_F(prevXR);
 
             float resoclip;
 
@@ -7215,7 +7327,7 @@ void Voice::fxAfterBlock() {
             for (int k = BLOCK_SIZE; k--;) {
 
                 // Left voice
-                *sp = *sp - sat25(buf4L * (res + buf4R * 0.05f));
+                *sp = *sp - sat25ADAA(buf4L * (res + buf4R * 0.05f), prevXL, prevFL);
                 buf1L = ((*sp - buf1L) * cut) + buf1L;
                 buf2L = ((buf1L - buf2L) * cut) + buf2L;
                 _ly1L = coef1 * (_ly1L + buf2L) - _lx1L; // allpass
@@ -7227,7 +7339,7 @@ void Voice::fxAfterBlock() {
                 *sp++ = clamp(buf4L * finalGain, -ratioTimbres, ratioTimbres);
 
                 // Right voice
-                *sp = *sp - sat25(buf4R * (res - buf4L * 0.05f));
+                *sp = *sp - sat25ADAA(buf4R * (res - buf4L * 0.05f), prevXR, prevFR);
                 buf1R = ((*sp - buf1R) * cut) + buf1R;
                 buf2R = ((buf1R - buf2R) * cut) + buf2R;
                 _ly1R = coef1 * (_ly1R + buf2R) - _lx1R; // allpass
@@ -7258,6 +7370,8 @@ void Voice::fxAfterBlock() {
             v6R = _ly2R;
             v7L = _lx2L;
             v7R = _lx2R;
+            v8L = prevXL;
+            v8R = prevXR;
 
             break;
         }
@@ -7528,6 +7642,8 @@ void Voice::fxAfterBlock() {
             float invAttn = sqrt3(currentTimbre->getNumberOfVoiceInverse());
             float drive2 = 1.05f - fxParam1 * fxParam1 * 0.05f + (filterParam2 * 0.17f - fxParamA1 * fxParamA1 * 0.051f) * invAttn;
             float finalGain = (mixerGain * (1 - fxParam1 * 0.2f) + fxParamA1) * 0.75f;
+            float prevXL = v5L, prevXR = v5R;
+            float prevFL = tanh4ADAA1_F(prevXL), prevFR = tanh4ADAA1_F(prevXR);
 
             float r = 0.989f;
 
@@ -7549,7 +7665,7 @@ void Voice::fxAfterBlock() {
                 state3L = state4L - f2a1 * y;
                 state4L = -f2a2 * y;
 
-                *sp++ = clamp(tanh4(y * drive2) * finalGain, -ratioTimbres, ratioTimbres);
+                *sp++ = clamp(tanh4ADAA(y * drive2, prevXL, prevFL) * finalGain, -ratioTimbres, ratioTimbres);
 
                 // -------- -------- -------- Right
                 *sp = (state4R + ((-state4R + *sp) * r));
@@ -7568,7 +7684,7 @@ void Voice::fxAfterBlock() {
                 state3R = state4R - f2a1 * y;
                 state4R = -f2a2 * y;
 
-                *sp++ = clamp(tanh4(y * drive2) * finalGain, -ratioTimbres, ratioTimbres);
+                *sp++ = clamp(tanh4ADAA(y * drive2, prevXR, prevFR) * finalGain, -ratioTimbres, ratioTimbres);
             }
 
             v0L = state0L;
@@ -7576,12 +7692,14 @@ void Voice::fxAfterBlock() {
             v2L = state2L;
             v3L = state3L;
             v4L = state4L;
+            v5L = prevXL;
 
             v0R = state0R;
             v1R = state1R;
             v2R = state2R;
             v3R = state3R;
             v4R = state4R;
+            v5R = prevXR;
 
         }
             break;
@@ -7607,6 +7725,8 @@ void Voice::fxAfterBlock() {
 
             float _ly2L = v6L, _ly2R = v6R;
             float _lx2L = v7L, _lx2R = v7R;
+            float prevXL = v8L, prevXR = v8R;
+            float prevFL = sat25ADAA1_F(prevXL), prevFR = sat25ADAA1_F(prevXR);
 
             const float sqrtF = sqrt3(f);
             const float f1 = clamp(0.5f + sqrtF * 0.6f, filterWindowMin, filterWindowMax);
@@ -7630,7 +7750,7 @@ void Voice::fxAfterBlock() {
 
             for (int k = BLOCK_SIZE; k--;) {
                 // Left voice
-                *sp = sat25((lowL3 + ((-lowL3 + *sp) * r)) * sat);
+                *sp = sat25ADAA((lowL3 + ((-lowL3 + *sp) * r)) * sat, prevXL, prevFL);
 
                 _ly1L = coef1 * (_ly1L + *sp) - _lx1L; // allpass
                 _lx1L = *sp;
@@ -7650,7 +7770,7 @@ void Voice::fxAfterBlock() {
                 *sp++ = clamp(_ly2L * svfGain, -ratioTimbres, ratioTimbres);
 
                 // Right voice
-                *sp = sat25((lowR3 + ((-lowR3 + *sp) * r)) * sat);
+                *sp = sat25ADAA((lowR3 + ((-lowR3 + *sp) * r)) * sat, prevXR, prevFR);
 
                 _ly1R = coef1 * (_ly1R + *sp) - _lx1R; // allpass
                 _lx1R = *sp;
@@ -7689,6 +7809,8 @@ void Voice::fxAfterBlock() {
             v6R = _ly2R;
             v7L = _lx2L;
             v7R = _lx2R;
+            v8L = prevXL;
+            v8R = prevXR;
         }
             break;
         case FILTER_CRUSH2: {

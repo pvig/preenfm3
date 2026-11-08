@@ -42,6 +42,75 @@ int Osc::oscValuesCpt = 1;
 // User waveforms
 float userWaveform[6][1024] __attribute__((section(".instruction_ram")));
 
+// Band-limited mipmap sub-tables for rich built-in waveforms (orders 10, 5, 2/3, 1)
+float sawMipmaps[4][2048] __attribute__((section(".ram_d1")));
+float squareMipmapsL1L2[2][2048] __attribute__((section(".ram_d1")));
+float squareMipmapsL3L4[2][2048] __attribute__((section(".ram_d2b")));
+float sinZeroMipmaps[4][1024] __attribute__((section(".ram_d3")));
+float sinPosMipmaps[4][1024] __attribute__((section(".instruction_ram")));
+
+float* waveMipmapTables[NUMBER_OF_WAVETABLES][5];
+
+static void buildShapeMipmaps(
+    const float* baseTable,
+    int size,
+    int hLevel3,
+    float* level1,
+    float* level2,
+    float* level3,
+    float* level4)
+{
+    const float invN = 1.0f / (float)size;
+    const float twoInvN = 2.0f * invN;
+    const int sinStep = 2048 / size;
+
+    float dc = 0.0f;
+    for (int n = 0; n < size; n++) {
+        dc += baseTable[n];
+    }
+    dc *= invN;
+    for (int n = 0; n < size; n++) {
+        level1[n] = dc;
+    }
+
+    for (int h = 1; h <= 10; h++) {
+        float a_h = 0.0f;
+        float b_h = 0.0f;
+        const int phaseStep = h * sinStep;
+        int phase = 0;
+        for (int n = 0; n < size; n++) {
+            const float x = baseTable[n];
+            b_h += x * sinTable[phase & 0x7ff];
+            a_h += x * sinTable[(phase + 512) & 0x7ff];
+            phase += phaseStep;
+        }
+        a_h *= twoInvN;
+        b_h *= twoInvN;
+
+        phase = 0;
+        for (int n = 0; n < size; n++) {
+            level1[n] += a_h * sinTable[(phase + 512) & 0x7ff] + b_h * sinTable[phase & 0x7ff];
+            phase += phaseStep;
+        }
+
+        if (h == 1) {
+            for (int n = 0; n < size; n++) {
+                level4[n] = level1[n];
+            }
+        }
+        if (h == hLevel3) {
+            for (int n = 0; n < size; n++) {
+                level3[n] = level1[n];
+            }
+        }
+        if (h == 5) {
+            for (int n = 0; n < size; n++) {
+                level2[n] = level1[n];
+            }
+        }
+    }
+}
+
 struct WaveTable waveTables[NUMBER_OF_WAVETABLES]  = {
         //		OSC_SHAPE_SIN = 0,
         {
@@ -179,6 +248,30 @@ void Osc::init(SynthState* synthState, struct OscillatorParams *oscParams, struc
         for (int k=0; k<NUMBER_OF_WAVETABLES; k++) {
             waveTables[k].precomputedValue = (waveTables[k].max + 1) * waveTables[k].useFreq * PREENFM_FREQUENCY_INVERSED;
             waveTables[k].phaseMul = 1.f / (waveTables[k].max + 1);
+            for (int m = 0; m < 5; m++) {
+                waveMipmapTables[k][m] = waveTables[k].table;
+            }
+        }
+
+        buildShapeMipmaps(sawTable, 2048, 2, sawMipmaps[0], sawMipmaps[1], sawMipmaps[2], sawMipmaps[3]);
+        for (int m = 0; m < 4; m++) {
+            waveMipmapTables[OSC_SHAPE_SAW][m + 1] = sawMipmaps[m];
+        }
+
+        buildShapeMipmaps(squareTable, 2048, 3, squareMipmapsL1L2[0], squareMipmapsL1L2[1], squareMipmapsL3L4[0], squareMipmapsL3L4[1]);
+        waveMipmapTables[OSC_SHAPE_SQUARE][1] = squareMipmapsL1L2[0];
+        waveMipmapTables[OSC_SHAPE_SQUARE][2] = squareMipmapsL1L2[1];
+        waveMipmapTables[OSC_SHAPE_SQUARE][3] = squareMipmapsL3L4[0];
+        waveMipmapTables[OSC_SHAPE_SQUARE][4] = squareMipmapsL3L4[1];
+
+        buildShapeMipmaps(sinOrZeroTable, 1024, 2, sinZeroMipmaps[0], sinZeroMipmaps[1], sinZeroMipmaps[2], sinZeroMipmaps[3]);
+        for (int m = 0; m < 4; m++) {
+            waveMipmapTables[OSC_SHAPE_SIN_ZERO][m + 1] = sinZeroMipmaps[m];
+        }
+
+        buildShapeMipmaps(sinPosTable, 1024, 2, sinPosMipmaps[0], sinPosMipmaps[1], sinPosMipmaps[2], sinPosMipmaps[3]);
+        for (int m = 0; m < 4; m++) {
+            waveMipmapTables[OSC_SHAPE_SIN_POS][m + 1] = sinPosMipmaps[m];
         }
     }
     if (oscValuesCpt == 1) {
