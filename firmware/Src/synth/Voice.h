@@ -28,7 +28,9 @@
  \param [in]    sat  Bit position to saturate to (0..31)
  \return             Saturated value
  */
-#ifndef __USAT
+#ifdef __INTELLISENSE__
+#define __USAT(ARG1,ARG2) ((uint32_t)(ARG1))
+#elif !defined(__USAT)
 #define __USAT(ARG1,ARG2) \
 ({                          \
   uint32_t __RES, __ARG1 = (ARG1); \

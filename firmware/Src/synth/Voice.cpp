@@ -222,6 +222,25 @@ inline
 float wrap(float x) {
     return (x - floorf(x)) * 2.0f - 1.0f;
 }
+inline
+float wrapADAA1_F(float x) {
+    const float d = x - floorf(x);
+    return d * (d - 1.0f);
+}
+inline
+float wrapADAA(float x, float &prevX, float &prevF) {
+    const float f = wrapADAA1_F(x);
+    const float diff = x - prevX;
+    float out;
+    if (likely(fabsf(diff) > 1e-5f)) {
+        out = (f - prevF) / diff;
+    } else {
+        out = wrap(0.5f * (x + prevX));
+    }
+    prevX = x;
+    prevF = f;
+    return out;
+}
 enum NewNoteType {
     NEW_NOTE_FREE = 0,
     NEW_NOTE_RELEASE,
@@ -5806,12 +5825,14 @@ void Voice::fxAfterBlock() {
 
             float _ly1L = v2L, _ly1R = v2R;
             float _lx1L = v3L, _lx1R = v3R;
+            float prevXL = v4L, prevXR = v4R;
+            float prevFL = wrapADAA1_F(prevXL), prevFR = wrapADAA1_F(prevXR);
             const float f1 = clamp(0.58f - fxParam1 * 0.43f, filterWindowMin, filterWindowMax);
             float coef1 = (1.0f - f1) / (1.0f + f1);
 
             for (int k = BLOCK_SIZE; k--;) {
                 //LEFT
-                localv0L = pattern * localv0L + f * (wrap(*sp * gain) - localv1L);
+                localv0L = pattern * localv0L + f * (wrapADAA(*sp * gain, prevXL, prevFL) - localv1L);
                 localv1L = pattern * localv1L + f * localv0L;
 
                 _ly1L = coef1 * (_ly1L + localv1L) - _lx1L; // allpass
@@ -5819,7 +5840,7 @@ void Voice::fxAfterBlock() {
                 *sp++ = clamp(_ly1L * finalGain, -ratioTimbres, ratioTimbres);
 
                 //RIGHT
-                localv0R = pattern * localv0R + f * (wrap(*sp * gain) - localv1R);
+                localv0R = pattern * localv0R + f * (wrapADAA(*sp * gain, prevXR, prevFR) - localv1R);
                 localv1R = pattern * localv1R + f * localv0R;
 
                 _ly1R = coef1 * (_ly1R + localv1R) - _lx1R; // allpass
@@ -5836,6 +5857,9 @@ void Voice::fxAfterBlock() {
             v2R = _ly1R;
             v3L = _lx1L;
             v3R = _lx1R;
+
+            v4L = prevXL;
+            v4R = prevXR;
         }
             break;
         case FILTER_XOR: {
