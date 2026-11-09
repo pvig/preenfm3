@@ -1329,7 +1329,7 @@ const char *oscShapeNames[] = {
     "sin ",
     "saw ",
     "squa",
-    "s^2 ",
+    "s_q4",
     "szer",
     "spos",
     "rand",

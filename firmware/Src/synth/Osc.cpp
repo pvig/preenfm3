@@ -46,6 +46,8 @@ float userWaveform[6][1024] __attribute__((section(".instruction_ram")));
 float sawMipmaps[4][2048] __attribute__((section(".ram_d1")));
 float squareMipmapsL1L2[2][2048] __attribute__((section(".ram_d1")));
 float squareMipmapsL3L4[2][2048] __attribute__((section(".ram_d2b")));
+float sq4MipmapsL1L2[2][1024] __attribute__((section(".ram_d1")));
+float sq4MipmapsL3L4[2][1024] __attribute__((section(".ram_d2b")));
 float sinZeroMipmaps[4][1024] __attribute__((section(".ram_d3")));
 float sinPosMipmaps[4][1024] __attribute__((section(".instruction_ram")));
 
@@ -273,6 +275,12 @@ void Osc::init(SynthState* synthState, struct OscillatorParams *oscParams, struc
         for (int m = 0; m < 4; m++) {
             waveMipmapTables[OSC_SHAPE_SIN_POS][m + 1] = sinPosMipmaps[m];
         }
+
+        buildShapeMipmaps(sinSquareTable, 1024, 2, sq4MipmapsL1L2[0], sq4MipmapsL1L2[1], sq4MipmapsL3L4[0], sq4MipmapsL3L4[1]);
+        waveMipmapTables[OSC_SHAPE_SIN_SQUARE][1] = sq4MipmapsL1L2[0];
+        waveMipmapTables[OSC_SHAPE_SIN_SQUARE][2] = sq4MipmapsL1L2[1];
+        waveMipmapTables[OSC_SHAPE_SIN_SQUARE][3] = sq4MipmapsL3L4[0];
+        waveMipmapTables[OSC_SHAPE_SIN_SQUARE][4] = sq4MipmapsL3L4[1];
     }
     if (oscValuesCpt == 1) {
         oscValues[0] = oscValues1;
