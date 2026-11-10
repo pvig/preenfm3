@@ -24,6 +24,7 @@
 #include "Synth.h"
 #include "Menu.h"
 #include "Sequencer.h"
+#include <math.h>
 
 extern RNG_HandleTypeDef hrng;
 extern float noise[32];
@@ -350,6 +351,12 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         // Even without compressor we call this meethod
         // It allows to retrieve the volume in DB
         instrumentCompressor_[timbre].processPfm3(sampleFromTimbre);
+
+        // Warm saturation
+        int satMode = this->synthState_->mixerState.instrumentState_[timbre].saturationType;
+        if (satMode > SATURATION_OFF) {
+            FxBus::applyWarmSaturation(sampleFromTimbre, satMode);
+        }
 
         // Send to bus fx, to mix with other timbres
         fxBus->mixAdd(timbres_[timbre].getSampleBlock(), synthState_->mixerState.instrumentState_[timbre].send, synthState_->mixerState.reverbLevel_);
@@ -785,6 +792,9 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setRelease(50.0);
                     break;
             }
+            break;
+        case MIXER_VALUE_SATURATION:
+            this->synthState_->mixerState.instrumentState_[timbre].saturationType = (uint8_t) newValue;
             break;
     }
 }

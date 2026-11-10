@@ -341,6 +341,16 @@ enum {
     FM_DECIMATION_CURRENT = FM_DECIMATION_FULL
 };
 
+enum SaturationType {
+    SATURATION_OFF = 0,
+    SATURATION_TAPE,
+    SATURATION_TUBE,
+    SATURATION_WARM,
+    SATURATION_DRIVE,
+    SATURATION_FUZZ,
+    SATURATION_LAST
+};
+
 struct EngineDecimationParams {
     float decimation;
     float unused1;
@@ -818,7 +828,8 @@ enum MixerValueType {
     MIXER_VALUE_GLOBAL_SETTINGS_2,
     MIXER_VALUE_GLOBAL_SETTINGS_3,
     MIXER_VALUE_GLOBAL_SETTINGS_4,
-    MIXER_VALUE_GLOBAL_SETTINGS_5
+    MIXER_VALUE_GLOBAL_SETTINGS_5,
+    MIXER_VALUE_SATURATION
 };
 
 enum SeqValueType {

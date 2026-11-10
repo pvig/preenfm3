@@ -830,6 +830,66 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 }
 
+void FxBus::applyWarmSaturation(float *samples, int mode) {
+    const float *end = samples + (BLOCK_SIZE * 2);
+    switch (mode) {
+        case SATURATION_TAPE: {
+            // Magnetic tape model: gentle quadratic drive (H2 warmth) + soft algebraic clip
+            while (samples < end) {
+                float x = *samples;
+                float x_drive = x + 0.12f * x * fabsf(x);
+                *samples++ = x_drive / sqrtf(1.0f + 0.35f * x_drive * x_drive);
+            }
+            break;
+        }
+        case SATURATION_TUBE: {
+            // Triode valve model: asymmetric triode curvature with compensated unity gain at 0
+            while (samples < end) {
+                float x = *samples;
+                float x_drive = x - 0.12f * x * x;
+                *samples++ = x_drive / sqrtf(1.0f + 0.38f * x_drive * x_drive);
+            }
+            break;
+        }
+        case SATURATION_WARM: {
+            // Analog console bus: exact unity gain at low levels, smooth C1 cubic saturation
+            while (samples < end) {
+                float x = *samples;
+                if (x > 1.5f) {
+                    *samples++ = 1.0f;
+                } else if (x < -1.5f) {
+                    *samples++ = -1.0f;
+                } else {
+                    *samples++ = x - (4.0f / 27.0f) * x * x * x;
+                }
+            }
+            break;
+        }
+        case SATURATION_DRIVE: {
+            // Overdrive / JFET Crunch: moderate drive with normalized output compensation
+            while (samples < end) {
+                float x = *samples;
+                float x_in = 1.6f * x;
+                float x_d = x_in - 0.10f * x_in * fabsf(x_in);
+                *samples++ = 0.78f * (x_d / sqrtf(1.0f + 0.65f * x_d * x_d));
+            }
+            break;
+        }
+        case SATURATION_FUZZ: {
+            // High-Gain Fuzz / Hard Saturation: aggressive bite with normalized output compensation
+            while (samples < end) {
+                float x = *samples;
+                float x_d = 2.4f * x - 0.18f * x * fabsf(x);
+                float x2 = x_d * x_d;
+                *samples++ = 0.58f * (x_d / sqrtf(sqrtf(1.0f + x2 * x2)));
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 #if defined(__GNUC__) && !defined(DEBUG)
 #pragma GCC pop_options
 #endif
