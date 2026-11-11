@@ -32,7 +32,7 @@
 #include "voice_allocator.h"
 #include "event_scheduler.h"
 
-extern float panTable[];
+extern const float panTable[];
 class Voice;
 
 enum {

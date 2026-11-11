@@ -4242,7 +4242,7 @@ void Voice::setCurrentTimbre(Timbre *timbre) {
     setNewEffectParam(0);
 
     // init pan
-    int *opInfo = algoOpInformation[(int) timbre->getParamRaw()->engine1.algo];
+    const int *opInfo = algoOpInformation[(int) timbre->getParamRaw()->engine1.algo];
     if (likely(opInfo[0] == 1)) {
         float pan1 = timbre->getParamRaw()->engineMix1.panOsc1 + 1.0f;
         int pan = __USAT((int )(pan1 * 128), 8);

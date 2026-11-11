@@ -278,12 +278,12 @@ extern const struct OneSynthParams preenMainPreset;
 extern const struct OneSynthParams defaultPreset;
 extern const struct OneSynthParams newPresetParams;
 
-extern struct AlgoInformation algoInformation[];
+extern const struct AlgoInformation algoInformation[];
 extern const uint8_t* allAlgos[];
 
 #define OPERATOR_CARRIER 1
 #define OPERATOR_MODULATOR 2
-extern int algoOpInformation[][NUMBER_OF_OPERATORS];
+extern const int algoOpInformation[][NUMBER_OF_OPERATORS];
 
 extern uint8_t sysexTmpMem[];
 extern struct OneSynthParams oneSynthParamsTmp;

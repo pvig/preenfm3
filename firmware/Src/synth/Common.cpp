@@ -17,7 +17,7 @@
 
 #include "Common.h"
 
-struct AlgoInformation  algoInformation[] = {
+const struct AlgoInformation  algoInformation[] = {
         { 3, 3, 1}, // ALGO1
         { 3, 2, 2}, // ALGO2
         { 4, 4, 1}, // ALGO3
@@ -53,7 +53,7 @@ struct AlgoInformation  algoInformation[] = {
 };
 
 
-int algoOpInformation[][NUMBER_OF_OPERATORS] = {
+const int algoOpInformation[][NUMBER_OF_OPERATORS] = {
         {1,2,2,0,0,0}, // ALGO1
         {1,1,2,0,0,0}, // ALGO2
         {1,2,2,2,0,0}, // ALGO3

@@ -55,7 +55,7 @@ enum MASTERFXPARAMS {
 };
 
 
-extern float panTable[];
+extern const float panTable[];
 
 class FxBus {
 	friend class FMDisplayMixer;
