@@ -778,14 +778,14 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setAttack(10.0f);
                     instrumentCompressor_[timbre].setRelease(100.0f);
                     break;
-                // 1: Glue (VCA bus comp + Warm console saturation)
+                // 1: Glue (SSL-style VCA Bus Glue + Warm console saturation)
                 case 1:
-                    instrumentCompressor_[timbre].setRatio(0.25f);
-                    instrumentCompressor_[timbre].setThresh(-20.0f);
-                    instrumentCompressor_[timbre].setKnee(6.0f);
-                    instrumentCompressor_[timbre].setMakeup(5.5f);
-                    instrumentCompressor_[timbre].setAttack(20.0f);
-                    instrumentCompressor_[timbre].setRelease(150.0f);
+                    instrumentCompressor_[timbre].setRatio(0.45f);
+                    instrumentCompressor_[timbre].setThresh(-22.0f);
+                    instrumentCompressor_[timbre].setKnee(8.0f);
+                    instrumentCompressor_[timbre].setMakeup(4.0f);
+                    instrumentCompressor_[timbre].setAttack(25.0f);
+                    instrumentCompressor_[timbre].setRelease(320.0f);
                     break;
                 // 2: Punch (Percussive VCA comp + Punch / Distressor saturation)
                 case 2:
