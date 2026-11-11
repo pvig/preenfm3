@@ -455,31 +455,21 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         // treat global channel CC
         switch (midiEvent.value[0])
         {
+        case CC_TIMBRE_DRYWET:
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            return;
+        case CC_MFX_RETURN:
+            if (timbre == 0) {
+                this->synthState_->mixerState.reverbLevel_ = (float) midiEvent.value[1] * INV127;
+            }
+            return;
         case CC_MFX_PRESET:
-            this->synthState_->mixerState.reverbPreset_ = midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.nextPresetNum = midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.slowParamChange();
-            break;
-        case CC_MFX_PREDELAYTIME:
-            this->synthState_->mixerState.fxBus_.masterfxConfig[GLOBALFX_PREDELAYTIME] = INV127 * midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.slowParamChange();
-            break;
-        case CC_MFX_PREDELAYMIX:
-            this->synthState_->mixerState.fxBus_.masterfxConfig[GLOBALFX_PREDELAYMIX] = INV127 * midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.slowParamChange();
-            break;
-        case CC_MFX_INPUTTILT:
-            this->synthState_->mixerState.fxBus_.masterfxConfig[GLOBALFX_INPUTBASE] = INV127 * midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.slowParamChange();
-            break;
-        case CC_MFX_MOD_SPEED:
-            this->synthState_->mixerState.fxBus_.masterfxConfig[GLOBALFX_LFOSPEED] = INV127 * midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.slowParamChange();
-            break;
-        case CC_MFX_MOD_DEPTH:
-            this->synthState_->mixerState.fxBus_.masterfxConfig[GLOBALFX_LFODEPTH] = INV127 * midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.slowParamChange();
-            break;
+            if (timbre == 0) {
+                this->synthState_->mixerState.reverbPreset_ = midiEvent.value[1];
+                this->synthState_->mixerState.fxBus_.nextPresetNum = midiEvent.value[1];
+                this->synthState_->mixerState.fxBus_.slowParamChange();
+            }
+            return;
         }
     }
     
@@ -540,6 +530,20 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_ALGO:
             this->synth->setNewValueFromMidi(timbre, ROW_ENGINE, ENCODER_ENGINE_ALGO, (float) midiEvent.value[1]);
             break;
+        case CC_GLIDE:
+            this->synth->setNewValueFromMidi(timbre, ROW_ENGINE, ENCODER_ENGINE_GLIDE_SPEED,
+                    (float) midiEvent.value[1] * (12.0f * INV127));
+            break;
+        case CC_PLAY_MODE: {
+            float mode = (midiEvent.value[1] < 3) ? (float) midiEvent.value[1] : (float) ((midiEvent.value[1] * 3) / 128);
+            this->synth->setNewValueFromMidi(timbre, ROW_ENGINE, ENCODER_ENGINE_PLAY_MODE, mode);
+            break;
+        }
+        case CC_ENGINE_DECIMATION: {
+            float decim = (midiEvent.value[1] < 6) ? (float) midiEvent.value[1] : (float) ((midiEvent.value[1] * 6) / 128);
+            this->synth->setNewValueFromMidi(timbre, ROW_ENGINE_DECIMATION, ENCODER_ENGINE_DECIMATION, decim);
+            break;
+        }
         case CC_IM1:
         case CC_IM2:
             this->synth->setNewValueFromMidi(timbre, ROW_MODULATION1, ENCODER_ENGINE_IM1 + (midiEvent.value[0] - CC_IM1) * 2,
@@ -576,6 +580,22 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_PAN3:
         case CC_PAN4:
             this->synth->setNewValueFromMidi(timbre, ROW_OSC_MIX2, ENCODER_ENGINE_PAN3 + (midiEvent.value[0] - CC_PAN3),
+                    (float) midiEvent.value[1] * .00787401574803149606f * 2.0f - 1.0f);
+            break;
+        case CC_MIX5:
+            this->synth->setNewValueFromMidi(timbre, ROW_OSC_MIX3, ENCODER_ENGINE_MIX5,
+                    (float) midiEvent.value[1] * .00787401574803149606f);
+            break;
+        case CC_PAN5:
+            this->synth->setNewValueFromMidi(timbre, ROW_OSC_MIX3, ENCODER_ENGINE_PAN5,
+                    (float) midiEvent.value[1] * .00787401574803149606f * 2.0f - 1.0f);
+            break;
+        case CC_MIX6:
+            this->synth->setNewValueFromMidi(timbre, ROW_OSC_MIX3, ENCODER_ENGINE_MIX6,
+                    (float) midiEvent.value[1] * .00787401574803149606f);
+            break;
+        case CC_PAN6:
+            this->synth->setNewValueFromMidi(timbre, ROW_OSC_MIX3, ENCODER_ENGINE_PAN6,
                     (float) midiEvent.value[1] * .00787401574803149606f * 2.0f - 1.0f);
             break;
         case CC_OSC1_FREQ:
@@ -630,8 +650,6 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             // cc.value[1] = newValue * 5.0f + 50.1f;
             this->synth->setNewValueFromMidi(timbre, ROW_PERFORMANCE1, midiEvent.value[0] - CC_MATRIX_SOURCE_CC1,
                     (float) (midiEvent.value[1] - 64) * INV127 * 2.0);
-            break;
-
             break;
         case CC_FILTER_TYPE:
             this->synth->setNewValueFromMidi(timbre, ROW_EFFECT1, ENCODER_EFFECT_TYPE, (float) midiEvent.value[1]);
@@ -746,8 +764,22 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         case CC_MIXER_PAN:
             this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_PAN, (float) midiEvent.value[1] - 63);
             break;
+        case CC_TIMBRE_DRYWET:
         case CC_MIXER_SEND:
             this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            break;
+        case CC_TIMBRE_DYNAMICS: {
+            float comp = (midiEvent.value[1] < 6) ? (float) midiEvent.value[1] : (float) ((midiEvent.value[1] * 6) / 128);
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_COMPRESSOR, comp);
+            break;
+        }
+        case CC_MFX_RETURN:
+            this->synthState_->mixerState.reverbLevel_ = (float) midiEvent.value[1] * INV127;
+            break;
+        case CC_MFX_PRESET:
+            this->synthState_->mixerState.reverbPreset_ = midiEvent.value[1];
+            this->synthState_->mixerState.fxBus_.nextPresetNum = midiEvent.value[1];
+            this->synthState_->mixerState.fxBus_.slowParamChange();
             break;
         case CC_MPE_SLIDE_CC74:
         	// No CC74 on global midi channel
@@ -939,48 +971,55 @@ void MidiDecoder::decodeNrpn(int timbre) {
     float value = (this->currentNrpn[timbre].valueMSB << 7) + this->currentNrpn[timbre].valueLSB;
     int index = (this->currentNrpn[timbre].paramMSB << 7) + this->currentNrpn[timbre].paramLSB;
 
+    // Commande spéciale : dump patch
+    if (this->currentNrpn[timbre].paramMSB == 127 && this->currentNrpn[timbre].paramLSB == 127) {
+        AsyncAction asyncAction;
+        asyncAction.fullBytes = 0l;
+        asyncAction.action.actionType = SEND_PATCH_AS_NRPN;
+        asyncAction.action.timbre = timbre;
+        asyncActions.insert(asyncAction);
+        return;
+    }
+
     // Nom de patch : 228-239
     if (index >= 228 && index < 240) {
         this->synth->setNewSymbolInPresetName(timbre, index - 228, (char)value);
         if (index == 239) {
             this->synthState_->propagateNewPresetName(timbre);
         }
+        return;
     }
+
     // Courbes d'enveloppe : 300-323 (6 enveloppes × 4 segments)
-    else if (index >= 300 && index < 324) {
+    if (index >= 300 && index < 324) {
         int envIndex = index - 300;
         int envNum = envIndex / 4; // 0: env1, 1: env2, ...
         int pointNum = envIndex % 4; // 0:attack, 1:decay, 2:sustain, 3:release
         this->synth->setEnvelopeCurvePointFromMidi(timbre, envNum, pointNum, value);
+        return;
     }
-    // Paramètres classiques
-    else if (this->currentNrpn[timbre].paramMSB < 2) {
-        int memoryIndex = getMemoryIndexFromMidi(index);
-        int row = memoryIndex >> 2;
-        int encoder = memoryIndex % 4;
-        struct ParameterDisplay* param = &(allParameterRows.row[row]->params[encoder]);
-        if (row < NUMBER_OF_ROWS_FOR_EDITOR) {
-            if (param->displayType == DISPLAY_TYPE_FLOAT || param->displayType == DISPLAY_TYPE_FLOAT_OSC_FREQUENCY
-                    || param->displayType == DISPLAY_TYPE_FLOAT_LFO_FREQUENCY || param->displayType == DISPLAY_TYPE_LFO_KSYN) {
-                value = value * .01f + param->minValue;
-            }
-            this->synth->setNewValueFromMidi(timbre, row, encoder, value);
-        }
-    }
-    // Step sequencer : 2xx
-    else if (this->currentNrpn[timbre].paramMSB < 4) {
+
+    // Step sequencer : MSB = 2 ou 3, et LSB = 0 à 15 (steps 0-15 uniquement)
+    if ((this->currentNrpn[timbre].paramMSB == 2 || this->currentNrpn[timbre].paramMSB == 3)
+            && this->currentNrpn[timbre].paramLSB < 16) {
         unsigned int whichStepSeq = this->currentNrpn[timbre].paramMSB - 2;
         unsigned int step = this->currentNrpn[timbre].paramLSB;
         unsigned int v = this->currentNrpn[timbre].valueLSB;
         this->synth->setNewStepValueFromMidi(timbre, whichStepSeq, step, v);
+        return;
     }
-    // Commande spéciale : dump patch
-    else if (this->currentNrpn[timbre].paramMSB == 127 && this->currentNrpn[timbre].paramLSB == 127) {
-        AsyncAction asyncAction;
-        asyncAction.fullBytes = 0l;
-        asyncAction.action.actionType = SEND_PATCH_AS_NRPN;
-        asyncAction.action.timbre = timbre;
-        asyncActions.insert(asyncAction);
+
+    // Tous les paramètres de synthèse (y compris paramMSB >= 2 pour les nouvelles rows)
+    int memoryIndex = getMemoryIndexFromMidi(index);
+    int row = memoryIndex >> 2;
+    int encoder = memoryIndex % 4;
+    if (row < NUMBER_OF_ROWS_FOR_EDITOR) {
+        struct ParameterDisplay* param = &(allParameterRows.row[row]->params[encoder]);
+        if (param->displayType == DISPLAY_TYPE_FLOAT || param->displayType == DISPLAY_TYPE_FLOAT_OSC_FREQUENCY
+                || param->displayType == DISPLAY_TYPE_FLOAT_LFO_FREQUENCY || param->displayType == DISPLAY_TYPE_LFO_KSYN) {
+            value = value * .01f + param->minValue;
+        }
+        this->synth->setNewValueFromMidi(timbre, row, encoder, value);
     }
 }
 
@@ -991,6 +1030,51 @@ void MidiDecoder::newParamValueFromExternal(int timbre, int currentrow, int enco
 
 void MidiDecoder::newMixerValueFromExternal(int timbre, int mixerValueType, float oldValue, float newValue) {
     // Nothing to do
+}
+
+void MidiDecoder::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, float newValue) {
+    int sendCCOrNRPN = this->synthState_->fullState.midiConfigValue[MIDICONFIG_SENDS];
+    if (sendCCOrNRPN != 1) {
+        return;
+    }
+    int channel = this->synthState_->mixerState.instrumentState_[timbre].midiChannel - 1;
+    if (channel < 0) {
+        channel = 0;
+    }
+    struct MidiEvent cc;
+    cc.eventType = MIDI_CONTROL_CHANGE;
+    cc.channel = channel;
+    cc.value[0] = 0;
+
+    switch (valueType) {
+    case MIXER_VALUE_VOLUME:
+        cc.value[0] = CC_MIXER_VOLUME;
+        cc.value[1] = newValue * 127.0f + 0.1f;
+        break;
+    case MIXER_VALUE_PAN:
+        cc.value[0] = CC_MIXER_PAN;
+        cc.value[1] = newValue + 63.5f;
+        break;
+    case MIXER_VALUE_SEND:
+        cc.value[0] = CC_TIMBRE_DRYWET;
+        cc.value[1] = newValue * 127.0f + 0.1f;
+        break;
+    case MIXER_VALUE_COMPRESSOR:
+        cc.value[0] = CC_TIMBRE_DYNAMICS;
+        cc.value[1] = newValue * (127.0f / 5.0f) + 0.1f;
+        break;
+    default:
+        return;
+    }
+
+    if (cc.value[0] != 0) {
+        if (cc.value[1] > 127) {
+            cc.value[1] = 127;
+        }
+        writeMidiCCOut(&cc);
+        sendMidiDin5Out();
+        sendMidiUsbOut();
+    }
 }
 
 void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, ParameterDisplay* param, float oldValue, float newValue) {
@@ -1073,6 +1157,18 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             if (encoder == ENCODER_ENGINE_ALGO) {
                 cc.value[1] = newValue;
                 cc.value[0] = CC_ALGO;
+            } else if (encoder == ENCODER_ENGINE_PLAY_MODE) {
+                cc.value[0] = CC_PLAY_MODE;
+                cc.value[1] = newValue * (127.0f / 2.0f) + .1f;
+            } else if (encoder == ENCODER_ENGINE_GLIDE_SPEED) {
+                cc.value[0] = CC_GLIDE;
+                cc.value[1] = newValue * (127.0f / 12.0f) + .1f;
+            }
+            break;
+        case ROW_ENGINE_DECIMATION:
+            if (encoder == ENCODER_ENGINE_DECIMATION) {
+                cc.value[0] = CC_ENGINE_DECIMATION;
+                cc.value[1] = newValue * (127.0f / 5.0f) + .1f;
             }
             break;
         case ROW_MODULATION1:
@@ -1084,13 +1180,18 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
         case ROW_MODULATION2:
             if ((encoder & 0x1) == 0) {
                 cc.value[1] = newValue * 10 + .001f;
-                cc.value[0] = CC_IM3 + encoder;
+                cc.value[0] = CC_IM3 + (encoder >> 1);
             }
             break;
         case ROW_MODULATION3:
             if ((encoder & 0x1) == 0) {
-                cc.value[1] = newValue * 10 + .001f;
-                cc.value[0] = CC_IM5 + encoder;
+                if (encoder == 0) {
+                    cc.value[1] = newValue * 10 + .001f;
+                    cc.value[0] = CC_IM5;
+                } else {
+                    cc.value[1] = newValue * 127.0f + .1f;
+                    cc.value[0] = CC_IM_FEEDBACK;
+                }
             }
             break;
         case ROW_OSC_MIX1:
@@ -1109,6 +1210,26 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
                 cc.value[1] = newValue * 100.0f + .1f;
             } else {
                 cc.value[1] = (newValue + 1.0f) * 50.0f + .1f;
+            }
+            break;
+        case ROW_OSC_MIX3:
+            switch (encoder) {
+            case ENCODER_ENGINE_MIX5:
+                cc.value[0] = CC_MIX5;
+                cc.value[1] = newValue * 100.0f + .1f;
+                break;
+            case ENCODER_ENGINE_PAN5:
+                cc.value[0] = CC_PAN5;
+                cc.value[1] = (newValue + 1.0f) * 50.0f + .1f;
+                break;
+            case ENCODER_ENGINE_MIX6:
+                cc.value[0] = CC_MIX6;
+                cc.value[1] = newValue * 100.0f + .1f;
+                break;
+            case ENCODER_ENGINE_PAN6:
+                cc.value[0] = CC_PAN6;
+                cc.value[1] = (newValue + 1.0f) * 50.0f + .1f;
+                break;
             }
             break;
         case ROW_OSC_FIRST ... ROW_OSC_LAST:

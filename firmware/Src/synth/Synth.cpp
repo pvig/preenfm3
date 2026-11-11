@@ -890,6 +890,18 @@ void Synth::setNewMixerValueFromMidi(int timbre, int mixerValue, float newValue)
             }
             break;
        }
+        case MIXER_VALUE_COMPRESSOR: {
+            int compProfile = (int) newValue;
+            if (compProfile < 0) compProfile = 0;
+            if (compProfile > 5) compProfile = 5;
+            float oldValue = (float) this->synthState_->mixerState.instrumentState_[timbre].compressorType;
+            this->synthState_->mixerState.instrumentState_[timbre].compressorType = compProfile;
+            newMixerValue(MIXER_VALUE_COMPRESSOR, timbre, oldValue, (float) compProfile);
+            if (oldValue != (float) compProfile) {
+                this->synthState_->propagateNewMixerValueFromExternal(timbre, mixerValue, oldValue, (float) compProfile);
+            }
+            break;
+        }
     }
 }
 
