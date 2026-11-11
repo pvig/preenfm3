@@ -358,10 +358,11 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         int dynMode = this->synthState_->mixerState.instrumentState_[timbre].compressorType;
         switch (dynMode) {
             case 1: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_WARM); break;
-            case 2: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_TAPE); break;
+            case 2: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_PUNCH); break;
             case 3: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_TUBE); break;
             case 4: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_DRIVE); break;
-            case 5: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_FUZZ); break;
+            case 5: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_OVERDRIVE); break;
+            case 6: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_FUZZ); break;
             default: break;
         }
 
@@ -814,8 +815,17 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setAttack(0.4f);
                     instrumentCompressor_[timbre].setRelease(50.0f);
                     break;
-                // 5: Fuzz (High-gain Brickwall Limiter + Fuzz saturation)
+                // 5: Drive (Balanced Asymmetric Amp Overdrive + Leveling Comp)
                 case 5:
+                    instrumentCompressor_[timbre].setRatio(0.16f);
+                    instrumentCompressor_[timbre].setThresh(-24.0f);
+                    instrumentCompressor_[timbre].setKnee(5.0f);
+                    instrumentCompressor_[timbre].setMakeup(7.0f);
+                    instrumentCompressor_[timbre].setAttack(6.0f);
+                    instrumentCompressor_[timbre].setRelease(100.0f);
+                    break;
+                // 6: Fuzz (High-gain Brickwall Limiter + Fuzz saturation)
+                case 6:
                     instrumentCompressor_[timbre].setRatio(0.04f);
                     instrumentCompressor_[timbre].setThresh(-28.0f);
                     instrumentCompressor_[timbre].setKnee(2.0f);
@@ -893,7 +903,7 @@ void Synth::setNewMixerValueFromMidi(int timbre, int mixerValue, float newValue)
         case MIXER_VALUE_COMPRESSOR: {
             int compProfile = (int) newValue;
             if (compProfile < 0) compProfile = 0;
-            if (compProfile > 5) compProfile = 5;
+            if (compProfile > 6) compProfile = 6;
             float oldValue = (float) this->synthState_->mixerState.instrumentState_[timbre].compressorType;
             this->synthState_->mixerState.instrumentState_[timbre].compressorType = compProfile;
             newMixerValue(MIXER_VALUE_COMPRESSOR, timbre, oldValue, (float) compProfile);

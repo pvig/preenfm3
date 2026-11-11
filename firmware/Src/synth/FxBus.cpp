@@ -837,7 +837,7 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
     // then scale back down to the timbre bus nominal level (~0.18-0.20 max).
     const float *end = samples + (BLOCK_SIZE * 2);
     switch (mode) {
-        case SATURATION_TAPE: {
+        case SATURATION_PUNCH: {
             // Punch / VCA Transistor model (Distressor / 1176 style):
             // Preserves high-crest transient impact (wide headroom) + punchy asymmetric bite on body
             while (samples < end) {
@@ -896,6 +896,20 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
                 float x_d = x_in - 0.18f * x_in * fabsf(x_in);
                 float x2 = x_d * x_d;
                 *samples++ = 0.18f * (x_d / sqrtf(sqrtf(1.0f + x2 * x2)));
+            }
+            break;
+        }
+        case SATURATION_OVERDRIVE: {
+            // Balanced Asymmetric Amp Overdrive with parallel clean blend (~27% dry / ~73% drive):
+            // Smooth Class-A biased sigmoid (C-infinity, no zero-crossing kink) so single notes
+            // and polyphonic chords hit the same sweet spot with rich H2/H3 bite and clear chord voicing
+            const float bias = 0.18f;
+            const float dc = 0.177153f; // bias / sqrtf(1.0f + bias * bias)
+            while (samples < end) {
+                float s = *samples;
+                float xb = 8.5f * s + bias;
+                float clip = (xb / sqrtf(1.0f + xb * xb)) - dc;
+                *samples++ = 0.24f * s + 0.13f * clip;
             }
             break;
         }

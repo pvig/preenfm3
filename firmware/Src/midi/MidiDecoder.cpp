@@ -769,7 +769,7 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
             break;
         case CC_TIMBRE_DYNAMICS: {
-            float comp = (midiEvent.value[1] < 6) ? (float) midiEvent.value[1] : (float) ((midiEvent.value[1] * 6) / 128);
+            float comp = (midiEvent.value[1] < 7) ? (float) midiEvent.value[1] : (float) ((midiEvent.value[1] * 7) / 128);
             this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_COMPRESSOR, comp);
             break;
         }
@@ -1061,7 +1061,7 @@ void MidiDecoder::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValu
         break;
     case MIXER_VALUE_COMPRESSOR:
         cc.value[0] = CC_TIMBRE_DYNAMICS;
-        cc.value[1] = newValue * (127.0f / 5.0f) + 0.1f;
+        cc.value[1] = newValue * (127.0f / 6.0f) + 0.1f;
         break;
     default:
         return;
