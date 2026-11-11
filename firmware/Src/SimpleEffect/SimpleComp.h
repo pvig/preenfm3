@@ -53,13 +53,17 @@ namespace chunkware_simple
 
 		virtual float getThresh( void ) const { return threshdB_; }
 		virtual float getRatio( void )  const { return ratio_; }
+		virtual void  setKnee( float kneeWidthdB );
+		virtual void  setMakeup( float makeupdB );
+		virtual float getKnee( void )   const { return kneeQuarterdB_ * 0.25f; }
+		virtual float getMakeup( void ) const { return makeupQuarterdB_ * 0.25f; }
 
 		// runtime
 		virtual void initRuntime( void );			// call before runtime (in resume())
 		float processPfm3( float *inStereo);
 
 		float getCurrentVolume() {
-		    return keydBMax_;
+		    return (threshdB_ <= 100.0f) ? (keydBMax_ + getMakeup()) : keydBMax_;
 		}
 
         float getCurrentGainReduction() {
@@ -80,6 +84,8 @@ namespace chunkware_simple
 		float previousGain_;
 		float keydBMax_, keydBMaxTmp_, gr_;
 		uint8_t keydBMaxCpt_;
+		uint8_t kneeQuarterdB_;
+		uint8_t makeupQuarterdB_;
 
 	};	// end SimpleComp class
 

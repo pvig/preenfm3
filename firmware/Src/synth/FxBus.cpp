@@ -831,57 +831,70 @@ void FxBus::processBlock(int32_t *outBuff) {
 }
 
 void FxBus::applyWarmSaturation(float *samples, int mode) {
+    // Note on gain-staging:
+    // PreenFM3 voices are attenuated by x0.2 (voicesToTimbre) to prevent polyphonic clipping.
+    // To reach the actual non-linear sweet-spot, we scale up into the saturation curve,
+    // then scale back down to the timbre bus nominal level (~0.18-0.20 max).
     const float *end = samples + (BLOCK_SIZE * 2);
     switch (mode) {
         case SATURATION_TAPE: {
-            // Magnetic tape model: gentle quadratic drive (H2 warmth) + soft algebraic clip
+            // Magnetic tape model: gentle quadratic warmth (H2) + soft algebraic saturation
             while (samples < end) {
-                float x = *samples;
-                float x_drive = x + 0.12f * x * fabsf(x);
-                *samples++ = x_drive / sqrtf(1.0f + 0.35f * x_drive * x_drive);
+                float x_in = 4.5f * *samples;
+                float x_d = x_in + 0.15f * x_in * fabsf(x_in);
+                *samples++ = 0.20f * (x_d / sqrtf(1.0f + 0.45f * x_d * x_d));
             }
             break;
         }
         case SATURATION_TUBE: {
-            // Triode valve model: asymmetric triode curvature with compensated unity gain at 0
+            // Triode valve model: branchless dynamic asymmetric triode curve
+            // Transparent on soft touches (preserving HF sparkle), rich H2 bloom and warm headroom on hard hits
             while (samples < end) {
-                float x = *samples;
-                float x_drive = x - 0.12f * x * x;
-                *samples++ = x_drive / sqrtf(1.0f + 0.38f * x_drive * x_drive);
+                float x_in = 3.8f * *samples;
+                float x2 = x_in * x_in;
+                float x_d = x_in + 0.05f * x2 + 0.11f * x_in * fabsf(x_in);
+                *samples++ = 0.28f * (x_d / sqrtf(1.0f + 0.38f * x_d * x_d));
             }
             break;
         }
         case SATURATION_WARM: {
-            // Analog console bus: exact unity gain at low levels, smooth C1 cubic saturation
+            // Analog console bus: smooth C1 cubic saturation
             while (samples < end) {
-                float x = *samples;
-                if (x > 1.5f) {
-                    *samples++ = 1.0f;
-                } else if (x < -1.5f) {
-                    *samples++ = -1.0f;
+                float x_in = 4.5f * *samples;
+                if (x_in > 1.5f) {
+                    *samples++ = 0.21f;
+                } else if (x_in < -1.5f) {
+                    *samples++ = -0.21f;
                 } else {
-                    *samples++ = x - (4.0f / 27.0f) * x * x * x;
+                    *samples++ = 0.21f * (x_in - (4.0f / 27.0f) * x_in * x_in * x_in);
                 }
             }
             break;
         }
         case SATURATION_DRIVE: {
-            // Overdrive / JFET Crunch: moderate drive with normalized output compensation
+            // Transparent Clean Brickwall Peak Limiter / Maximizer (M8 style)
+            // Strictly linear (0% THD) below threshold; smooth C1 asymptotic ceiling on extreme peaks
+            const float thresh = 0.28f;
+            const float margin = 0.12f;
             while (samples < end) {
                 float x = *samples;
-                float x_in = 1.6f * x;
-                float x_d = x_in - 0.10f * x_in * fabsf(x_in);
-                *samples++ = 0.78f * (x_d / sqrtf(1.0f + 0.65f * x_d * x_d));
+                float ax = fabsf(x);
+                if (unlikely(ax > thresh)) {
+                    float diff = ax - thresh;
+                    float y = thresh + margin * (diff / (margin + diff));
+                    *samples = (x > 0.0f) ? y : -y;
+                }
+                samples++;
             }
             break;
         }
         case SATURATION_FUZZ: {
-            // High-Gain Fuzz / Hard Saturation: aggressive bite with normalized output compensation
+            // High-Gain Fuzz / Hard Limiting: aggressive high drive with sharp square clipping
             while (samples < end) {
-                float x = *samples;
-                float x_d = 2.4f * x - 0.18f * x * fabsf(x);
+                float x_in = 12.0f * *samples;
+                float x_d = x_in - 0.18f * x_in * fabsf(x_in);
                 float x2 = x_d * x_d;
-                *samples++ = 0.58f * (x_d / sqrtf(sqrtf(1.0f + x2 * x2)));
+                *samples++ = 0.18f * (x_d / sqrtf(sqrtf(1.0f + x2 * x2)));
             }
             break;
         }

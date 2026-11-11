@@ -76,8 +76,10 @@ void Synth::init(SynthState *synthState) {
         instrumentCompressor_[t].setSampleRate(PREENFM_FREQUENCY / 32.0f);
         instrumentCompressor_[t].setRatio(1.0f);
         instrumentCompressor_[t].setThresh(1000.0f);
-        instrumentCompressor_[t].setAttack(10.0);
-        instrumentCompressor_[t].setRelease(100.0);
+        instrumentCompressor_[t].setKnee(0.0f);
+        instrumentCompressor_[t].setMakeup(0.0f);
+        instrumentCompressor_[t].setAttack(10.0f);
+        instrumentCompressor_[t].setRelease(100.0f);
     }
 
     // Cpu usage
@@ -352,10 +354,15 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         // It allows to retrieve the volume in DB
         instrumentCompressor_[timbre].processPfm3(sampleFromTimbre);
 
-        // Warm saturation
-        int satMode = this->synthState_->mixerState.instrumentState_[timbre].saturationType;
-        if (satMode > SATURATION_OFF) {
-            FxBus::applyWarmSaturation(sampleFromTimbre, satMode);
+        // Dynamics processing: Compressor + Matched Saturation
+        int dynMode = this->synthState_->mixerState.instrumentState_[timbre].compressorType;
+        switch (dynMode) {
+            case 1: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_WARM); break;
+            case 2: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_TAPE); break;
+            case 3: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_TUBE); break;
+            case 4: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_DRIVE); break;
+            case 5: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_FUZZ); break;
+            default: break;
         }
 
         // Send to bus fx, to mix with other timbres
@@ -762,39 +769,61 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
             break;
         case MIXER_VALUE_COMPRESSOR:
             switch ((int) newValue) {
-                // No
+                // 0: Off
                 case 0:
                     instrumentCompressor_[timbre].setRatio(1.0f);
-                    // Must never be reached
                     instrumentCompressor_[timbre].setThresh(1000.0f);
-                    instrumentCompressor_[timbre].setAttack(10.0);
-                    instrumentCompressor_[timbre].setRelease(100.0);
+                    instrumentCompressor_[timbre].setKnee(0.0f);
+                    instrumentCompressor_[timbre].setMakeup(0.0f);
+                    instrumentCompressor_[timbre].setAttack(10.0f);
+                    instrumentCompressor_[timbre].setRelease(100.0f);
                     break;
+                // 1: Glue (VCA bus comp + Warm console saturation)
                 case 1:
-                    // Slow2
-                    instrumentCompressor_[timbre].setRatio(.33f);
-                    instrumentCompressor_[timbre].setThresh(-12.0f);
-                    instrumentCompressor_[timbre].setAttack(100.0);
-                    instrumentCompressor_[timbre].setRelease(1000.0);
+                    instrumentCompressor_[timbre].setRatio(0.25f);
+                    instrumentCompressor_[timbre].setThresh(-20.0f);
+                    instrumentCompressor_[timbre].setKnee(6.0f);
+                    instrumentCompressor_[timbre].setMakeup(5.5f);
+                    instrumentCompressor_[timbre].setAttack(20.0f);
+                    instrumentCompressor_[timbre].setRelease(150.0f);
                     break;
+                // 2: Punch (Percussive VCA comp + Tape saturation)
                 case 2:
-                    // Medium2
-                    instrumentCompressor_[timbre].setRatio(.33f);
-                    instrumentCompressor_[timbre].setThresh(-12.0f);
-                    instrumentCompressor_[timbre].setAttack(8.0);
-                    instrumentCompressor_[timbre].setRelease(200.0);
+                    instrumentCompressor_[timbre].setRatio(0.15f);
+                    instrumentCompressor_[timbre].setThresh(-22.0f);
+                    instrumentCompressor_[timbre].setKnee(5.0f);
+                    instrumentCompressor_[timbre].setMakeup(7.0f);
+                    instrumentCompressor_[timbre].setAttack(12.0f);
+                    instrumentCompressor_[timbre].setRelease(100.0f);
                     break;
+                // 3: Tube (Opto Leveler + Tube triode saturation)
                 case 3:
-                    // Fast4
-                    instrumentCompressor_[timbre].setRatio(.33f);
-                    instrumentCompressor_[timbre].setThresh(-12.0f);
-                    instrumentCompressor_[timbre].setAttack(1.0);
-                    instrumentCompressor_[timbre].setRelease(50.0);
+                    instrumentCompressor_[timbre].setRatio(0.22f);
+                    instrumentCompressor_[timbre].setThresh(-18.0f);
+                    instrumentCompressor_[timbre].setKnee(8.0f);
+                    instrumentCompressor_[timbre].setMakeup(4.5f);
+                    instrumentCompressor_[timbre].setAttack(12.0f);
+                    instrumentCompressor_[timbre].setRelease(140.0f);
+                    break;
+                // 4: Limit (Dirtywave M8-style Clean Brickwall Limiter & Maximizer)
+                case 4:
+                    instrumentCompressor_[timbre].setRatio(0.04f);
+                    instrumentCompressor_[timbre].setThresh(-20.0f);
+                    instrumentCompressor_[timbre].setKnee(3.0f);
+                    instrumentCompressor_[timbre].setMakeup(7.0f);
+                    instrumentCompressor_[timbre].setAttack(0.4f);
+                    instrumentCompressor_[timbre].setRelease(50.0f);
+                    break;
+                // 5: Fuzz (High-gain Brickwall Limiter + Fuzz saturation)
+                case 5:
+                    instrumentCompressor_[timbre].setRatio(0.04f);
+                    instrumentCompressor_[timbre].setThresh(-28.0f);
+                    instrumentCompressor_[timbre].setKnee(2.0f);
+                    instrumentCompressor_[timbre].setMakeup(12.0f);
+                    instrumentCompressor_[timbre].setAttack(0.2f);
+                    instrumentCompressor_[timbre].setRelease(35.0f);
                     break;
             }
-            break;
-        case MIXER_VALUE_SATURATION:
-            this->synthState_->mixerState.instrumentState_[timbre].saturationType = (uint8_t) newValue;
             break;
     }
 }

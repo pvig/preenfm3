@@ -42,7 +42,13 @@ namespace chunkware_simple
 		, threshdB_( 0.0 )
 		, ratio_( 1.0 )
 		, envdB_( DC_OFFSET )
-		, keydBMaxTmp_( -100.0)
+		, previousGain_( 1.0f )
+		, keydBMax_( -100.0f )
+		, keydBMaxTmp_( -100.0f )
+		, gr_( 0.0f )
+		, keydBMaxCpt_( 0 )
+		, kneeQuarterdB_( 0 )
+		, makeupQuarterdB_( 0 )
 	{
 
 	}
@@ -61,9 +67,26 @@ namespace chunkware_simple
 	}
 
 	//-------------------------------------------------------------
+	void SimpleComp::setKnee( float kneeWidthdB )
+	{
+		if (kneeWidthdB < 0.0f) kneeWidthdB = 0.0f;
+		if (kneeWidthdB > 60.0f) kneeWidthdB = 60.0f;
+		kneeQuarterdB_ = (uint8_t)(kneeWidthdB * 4.0f + 0.5f);
+	}
+
+	//-------------------------------------------------------------
+	void SimpleComp::setMakeup( float makeupdB )
+	{
+		if (makeupdB < 0.0f) makeupdB = 0.0f;
+		if (makeupdB > 60.0f) makeupdB = 60.0f;
+		makeupQuarterdB_ = (uint8_t)(makeupdB * 4.0f + 0.5f);
+	}
+
+	//-------------------------------------------------------------
 	void SimpleComp::initRuntime( void )
 	{
 		envdB_ = DC_OFFSET;
+		previousGain_ = 1.0f;
 	}
 
 	//-------------------------------------------------------------

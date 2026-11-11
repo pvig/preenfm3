@@ -29,8 +29,7 @@
 
 
 const char* outDisplay[] = { "1", "1-2", "  2", "3", "3-4", "  4", "5", "5-6", "  6" };
-const char* compDisplay[]= { "Off", "Slow", "Medium", "Fast"};
-const char* satDisplay[] = { "Off", "Tape", "Tube", "Warm", "Drive", "Fuzz" };
+const char* compDisplay[]= { "Off", "Glue", "Punch", "Tube", "Limit", "Fuzz" };
 const char* enableNames[] = { "Off", "On" };
 const char* levelMeterWhere[] = { "Off", "Mix", "All" };
 const char* scalaMapNames[] = { "Keybrd", "Continu" };
@@ -87,8 +86,8 @@ const struct Pfm3MixerButton volumeButton = {
 };
 
 const struct Pfm3MixerButtonState compButtonState = {
-      "Compressor", MIXER_VALUE_COMPRESSOR,
-        {0, 3, 4, DISPLAY_TYPE_STRINGS, compDisplay }
+      "Dynamics", MIXER_VALUE_COMPRESSOR,
+        {0, 5, 6, DISPLAY_TYPE_STRINGS, compDisplay }
 };
 
 
@@ -104,11 +103,6 @@ const struct Pfm3MixerButton outButton = {
   { &outButtonState  }
 };
 
-const struct Pfm3MixerButtonState satButtonState = {
-      "Saturation", MIXER_VALUE_SATURATION,
-        {0, SATURATION_LAST - 1, SATURATION_LAST, DISPLAY_TYPE_STRINGS, satDisplay }
-};
-
 const struct Pfm3MixerButtonState voiceButtonState = {
       "Number of voices", MIXER_VALUE_NUMBER_OF_VOICES,
         {0, 16, 17, DISPLAY_TYPE_INT, nullNames}
@@ -116,8 +110,8 @@ const struct Pfm3MixerButtonState voiceButtonState = {
 
 const struct Pfm3MixerButton voiceButton = {
   "Voices",
-  3,
-  { &voiceButtonState, &compButtonState, &satButtonState }
+  2,
+  { &voiceButtonState, &compButtonState }
 };
 
 
@@ -289,9 +283,6 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             break;
         case MIXER_VALUE_COMPRESSOR:
             valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].compressorType;
-            break;
-        case MIXER_VALUE_SATURATION:
-            valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].saturationType;
             break;
         case MIXER_VALUE_PAN:
             valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].pan;
