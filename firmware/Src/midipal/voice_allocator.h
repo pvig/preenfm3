@@ -53,9 +53,41 @@ public:
                 }
             }
             if (voice == 0xff) {
+                // Bass-protect voice stealing:
+                // Find the lowest active note among available candidate voices
+                uint8_t lowest_note = 0x7f;
+                uint8_t lowest_voice = 0xff;
+                uint8_t active_candidates = 0;
+
                 for (uint8_t i = 0; i < size_; ++i) {
-                    if (lru_[i] < size_ && (!unavailable || !unavailable[lru_[i]])) {
-                        voice = lru_[i];
+                    uint8_t v = lru_[i];
+                    if (v < size_ && (!unavailable || !unavailable[v])) {
+                        active_candidates++;
+                        uint8_t note_played = pool_[v] & 0x7f;
+                        if (note_played < lowest_note) {
+                            lowest_note = note_played;
+                            lowest_voice = v;
+                        }
+                    }
+                }
+
+                // If multiple voices are active, protect the lowest active note (bass)
+                // and steal the oldest among the higher/chord notes!
+                if (active_candidates > 1 && lowest_voice != 0xff) {
+                    for (uint8_t i = 0; i < size_; ++i) {
+                        uint8_t v = lru_[i];
+                        if (v < size_ && v != lowest_voice && (!unavailable || !unavailable[v])) {
+                            voice = v;
+                        }
+                    }
+                }
+
+                // Fallback: if only 1 voice or all other voices unavailable, steal oldest
+                if (voice == 0xff) {
+                    for (uint8_t i = 0; i < size_; ++i) {
+                        if (lru_[i] < size_ && (!unavailable || !unavailable[lru_[i]])) {
+                            voice = lru_[i];
+                        }
                     }
                 }
             }
