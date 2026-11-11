@@ -838,11 +838,12 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
     const float *end = samples + (BLOCK_SIZE * 2);
     switch (mode) {
         case SATURATION_TAPE: {
-            // Magnetic tape model: gentle quadratic warmth (H2) + soft algebraic saturation
+            // Punch / VCA Transistor model (Distressor / 1176 style):
+            // Preserves high-crest transient impact (wide headroom) + punchy asymmetric bite on body
             while (samples < end) {
-                float x_in = 4.5f * *samples;
-                float x_d = x_in + 0.15f * x_in * fabsf(x_in);
-                *samples++ = 0.20f * (x_d / sqrtf(1.0f + 0.45f * x_d * x_d));
+                float x_in = 3.6f * *samples;
+                float x_d = x_in + 0.12f * x_in * fabsf(x_in);
+                *samples++ = 0.25f * (x_d / sqrtf(1.0f + 0.28f * x_d * x_d));
             }
             break;
         }

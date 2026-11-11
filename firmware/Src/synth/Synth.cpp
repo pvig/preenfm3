@@ -787,14 +787,14 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setAttack(20.0f);
                     instrumentCompressor_[timbre].setRelease(150.0f);
                     break;
-                // 2: Punch (Percussive VCA comp + Tape saturation)
+                // 2: Punch (Percussive VCA comp + Punch / Distressor saturation)
                 case 2:
-                    instrumentCompressor_[timbre].setRatio(0.15f);
-                    instrumentCompressor_[timbre].setThresh(-22.0f);
-                    instrumentCompressor_[timbre].setKnee(5.0f);
-                    instrumentCompressor_[timbre].setMakeup(7.0f);
-                    instrumentCompressor_[timbre].setAttack(12.0f);
-                    instrumentCompressor_[timbre].setRelease(100.0f);
+                    instrumentCompressor_[timbre].setRatio(0.10f);
+                    instrumentCompressor_[timbre].setThresh(-24.0f);
+                    instrumentCompressor_[timbre].setKnee(2.0f);
+                    instrumentCompressor_[timbre].setMakeup(8.5f);
+                    instrumentCompressor_[timbre].setAttack(30.0f);
+                    instrumentCompressor_[timbre].setRelease(50.0f);
                     break;
                 // 3: Tube (Opto Leveler + Tube triode saturation)
                 case 3:
