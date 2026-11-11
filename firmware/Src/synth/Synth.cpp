@@ -893,6 +893,8 @@ void Synth::setNewMixerValueFromMidi(int timbre, int mixerValue, float newValue)
             break;
         }
         case MIXER_VALUE_SEND: {
+            if (newValue < 0.0f) newValue = 0.0f;
+            else if (newValue > 1.0f) newValue = 1.0f;
             float oldValue = this->synthState_->mixerState.instrumentState_[timbre].send;
             this->synthState_->mixerState.instrumentState_[timbre].send = newValue;
             if (oldValue != newValue) {
@@ -909,6 +911,28 @@ void Synth::setNewMixerValueFromMidi(int timbre, int mixerValue, float newValue)
             newMixerValue(MIXER_VALUE_COMPRESSOR, timbre, oldValue, (float) compProfile);
             if (oldValue != (float) compProfile) {
                 this->synthState_->propagateNewMixerValueFromExternal(timbre, mixerValue, oldValue, (float) compProfile);
+            }
+            break;
+        }
+        case MIXER_VALUE_GLOBAL_SETTINGS_3: {
+            if (timbre == 0) {
+                int revPreset = (int) (newValue + 0.5f);
+                if (revPreset < 0) revPreset = 0;
+                else if (revPreset > 18) revPreset = 18;
+                float oldValue = (float) this->synthState_->mixerState.reverbPreset_;
+                this->synthState_->mixerState.reverbPreset_ = (uint8_t) revPreset;
+                this->synthState_->mixerState.fxBus_.presetChanged(revPreset);
+                if (oldValue != (float) revPreset) {
+                    this->synthState_->propagateNewMixerValueFromExternal(0, MIXER_VALUE_GLOBAL_SETTINGS_3, oldValue, (float) revPreset);
+                }
+            } else if (timbre == 1) {
+                if (newValue < 0.0f) newValue = 0.0f;
+                else if (newValue > 1.0f) newValue = 1.0f;
+                float oldValue = this->synthState_->mixerState.reverbLevel_;
+                this->synthState_->mixerState.reverbLevel_ = newValue;
+                if (oldValue != newValue) {
+                    this->synthState_->propagateNewMixerValueFromExternal(1, MIXER_VALUE_GLOBAL_SETTINGS_3, oldValue, newValue);
+                }
             }
             break;
         }

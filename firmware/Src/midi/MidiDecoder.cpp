@@ -33,6 +33,19 @@ extern UART_HandleTypeDef huart1;
 #define INV127 .00787401574803149606f
 #define INV64  .015625f
 
+static inline float ccToPercentFloat(unsigned char ccValue) {
+    int percent = ((int) ccValue * 100 + 63) / 127;
+    return (float) percent * 0.01f;
+}
+
+static inline int percentFloatToInt(float value) {
+    return (value >= 0.0f) ? (int) (value * 100.0f + 0.5f) : (int) (value * 100.0f - 0.5f);
+}
+
+static inline float ccToDynamicsIndex(unsigned char ccValue) {
+    return (ccValue < 7) ? (float) ccValue : (float) (((int) ccValue * 7) / 128);
+}
+
 RingBuffer<uint8_t, 64> usartBufferIn;
 RingBuffer<uint8_t, 64> usartBufferOut;
 RingBuffer<AsyncAction, 16> asyncActions;
@@ -303,11 +316,21 @@ void MidiDecoder::midiEventReceived(MidiEvent& midiEvent) {
             }
         }
         break;
-    case MIDI_CONTROL_CHANGE:
+    case MIDI_CONTROL_CHANGE: {
+        // When multiple timbres share a MIDI channel (layers / All / Global),
+        // only dump one timbre per request (prefer currentTimbre if targeted).
+        int dumpTimbre = timbres[0];
         for (int tk = 0; tk < timbreIndex; tk++) {
-            controlChange(timbres[tk], midiEvent);
+            if (timbres[tk] == currentTimbre) {
+                dumpTimbre = currentTimbre;
+                break;
+            }
+        }
+        for (int tk = 0; tk < timbreIndex; tk++) {
+            controlChange(timbres[tk], midiEvent, timbres[tk] == dumpTimbre);
         }
         break;
+    }
     case MIDI_POLY_AFTER_TOUCH:
         for (int tk = 0; tk < timbreIndex; tk++) {
             int timbre = timbres[tk];
@@ -430,7 +453,7 @@ void MidiDecoder::midiEventForInstrument1MPE(MidiEvent& midiEvent) {
 
 
 
-void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
+void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent, bool allowNrpnDump) {
     int receives = this->synthState_->fullState.midiConfigValue[MIDICONFIG_RECEIVES];
 
     // User CC are higher priority even if they hide some important preenfm3 CC
@@ -456,18 +479,19 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         switch (midiEvent.value[0])
         {
         case CC_TIMBRE_DRYWET:
-            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, ccToPercentFloat(midiEvent.value[1]));
+            return;
+        case CC_TIMBRE_DYNAMICS:
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_COMPRESSOR, ccToDynamicsIndex(midiEvent.value[1]));
             return;
         case CC_MFX_RETURN:
             if (timbre == 0) {
-                this->synthState_->mixerState.reverbLevel_ = (float) midiEvent.value[1] * INV127;
+                this->synth->setNewMixerValueFromMidi(1, MIXER_VALUE_GLOBAL_SETTINGS_3, ccToPercentFloat(midiEvent.value[1]));
             }
             return;
         case CC_MFX_PRESET:
             if (timbre == 0) {
-                this->synthState_->mixerState.reverbPreset_ = midiEvent.value[1];
-                this->synthState_->mixerState.fxBus_.nextPresetNum = midiEvent.value[1];
-                this->synthState_->mixerState.fxBus_.slowParamChange();
+                this->synth->setNewMixerValueFromMidi(0, MIXER_VALUE_GLOBAL_SETTINGS_3, (float) midiEvent.value[1]);
             }
             return;
         }
@@ -540,8 +564,11 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             break;
         }
         case CC_ENGINE_DECIMATION: {
-            float decim = (midiEvent.value[1] < 6) ? (float) midiEvent.value[1] : (float) ((midiEvent.value[1] * 6) / 128);
-            this->synth->setNewValueFromMidi(timbre, ROW_ENGINE_DECIMATION, ENCODER_ENGINE_DECIMATION, decim);
+            int decim = midiEvent.value[1];
+            if (decim > 20) {
+                decim = 20;
+            }
+            this->synth->setNewValueFromMidi(timbre, ROW_ENGINE_DECIMATION, ENCODER_ENGINE_DECIMATION, (float) decim);
             break;
         }
         case CC_IM1:
@@ -766,20 +793,16 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
             break;
         case CC_TIMBRE_DRYWET:
         case CC_MIXER_SEND:
-            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, (float) midiEvent.value[1] * INV127);
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, ccToPercentFloat(midiEvent.value[1]));
             break;
-        case CC_TIMBRE_DYNAMICS: {
-            float comp = (midiEvent.value[1] < 7) ? (float) midiEvent.value[1] : (float) ((midiEvent.value[1] * 7) / 128);
-            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_COMPRESSOR, comp);
+        case CC_TIMBRE_DYNAMICS:
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_COMPRESSOR, ccToDynamicsIndex(midiEvent.value[1]));
             break;
-        }
         case CC_MFX_RETURN:
-            this->synthState_->mixerState.reverbLevel_ = (float) midiEvent.value[1] * INV127;
+            this->synth->setNewMixerValueFromMidi(1, MIXER_VALUE_GLOBAL_SETTINGS_3, ccToPercentFloat(midiEvent.value[1]));
             break;
         case CC_MFX_PRESET:
-            this->synthState_->mixerState.reverbPreset_ = midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.nextPresetNum = midiEvent.value[1];
-            this->synthState_->mixerState.fxBus_.slowParamChange();
+            this->synth->setNewMixerValueFromMidi(0, MIXER_VALUE_GLOBAL_SETTINGS_3, (float) midiEvent.value[1]);
             break;
         case CC_MPE_SLIDE_CC74:
         	// No CC74 on global midi channel
@@ -855,22 +878,25 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent) {
         }
 
         if (this->currentNrpn[timbre].readyToSend) {
-            decodeNrpn(timbre);
+            decodeNrpn(timbre, midiEvent.channel, allowNrpnDump);
             this->currentNrpn[timbre].readyToSend = false;
         }
     }
 }
 
-void MidiDecoder::sendCurrentPatchAsNrpns(int timbre) {
+void MidiDecoder::sendCurrentPatchAsNrpns(int timbre, int midiChannel) {
     struct MidiEvent cc;
 
     OneSynthParams * paramsToSend = this->synth->getTimbre(timbre)->getParamRaw();
 
     cc.eventType = MIDI_CONTROL_CHANGE;
-    // Si channel = ALL envoie sur 1
-    int channel = this->synthState_->mixerState.instrumentState_[timbre].midiChannel - 1;
-    if (channel == -1) {
-        channel = 0;
+    int channel = midiChannel;
+    if (channel < 0 || channel > 15) {
+        // Si channel = ALL envoie sur 1
+        channel = this->synthState_->mixerState.instrumentState_[timbre].midiChannel - 1;
+        if (channel == -1) {
+            channel = 0;
+        }
     }
     cc.channel = channel;
 
@@ -963,21 +989,60 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre) {
         }
     }
 
+    // Timbre & Master FX NRPNs: MSB = 4, LSB = 0..3 (index 512..515)
+    // 512: TIMBRE_DRYWET (0..100), 513: TIMBRE_DYNAMICS (0..6),
+    // 514: MFX_RETURN (0..100), 515: MFX_PRESET (0..18)
+    const int mixerNrpnVals[4] = {
+        percentFloatToInt(this->synthState_->mixerState.instrumentState_[timbre].send),
+        (int) this->synthState_->mixerState.instrumentState_[timbre].compressorType,
+        percentFloatToInt(this->synthState_->mixerState.reverbLevel_),
+        (int) this->synthState_->mixerState.reverbPreset_
+    };
+    for (int i = 0; i < 4; i++) {
+        int val = mixerNrpnVals[i];
+        if (val < 0) {
+            val = 0;
+        } else if (val > 16383) {
+            val = 16383;
+        }
+        cc.value[0] = 99;
+        cc.value[1] = 4;
+        writeMidiCCOut(&cc);
+        cc.value[0] = 98;
+        cc.value[1] = (unsigned char) i;
+        writeMidiCCOut(&cc);
+        cc.value[0] = 6;
+        cc.value[1] = (unsigned char) (val >> 7);
+        writeMidiCCOut(&cc);
+        cc.value[0] = 38;
+        cc.value[1] = (unsigned char) (val & 0x7F);
+        writeMidiCCOut(&cc);
+
+        sendMidiDin5Out();
+        sendMidiUsbOutIfBufferFull();
+        while (usartBufferOut.getCount() > 0) {
+        }
+    }
+
     // send Usb Anyway
     sendMidiUsbOut();
 }
 
-void MidiDecoder::decodeNrpn(int timbre) {
+void MidiDecoder::decodeNrpn(int timbre, int midiChannel, bool allowDump) {
     float value = (this->currentNrpn[timbre].valueMSB << 7) + this->currentNrpn[timbre].valueLSB;
     int index = (this->currentNrpn[timbre].paramMSB << 7) + this->currentNrpn[timbre].paramLSB;
 
     // Commande spéciale : dump patch
     if (this->currentNrpn[timbre].paramMSB == 127 && this->currentNrpn[timbre].paramLSB == 127) {
-        AsyncAction asyncAction;
-        asyncAction.fullBytes = 0l;
-        asyncAction.action.actionType = SEND_PATCH_AS_NRPN;
-        asyncAction.action.timbre = timbre;
-        asyncActions.insert(asyncAction);
+        if (allowDump) {
+            AsyncAction asyncAction;
+            asyncAction.fullBytes = 0l;
+            asyncAction.action.actionType = SEND_PATCH_AS_NRPN;
+            asyncAction.action.timbre = timbre;
+            // Store requester MIDI channel + 1 so 0 keeps fallback to timbre channel
+            asyncAction.action.param1 = (midiChannel >= 0 && midiChannel < 16) ? (uint8_t) (midiChannel + 1) : 0;
+            asyncActions.insert(asyncAction);
+        }
         return;
     }
 
@@ -996,6 +1061,27 @@ void MidiDecoder::decodeNrpn(int timbre) {
         int envNum = envIndex / 4; // 0: env1, 1: env2, ...
         int pointNum = envIndex % 4; // 0:attack, 1:decay, 2:sustain, 3:release
         this->synth->setEnvelopeCurvePointFromMidi(timbre, envNum, pointNum, value);
+        return;
+    }
+
+    // Timbre & Master FX : MSB = 4, LSB = 0..3 (index 512..515)
+    if (this->currentNrpn[timbre].paramMSB == 4) {
+        switch (this->currentNrpn[timbre].paramLSB) {
+        case 0:
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_SEND, value * 0.01f);
+            break;
+        case 1:
+            this->synth->setNewMixerValueFromMidi(timbre, MIXER_VALUE_COMPRESSOR, value);
+            break;
+        case 2:
+            this->synth->setNewMixerValueFromMidi(1, MIXER_VALUE_GLOBAL_SETTINGS_3, value * 0.01f);
+            break;
+        case 3:
+            this->synth->setNewMixerValueFromMidi(0, MIXER_VALUE_GLOBAL_SETTINGS_3, value);
+            break;
+        default:
+            break;
+        }
         return;
     }
 
@@ -1034,43 +1120,115 @@ void MidiDecoder::newMixerValueFromExternal(int timbre, int mixerValueType, floa
 
 void MidiDecoder::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, float newValue) {
     int sendCCOrNRPN = this->synthState_->fullState.midiConfigValue[MIDICONFIG_SENDS];
-    if (sendCCOrNRPN != 1) {
+    if (sendCCOrNRPN == 0) {
         return;
     }
-    int channel = this->synthState_->mixerState.instrumentState_[timbre].midiChannel - 1;
+
+    int channel;
+    if (valueType == MIXER_VALUE_GLOBAL_SETTINGS_3) {
+        channel = this->synthState_->mixerState.globalChannel_ - 1;
+        if (channel < 0) {
+            channel = this->synthState_->mixerState.instrumentState_[this->synthState_->getCurrentTimbre()].midiChannel - 1;
+        }
+    } else {
+        channel = this->synthState_->mixerState.instrumentState_[timbre].midiChannel - 1;
+    }
     if (channel < 0) {
         channel = 0;
     }
+
     struct MidiEvent cc;
     cc.eventType = MIDI_CONTROL_CHANGE;
     cc.channel = channel;
     cc.value[0] = 0;
+    int ccVal = 0;
+
+    // Emit NRPN 512..515 (MSB=4, LSB=0..3) when MIDI Sends = NRPN (2) for Timbre & Master FX
+    if (sendCCOrNRPN == 2) {
+        int nrpnLsb = -1;
+        int nrpnVal = 0;
+        switch (valueType) {
+        case MIXER_VALUE_SEND:
+            nrpnLsb = 0;
+            nrpnVal = percentFloatToInt(newValue);
+            break;
+        case MIXER_VALUE_COMPRESSOR:
+            nrpnLsb = 1;
+            nrpnVal = (int) (newValue + 0.1f);
+            break;
+        case MIXER_VALUE_GLOBAL_SETTINGS_3:
+            if (timbre == 0) {
+                nrpnLsb = 3;
+                nrpnVal = (int) (newValue + 0.1f);
+            } else if (timbre == 1) {
+                nrpnLsb = 2;
+                nrpnVal = percentFloatToInt(newValue);
+            }
+            break;
+        default:
+            break;
+        }
+        if (nrpnLsb >= 0) {
+            if (nrpnVal < 0) nrpnVal = 0;
+            else if (nrpnVal > 16383) nrpnVal = 16383;
+            cc.value[0] = 99;
+            cc.value[1] = 4;
+            writeMidiCCOut(&cc);
+            cc.value[0] = 98;
+            cc.value[1] = (unsigned char) nrpnLsb;
+            writeMidiCCOut(&cc);
+            cc.value[0] = 6;
+            cc.value[1] = (unsigned char) (nrpnVal >> 7);
+            writeMidiCCOut(&cc);
+            cc.value[0] = 38;
+            cc.value[1] = (unsigned char) (nrpnVal & 0x7F);
+            writeMidiCCOut(&cc);
+            sendMidiDin5Out();
+            sendMidiUsbOut();
+            return;
+        }
+    }
 
     switch (valueType) {
     case MIXER_VALUE_VOLUME:
         cc.value[0] = CC_MIXER_VOLUME;
-        cc.value[1] = newValue * 127.0f + 0.1f;
+        ccVal = (int) (newValue * 127.0f + 0.1f);
         break;
     case MIXER_VALUE_PAN:
         cc.value[0] = CC_MIXER_PAN;
-        cc.value[1] = newValue + 63.5f;
+        ccVal = (int) (newValue + 63.5f);
         break;
     case MIXER_VALUE_SEND:
         cc.value[0] = CC_TIMBRE_DRYWET;
-        cc.value[1] = newValue * 127.0f + 0.1f;
+        ccVal = (int) (newValue * 127.0f + 0.1f);
         break;
     case MIXER_VALUE_COMPRESSOR:
         cc.value[0] = CC_TIMBRE_DYNAMICS;
-        cc.value[1] = newValue * (127.0f / 6.0f) + 0.1f;
+        ccVal = (int) (newValue * (127.0f / 6.0f) + 0.1f);
+        break;
+    case MIXER_VALUE_GLOBAL_SETTINGS_3:
+        // timbre encodes the global FX encoder index here (0: MFX preset, 1: MFX return)
+        if (timbre == 0) {
+            cc.value[0] = CC_MFX_PRESET;
+            ccVal = (int) (newValue + 0.1f);
+        } else if (timbre == 1) {
+            cc.value[0] = CC_MFX_RETURN;
+            ccVal = (int) (newValue * 127.0f + 0.1f);
+        } else {
+            return;
+        }
         break;
     default:
         return;
     }
 
     if (cc.value[0] != 0) {
-        if (cc.value[1] > 127) {
-            cc.value[1] = 127;
+        if (ccVal < 0) {
+            ccVal = 0;
+        } else if (ccVal > 127) {
+            ccVal = 127;
         }
+        cc.value[1] = (unsigned char) ccVal;
         writeMidiCCOut(&cc);
         sendMidiDin5Out();
         sendMidiUsbOut();
@@ -1168,7 +1326,7 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
         case ROW_ENGINE_DECIMATION:
             if (encoder == ENCODER_ENGINE_DECIMATION) {
                 cc.value[0] = CC_ENGINE_DECIMATION;
-                cc.value[1] = newValue * (127.0f / 5.0f) + .1f;
+                cc.value[1] = newValue;
             }
             break;
         case ROW_MODULATION1:
@@ -1555,9 +1713,11 @@ void MidiDecoder::processAsyncActions() {
                     }
                 }
                 break;
-            case SEND_PATCH_AS_NRPN:
-                sendCurrentPatchAsNrpns(asyncAction.action.timbre);
+            case SEND_PATCH_AS_NRPN: {
+                int replyChannel = asyncAction.action.param1 > 0 ? (int) asyncAction.action.param1 - 1 : -1;
+                sendCurrentPatchAsNrpns(asyncAction.action.timbre, replyChannel);
                 break;
+            }
         }
     }
 }

@@ -283,8 +283,8 @@ public:
     void newMessageData(unsigned char byte);
     void midiEventReceived(MidiEvent& midiEvent);
     void midiEventForInstrument1MPE(MidiEvent& midiEvent);
-    void controlChange(int timbre, MidiEvent& midiEvent);
-    void decodeNrpn(int timbre);
+    void controlChange(int timbre, MidiEvent& midiEvent, bool allowNrpnDump = true);
+    void decodeNrpn(int timbre, int midiChannel = -1, bool allowDump = true);
     void setSynth(Synth* synth);
     void setVisualInfo(VisualInfo* visualInfo);
 
@@ -317,7 +317,7 @@ public:
     void newTimbre(int timbre) {
         currentTimbre = timbre;
     }
-    void sendCurrentPatchAsNrpns(int timbre);
+    void sendCurrentPatchAsNrpns(int timbre, int midiChannel = -1);
 
     // Firmware 2.00
     // Phase LFO1/3 added not at the right place so nrpm and params row are now
