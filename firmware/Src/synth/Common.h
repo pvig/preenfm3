@@ -85,7 +85,7 @@
 #define PFM3_VERSIONS_H_
 
 // Patch/preset format version
-#define PFM3_PATCH_VERSION 1.5f
+#define PFM3_PATCH_VERSION 1.6f
 
 #endif /* PFM3_VERSIONS_H_ */
 
