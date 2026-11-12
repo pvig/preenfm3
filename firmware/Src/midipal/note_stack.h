@@ -72,6 +72,14 @@ public:
     const NoteEntry& most_recent_note() const {
         return pool_[root_ptr_];
     }
+    const NoteEntry& recent_note(uint8_t index) const {
+        uint8_t current = root_ptr_;
+        while (current && index > 0) {
+            current = pool_[current].next_ptr;
+            --index;
+        }
+        return pool_[current];
+    }
     const NoteEntry& least_recent_note() const {
         uint8_t current = root_ptr_;
         while (current && pool_[current].next_ptr) {

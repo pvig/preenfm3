@@ -51,6 +51,10 @@ enum {
     ENCODER_ENGINE_DECIMATION = 0,
 };
 
+enum {
+    ENCODER_ENGINE_VOICE_PRIORITY = 0,
+};
+
 
 enum {
     ENCODER_ARPEGGIATOR_CLOCK = 0,

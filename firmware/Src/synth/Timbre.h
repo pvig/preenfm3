@@ -93,7 +93,23 @@ public:
             numberOfVoiceInverse_ = 1.0f;
         }
         numberOfVoices_ = newNumberOfVoices;
-        voice_allocator_.Init(newNumberOfVoices, false, voice_allocator_pool_, voice_allocator_lru_);
+        voice_allocator_.Init(newNumberOfVoices, getVoicePriorityMode(), voice_allocator_pool_, voice_allocator_lru_);
+    }
+
+    uint8_t getVoicePriorityMode() const {
+        float raw = params_.enginePriority.voicePriority;
+        if (!(raw == raw) || raw < 0.0f) {
+            return VOICE_PRIORITY_LAST_KEY;
+        }
+        int mode = (int) (raw + 0.5f);
+        if (mode >= VOICE_PRIORITY_COUNT) {
+            return VOICE_PRIORITY_LAST_KEY;
+        }
+        return (uint8_t) mode;
+    }
+
+    void updateVoicePriorityMode() {
+        voice_allocator_.SetPriorityMode(getVoicePriorityMode());
     }
 
     void lfoValueChange(int currentRow, int encoder, float newValue);
@@ -170,6 +186,7 @@ public:
     }
 
 private:
+    const NoteEntry& getHeldNoteForRestore() const;
     void restoreHeldNotes(uint8_t numberOfVoices);
 
     // MiniPal Arpegiator

@@ -21,15 +21,35 @@ namespace ambika {
 
 class VoiceAllocator {
 public:
-    VoiceAllocator() : pool_(0), lru_(0), size_(0), cyclic_allocator_(0xff) {
+    enum PriorityPolicy {
+        PRIORITY_LAST_KEY = 0,
+        PRIORITY_HIGH_KEY,
+        PRIORITY_LOW_KEY,
+        PRIORITY_BASS_PROTECT,
+        PRIORITY_CYCLIC
+    };
+
+    VoiceAllocator()
+        : pool_(0), lru_(0), size_(0), cyclic_allocator_(0xff), priority_mode_(PRIORITY_LAST_KEY) {
     }
 
-    void Init(uint8_t size, bool cyclicMode, uint8_t* pool, uint8_t* lru) {
+    void Init(uint8_t size, uint8_t priorityMode, uint8_t* pool, uint8_t* lru) {
         size_ = size;
         pool_ = pool;
         lru_ = lru;
-        cyclic_allocator_ = cyclicMode ? 0 : 0xff;
         Clear();
+        SetPriorityMode(priorityMode);
+    }
+
+    void SetPriorityMode(uint8_t priorityMode) {
+        priority_mode_ = priorityMode;
+        if (priorityMode == PRIORITY_CYCLIC) {
+            if (cyclic_allocator_ == 0xff) {
+                cyclic_allocator_ = 0;
+            }
+        } else {
+            cyclic_allocator_ = 0xff;
+        }
     }
 
     uint8_t NoteOn(uint8_t note, const uint8_t* unavailable = 0, bool restored = false) {
@@ -37,7 +57,7 @@ public:
             return 0xff;
         }
 
-        uint8_t voice;
+        uint8_t voice = 0xff;
         if (cyclic_allocator_ == 0xff) {
             voice = Find(note);
             if (voice != 0xff && unavailable && unavailable[voice]) {
@@ -45,65 +65,13 @@ public:
             }
 
             if (voice == 0xff) {
-                for (uint8_t i = 0; i < size_; ++i) {
-                    if (lru_[i] < size_ && !(pool_[lru_[i]] & 0x80)
-                            && (!unavailable || !unavailable[lru_[i]])) {
-                        voice = lru_[i];
-                    }
-                }
+                voice = FindOldestFree(unavailable);
             }
             if (voice == 0xff) {
-                // Bass-protect voice stealing:
-                // Find the lowest active note among available candidate voices
-                uint8_t lowest_note = 0x7f;
-                uint8_t lowest_voice = 0xff;
-                uint8_t active_candidates = 0;
-
-                for (uint8_t i = 0; i < size_; ++i) {
-                    uint8_t v = lru_[i];
-                    if (v < size_ && (!unavailable || !unavailable[v])) {
-                        active_candidates++;
-                        uint8_t note_played = pool_[v] & 0x7f;
-                        if (note_played < lowest_note) {
-                            lowest_note = note_played;
-                            lowest_voice = v;
-                        }
-                    }
-                }
-
-                // If multiple voices are active, protect the lowest active note (bass)
-                // and steal the oldest among the higher/chord notes!
-                if (active_candidates > 1 && lowest_voice != 0xff) {
-                    for (uint8_t i = 0; i < size_; ++i) {
-                        uint8_t v = lru_[i];
-                        if (v < size_ && v != lowest_voice && (!unavailable || !unavailable[v])) {
-                            voice = v;
-                        }
-                    }
-                }
-
-                // Fallback: if only 1 voice or all other voices unavailable, steal oldest
-                if (voice == 0xff) {
-                    for (uint8_t i = 0; i < size_; ++i) {
-                        if (lru_[i] < size_ && (!unavailable || !unavailable[lru_[i]])) {
-                            voice = lru_[i];
-                        }
-                    }
-                }
+                voice = SelectStealVictim(unavailable);
             }
         } else {
-            uint8_t attempts = 0;
-            do {
-                ++cyclic_allocator_;
-                if (cyclic_allocator_ >= size_) {
-                    cyclic_allocator_ = 0;
-                }
-                ++attempts;
-            } while (unavailable && unavailable[cyclic_allocator_] && attempts < size_);
-            if (unavailable && unavailable[cyclic_allocator_]) {
-                return 0xff;
-            }
-            voice = cyclic_allocator_;
+            voice = SelectCyclicVoice(unavailable);
         }
 
         if (voice == 0xff) {
@@ -138,13 +106,9 @@ public:
 
     uint8_t NoteOff(uint8_t note) {
         uint8_t voice = FindActive(note);
-        if (cyclic_allocator_ == 0xff) {
-            if (voice != 0xff) {
-                pool_[voice] &= 0x7f;
-                Touch(voice);
-            }
-        } else if (voice != 0xff) {
-            pool_[voice] = 0xff;
+        if (voice != 0xff) {
+            pool_[voice] &= 0x7f;
+            Touch(voice);
         }
         return voice;
     }
@@ -163,6 +127,111 @@ public:
     }
 
 private:
+    uint8_t FindOldestFree(const uint8_t* unavailable) const {
+        uint8_t voice = 0xff;
+        for (uint8_t i = 0; i < size_; ++i) {
+            uint8_t v = lru_[i];
+            if (v < size_ && !(pool_[v] & 0x80) && (!unavailable || !unavailable[v])) {
+                voice = v;
+            }
+        }
+        return voice;
+    }
+
+    uint8_t FindOldestActive(const uint8_t* unavailable, uint8_t skipVoice = 0xff) const {
+        uint8_t voice = 0xff;
+        for (uint8_t i = 0; i < size_; ++i) {
+            uint8_t v = lru_[i];
+            if (v < size_ && v != skipVoice && (!unavailable || !unavailable[v])) {
+                voice = v;
+            }
+        }
+        return voice;
+    }
+
+    uint8_t FindExtremePitchVoice(const uint8_t* unavailable, bool findHighest) const {
+        uint8_t extreme_note = findHighest ? 0 : 0x7f;
+        uint8_t extreme_voice = 0xff;
+        for (uint8_t i = 0; i < size_; ++i) {
+            uint8_t v = lru_[i];
+            if (v < size_ && (!unavailable || !unavailable[v])) {
+                uint8_t note_played = pool_[v] & 0x7f;
+                // <= / >= picks the oldest voice when multiple voices play the same extreme pitch.
+                bool isMoreExtreme = findHighest ? (note_played >= extreme_note) : (note_played <= extreme_note);
+                if (extreme_voice == 0xff || isMoreExtreme) {
+                    extreme_note = note_played;
+                    extreme_voice = v;
+                }
+            }
+        }
+        return extreme_voice;
+    }
+
+    uint8_t SelectStealVictim(const uint8_t* unavailable) const {
+        switch (priority_mode_) {
+        case PRIORITY_HIGH_KEY:
+            return FindExtremePitchVoice(unavailable, false);
+        case PRIORITY_LOW_KEY:
+            return FindExtremePitchVoice(unavailable, true);
+        case PRIORITY_BASS_PROTECT: {
+            uint8_t lowest_note = 0x7f;
+            uint8_t lowest_voice = 0xff;
+            uint8_t active_candidates = 0;
+            for (uint8_t i = 0; i < size_; ++i) {
+                uint8_t v = lru_[i];
+                if (v < size_ && (!unavailable || !unavailable[v])) {
+                    active_candidates++;
+                    uint8_t note_played = pool_[v] & 0x7f;
+                    if (note_played < lowest_note) {
+                        lowest_note = note_played;
+                        lowest_voice = v;
+                    }
+                }
+            }
+            if (active_candidates > 1 && lowest_voice != 0xff) {
+                uint8_t victim = FindOldestActive(unavailable, lowest_voice);
+                if (victim != 0xff) {
+                    return victim;
+                }
+            }
+            return FindOldestActive(unavailable);
+        }
+        case PRIORITY_LAST_KEY:
+        default:
+            return FindOldestActive(unavailable);
+        }
+    }
+
+    uint8_t SelectCyclicVoice(const uint8_t* unavailable) {
+        if (cyclic_allocator_ >= size_) {
+            cyclic_allocator_ = 0;
+        }
+        // Prefer an inactive voice in round-robin order before stealing an active note.
+        uint8_t candidate = cyclic_allocator_;
+        for (uint8_t attempts = 0; attempts < size_; ++attempts) {
+            ++candidate;
+            if (candidate >= size_) {
+                candidate = 0;
+            }
+            if (!(pool_[candidate] & 0x80) && (!unavailable || !unavailable[candidate])) {
+                cyclic_allocator_ = candidate;
+                return candidate;
+            }
+        }
+        candidate = cyclic_allocator_;
+        for (uint8_t attempts = 0; attempts < size_; ++attempts) {
+            ++candidate;
+            if (candidate >= size_) {
+                candidate = 0;
+            }
+            if (!unavailable || !unavailable[candidate]) {
+                cyclic_allocator_ = candidate;
+                return candidate;
+            }
+        }
+        return 0xff;
+    }
+
     void Touch(uint8_t voice) {
         int8_t source = size_ - 1;
         int8_t destination = size_ - 1;
@@ -191,6 +260,7 @@ private:
     uint8_t* lru_;
     uint8_t size_;
     uint8_t cyclic_allocator_;
+    uint8_t priority_mode_;
 };
 
 }  // namespace ambika

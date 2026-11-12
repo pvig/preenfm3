@@ -99,8 +99,8 @@ const struct Pfm3MixerButtonState outButtonState = {
 
 const struct Pfm3MixerButton outButton = {
   "Out",
-  1,
-  { &outButtonState  }
+  2,
+  { &outButtonState, &compButtonState }
 };
 
 const struct Pfm3MixerButtonState voiceButtonState = {
@@ -110,8 +110,8 @@ const struct Pfm3MixerButtonState voiceButtonState = {
 
 const struct Pfm3MixerButton voiceButton = {
   "Voices",
-  2,
-  { &voiceButtonState, &compButtonState }
+  1,
+  { &voiceButtonState }
 };
 
 

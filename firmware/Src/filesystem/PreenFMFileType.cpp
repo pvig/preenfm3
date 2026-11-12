@@ -343,8 +343,9 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     flashMemory->flashEngineVeloIm1.modulationIndexVelo4 = params->engineIm2.modulationIndexVelo4;
     flashMemory->flashEngineVeloIm2.modulationIndexVelo5 = params->engineIm3.modulationIndexVelo5;
     flashMemory->flashEngineVeloIm2.modulationIndexVelo6 = params->engineIm3.modulationIndexVelo6;
-    flashMemory->flashEngineVeloIm2.notUsed1 = 0.0f;
-    flashMemory->flashEngineVeloIm2.notUsed1 = 0.0f;
+    // Stored in flashEngineVeloIm2 so FlashSynthParams fits within ALIGNED_PATCH_SIZE.
+    flashMemory->flashEngineVeloIm2.voicePriority = params->enginePriority.voicePriority;
+    flashMemory->flashEngineVeloIm2.notUsed2 = 0.0f;
 
     fsu_->copyFloat((float*) &params->engineMix1, (float*) &flashMemory->engineMix1, 4 * 3);
     fsu_->copyFloat((float*) &params->effect1, (float*) &flashMemory->effect, 4);
@@ -433,6 +434,10 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     params->engineIm2.modulationIndexVelo4 = flashMemory->flashEngineVeloIm1.modulationIndexVelo4;
     params->engineIm3.modulationIndexVelo5 = flashMemory->flashEngineVeloIm2.modulationIndexVelo5;
     params->engineIm3.modulationIndexVelo6 = flashMemory->flashEngineVeloIm2.modulationIndexVelo6;
+    params->enginePriority.voicePriority = flashMemory->flashEngineVeloIm2.voicePriority;
+    params->enginePriority.unused1 = 0.0f;
+    params->enginePriority.unused2 = 0.0f;
+    params->enginePriority.unused3 = 0.0f;
 
     fsu_->copyFloat((float*) &flashMemory->engineMix1, (float*) &params->engineMix1, 4 * 3);
     fsu_->copyFloat((float*) &flashMemory->effect, (float*) &params->effect1, 4);
@@ -647,6 +652,13 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     if (params->engineDecimation.decimation < FM_DECIMATION_1BIT
         || params->engineDecimation.decimation > FM_DECIMATION_HQ) {
         params->engineDecimation.decimation = FM_DECIMATION_FULL;
+    }
+
+    // Sanitize voice priority mode (older presets default to 0 = VOICE_PRIORITY_LAST_KEY).
+    float voicePriority = params->enginePriority.voicePriority;
+    if (!(voicePriority == voicePriority) || voicePriority < (float) VOICE_PRIORITY_LAST_KEY
+        || voicePriority >= (float) VOICE_PRIORITY_COUNT) {
+        params->enginePriority.voicePriority = (float) VOICE_PRIORITY_BASS_PROTECT;
     }
 
     params->engine2.pfm3Version = PFM3_PATCH_VERSION; // fix done, patch is now fm3 compatible

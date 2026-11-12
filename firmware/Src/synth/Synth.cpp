@@ -707,6 +707,11 @@ void Synth::newParamValue(int timbre, int currentRow, int encoder, ParameterDisp
         case ROW_ENV6_CURVE:
             timbres_[timbre].env6_.applyCurves();
             break;
+        case ROW_ENGINE_PRIORITY:
+            if (encoder == ENCODER_ENGINE_VOICE_PRIORITY) {
+                timbres_[timbre].updateVoicePriorityMode();
+            }
+            break;
 
     }
 }

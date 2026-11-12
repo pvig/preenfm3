@@ -155,7 +155,7 @@ Timbre::Timbre() {
     recording_ = 0;
     note_stack_.Init();
     held_note_stack_.Init();
-    voice_allocator_.Init(0, false, voice_allocator_pool_, voice_allocator_lru_);
+    voice_allocator_.Init(0, VOICE_PRIORITY_LAST_KEY, voice_allocator_pool_, voice_allocator_lru_);
     event_scheduler_.Init();
     // Arpeggiator start
     Start();
@@ -320,6 +320,19 @@ void Timbre::preenNoteOn(char note, char velocity, bool restored) {
         return;
     }
 
+    uint8_t priorityMode = getVoicePriorityMode();
+    if (!restored && held_note_stack_.size() > 1
+            && (priorityMode == VOICE_PRIORITY_HIGH_KEY || priorityMode == VOICE_PRIORITY_LOW_KEY)
+            && voices_[voiceToUse]->isPlaying() && !voices_[voiceToUse]->isReleased()
+            && !voices_[voiceToUse]->isHoldedByPedal()) {
+        uint8_t playingNote = (uint8_t) voices_[voiceToUse]->getNote() & 0x7f;
+        uint8_t incomingNote = (uint8_t) note;
+        if ((priorityMode == VOICE_PRIORITY_HIGH_KEY && incomingNote < playingNote)
+                || (priorityMode == VOICE_PRIORITY_LOW_KEY && incomingNote > playingNote)) {
+            return;
+        }
+    }
+
     bool isPlaying = voices_[voiceToUse]->isPlaying();
     if (likely(params_.engine1.playMode != PLAY_MODE_UNISON)) {
         preenNoteOnUpdateMatrix(voiceToUse, note, velocity);
@@ -406,8 +419,8 @@ void Timbre::preenNoteOff(char note, bool restoreNotes) {
                 }
             } else {
                 if (restoreNotes && held_note_stack_.size() > 0) {
-                    const NoteEntry& previousNote = held_note_stack_.most_recent_note();
-                    preenNoteOn(previousNote.note, previousNote.velocity);
+                    const NoteEntry& previousNote = getHeldNoteForRestore();
+                    preenNoteOn(previousNote.note, previousNote.velocity, true);
                     return;
                 }
                 voices_[n]->noteOff();
@@ -419,11 +432,29 @@ void Timbre::preenNoteOff(char note, bool restoreNotes) {
     }
 }
 
+const NoteEntry& Timbre::getHeldNoteForRestore() const {
+    uint8_t priorityMode = getVoicePriorityMode();
+    if (priorityMode == VOICE_PRIORITY_HIGH_KEY) {
+        return held_note_stack_.sorted_note(held_note_stack_.size() - 1);
+    }
+    if (priorityMode == VOICE_PRIORITY_LOW_KEY) {
+        return held_note_stack_.sorted_note(0);
+    }
+    return held_note_stack_.most_recent_note();
+}
+
 void Timbre::restoreHeldNotes(uint8_t numberOfVoices) {
+    uint8_t priorityMode = getVoicePriorityMode();
     while (numberOfVoices > 0) {
         bool restored = false;
-        for (uint8_t k = 0; k < held_note_stack_.size(); k++) {
-            const NoteEntry& candidate = held_note_stack_.sorted_note(held_note_stack_.size() - k - 1);
+        uint8_t heldCount = held_note_stack_.size();
+        for (uint8_t k = 0; k < heldCount; k++) {
+            const NoteEntry& candidate =
+                (priorityMode == VOICE_PRIORITY_HIGH_KEY || priorityMode == VOICE_PRIORITY_BASS_PROTECT)
+                    ? held_note_stack_.sorted_note(heldCount - k - 1)
+                    : (priorityMode == VOICE_PRIORITY_LOW_KEY
+                        ? held_note_stack_.sorted_note(k)
+                        : held_note_stack_.recent_note(k));
             if (voice_allocator_.FindActive(candidate.note) == 0xff) {
                 preenNoteOn(candidate.note, candidate.velocity, true);
                 if (voice_allocator_.FindActive(candidate.note) != 0xff) {
@@ -471,8 +502,8 @@ void Timbre::setHoldPedal(int value) {
         if (params_.engine1.playMode == PLAY_MODE_POLY) {
             restoreHeldNotes((uint8_t) releasedVoices);
         } else if (releasedVoices > 0 && held_note_stack_.size() > 0) {
-            const NoteEntry& previousNote = held_note_stack_.most_recent_note();
-            preenNoteOn(previousNote.note, previousNote.velocity);
+            const NoteEntry& previousNote = getHeldNoteForRestore();
+            preenNoteOn(previousNote.note, previousNote.velocity, true);
         }
         arpeggiatorSetHoldPedal(0);
     } else {
@@ -751,6 +782,7 @@ void Timbre::afterNewParamsLoad() {
     // Update midi note scale
     updateMidiNoteScale(0);
     updateMidiNoteScale(1);
+    updateVoicePriorityMode();
 }
 
 void Timbre::resetArpeggiator() {

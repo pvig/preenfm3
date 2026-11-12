@@ -106,6 +106,8 @@ const struct OneSynthParams defaultPreset  = {
         { 0, 0, 0, 0 },
         // FM decimation mode
         { FM_DECIMATION_CURRENT, 0, 0, 0 },
+        // Voice priority mode
+        { VOICE_PRIORITY_LAST_KEY, 0, 0, 0 },
         // Name
         "Default"
 };
@@ -205,6 +207,8 @@ const struct OneSynthParams preenMainPreset  = {
         { 0, 0, 0, 0 },
         // FM decimation mode
         { FM_DECIMATION_CURRENT, 0, 0, 0 },
+        // Voice priority mode
+        { VOICE_PRIORITY_LAST_KEY, 0, 0, 0 },
         "Sound"
 };
 
@@ -300,6 +304,8 @@ const struct OneSynthParams newPresetParams  = {
         { 0, 0, 0, 0 },
         // FM decimation mode
         { FM_DECIMATION_CURRENT, 0, 0, 0 },
+        // Voice priority mode
+        { VOICE_PRIORITY_LAST_KEY, 0, 0, 0 },
         "Default"
 };
 

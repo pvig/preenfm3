@@ -236,11 +236,12 @@ enum {
     ROW_OP_PHASE5,
     ROW_OP_PHASE6,
     ROW_ENGINE_DECIMATION,
+    ROW_ENGINE_PRIORITY,
     ROW_NONE
 };
 
-#define NUMBER_OF_ROWS (ROW_ENGINE_DECIMATION+1)
-#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_ENGINE_DECIMATION+1)
+#define NUMBER_OF_ROWS (ROW_ENGINE_PRIORITY+1)
+#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_ENGINE_PRIORITY+1)
 
 
 enum {
@@ -352,8 +353,24 @@ enum SaturationType {
     SATURATION_LAST
 };
 
+enum VoicePriorityMode {
+    VOICE_PRIORITY_LAST_KEY = 0,
+    VOICE_PRIORITY_HIGH_KEY,
+    VOICE_PRIORITY_LOW_KEY,
+    VOICE_PRIORITY_BASS_PROTECT,
+    VOICE_PRIORITY_CYCLIC,
+    VOICE_PRIORITY_COUNT
+};
+
 struct EngineDecimationParams {
     float decimation;
+    float unused1;
+    float unused2;
+    float unused3;
+};
+
+struct EnginePriorityParams {
+    float voicePriority;
     float unused1;
     float unused2;
     float unused3;
@@ -433,7 +450,8 @@ struct FlashEngineVeloIm1 {
 struct FlashEngineVeloIm2 {
     float modulationIndexVelo5;
     float modulationIndexVelo6;
-    float notUsed1;
+    // Stored here to keep FlashSynthParams binary compatibility within ALIGNED_PATCH_SIZE.
+    float voicePriority;
     float notUsed2;
 };
 
@@ -698,6 +716,7 @@ struct OneSynthParams {
     struct OperatorPhaseRowParams phaseOp5;
     struct OperatorPhaseRowParams phaseOp6;
     struct EngineDecimationParams engineDecimation;
+    struct EnginePriorityParams enginePriority;
     char presetName[13];
     // Sync mode per LFO oscillator (Int/Ext/1Si..8Si/1Se..8Se).
     struct LfoSyncModes lfoSyncModes;

@@ -269,6 +269,55 @@ struct ParameterRowDisplay engineDecimationParameterRow = {
             nullNamesOrder,
             nullNamesOrder } } };
 
+const char *voicePriorityNames[] = {
+    "Last ",
+    "High ",
+    "Low  ",
+    "BassP",
+    "Cycl "
+};
+
+struct ParameterRowDisplay enginePriorityParameterRow = {
+    "Engine",
+    {
+        "Prio",
+        "",
+        "",
+        "" },
+    {
+        {
+            VOICE_PRIORITY_LAST_KEY,
+            VOICE_PRIORITY_COUNT - 1,
+            VOICE_PRIORITY_COUNT,
+            DISPLAY_TYPE_STRINGS,
+            voicePriorityNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            0,
+            0,
+            0,
+            DISPLAY_TYPE_NONE,
+            nullNames,
+            nullNamesOrder,
+            nullNamesOrder } } };
+
 
 const char *syncNames[] = {
     "Int ",
@@ -2127,7 +2176,8 @@ struct AllParameterRowsDisplay allParameterRows = {
         &oscPhaseParameterRow,
         &oscPhaseParameterRow,
         &oscPhaseParameterRow,
-        &engineDecimationParameterRow
+        &engineDecimationParameterRow,
+        &enginePriorityParameterRow
 
 } };
 
@@ -2154,8 +2204,8 @@ const struct Pfm3OneButtonState pfm3ButtonEngineState = {
             ROW_ENGINE,
             ENCODER_ENGINE_PLAY_MODE },
         {
-            ROW_NONE,
-            ENCODER_NONE },
+            ROW_ENGINE_PRIORITY,
+            ENCODER_ENGINE_VOICE_PRIORITY },
 } };
 
 const struct Pfm3OneButtonState pfm3ButtonMonoState = {
