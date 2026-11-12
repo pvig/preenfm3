@@ -202,6 +202,19 @@ private:
 
     /** --------------FX conf--------------  */
     void fxAfterBlock();
+    __attribute__((noinline)) void fx2Flange(float matrixFilterFrequency, float matrixFilterParam2, float gainTmp);
+    __attribute__((noinline)) void fx2Chorus(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2Dimension(float matrixFilterFrequency, float matrixFilterParam2, float gainTmp);
+    __attribute__((noinline)) void fx2Doubler(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2Tripler(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2Bode(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2Wide(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2DelayCrunch(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2PingPong(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2Diffuser(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2Grain1(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2Grain2(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
+    __attribute__((noinline)) void fx2StereoBp(float matrixFilterFrequency, float matrixFilterParam2, float matrixFilterPan, float gainTmp);
     void initFx();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
