@@ -237,11 +237,12 @@ enum {
     ROW_OP_PHASE6,
     ROW_ENGINE_DECIMATION,
     ROW_ENGINE_PRIORITY,
+    ROW_LFO_ENV_CURVES,
     ROW_NONE
 };
 
-#define NUMBER_OF_ROWS (ROW_ENGINE_PRIORITY+1)
-#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_ENGINE_PRIORITY+1)
+#define NUMBER_OF_ROWS (ROW_LFO_ENV_CURVES+1)
+#define NUMBER_OF_ROWS_FOR_EDITOR (ROW_LFO_ENV_CURVES+1)
 
 
 enum {
@@ -433,10 +434,18 @@ struct FlashEngineIm1 {
     float modulationIndex4;
 };
 
+struct LfoEnvCurveFlashMemory {
+    uint8_t env1AtkCurve;
+    uint8_t env1RelCurve;
+    uint8_t env2AtkCurve;
+    uint8_t env2RelCurve;
+};
+
 struct FlashEngineIm2 {
     float modulationIndex5;
     float modulationIndex6;
-    float notUsed1;
+    // Packed as (curve + 1) so legacy 0-filled patches default to CURVE_TYPE_LIN.
+    struct LfoEnvCurveFlashMemory lfoEnvCurves;
     float notUsed2;
 };
 
@@ -558,6 +567,13 @@ struct Envelope2LfoParams {
     float attack;
     float decay;
     float loop;
+};
+
+struct LfoEnvCurveParams {
+    float env1AtkCurve;
+    float env1RelCurve;
+    float env2AtkCurve;
+    float env2RelCurve;
 };
 
 struct OscillatorParams {
@@ -717,6 +733,7 @@ struct OneSynthParams {
     struct OperatorPhaseRowParams phaseOp6;
     struct EngineDecimationParams engineDecimation;
     struct EnginePriorityParams enginePriority;
+    struct LfoEnvCurveParams lfoEnvCurves;
     char presetName[13];
     // Sync mode per LFO oscillator (Int/Ext/1Si..8Si/1Se..8Se).
     struct LfoSyncModes lfoSyncModes;

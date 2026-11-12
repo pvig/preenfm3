@@ -4231,8 +4231,9 @@ void Voice::setCurrentTimbre(Timbre *timbre) {
     }
 
     // ENV
-    lfoEnv[0].init(&timbre->getParamRaw()->lfoEnv1, &this->matrix, MATRIX_SOURCE_LFOENV1, (DestinationEnum) 0);
-    lfoEnv2[0].init(&timbre->getParamRaw()->lfoEnv2, &this->matrix, MATRIX_SOURCE_LFOENV2, (DestinationEnum) LFOENV2_SILENCE);
+    struct LfoEnvCurveParams* lfoEnvCurves = &timbre->getParamRaw()->lfoEnvCurves;
+    lfoEnv[0].init(&timbre->getParamRaw()->lfoEnv1, &lfoEnvCurves->env1AtkCurve, &lfoEnvCurves->env1RelCurve, &this->matrix, MATRIX_SOURCE_LFOENV1, (DestinationEnum) 0);
+    lfoEnv2[0].init(&timbre->getParamRaw()->lfoEnv2, &lfoEnvCurves->env2AtkCurve, &lfoEnvCurves->env2RelCurve, &this->matrix, MATRIX_SOURCE_LFOENV2, (DestinationEnum) LFOENV2_SILENCE);
 
     // Step sequencer
     for (int k = 0; k < NUMBER_OF_LFO_STEP; k++) {

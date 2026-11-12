@@ -108,6 +108,8 @@ const struct OneSynthParams defaultPreset  = {
         { FM_DECIMATION_CURRENT, 0, 0, 0 },
         // Voice priority mode
         { VOICE_PRIORITY_LAST_KEY, 0, 0, 0 },
+        // Free envelope curves (Atk / Rel for Env1 and Env2)
+        { CURVE_TYPE_LIN, CURVE_TYPE_LIN, CURVE_TYPE_LIN, CURVE_TYPE_LIN },
         // Name
         "Default"
 };
@@ -209,6 +211,8 @@ const struct OneSynthParams preenMainPreset  = {
         { FM_DECIMATION_CURRENT, 0, 0, 0 },
         // Voice priority mode
         { VOICE_PRIORITY_LAST_KEY, 0, 0, 0 },
+        // Free envelope curves (Atk / Rel for Env1 and Env2)
+        { CURVE_TYPE_LIN, CURVE_TYPE_LIN, CURVE_TYPE_LIN, CURVE_TYPE_LIN },
         "Sound"
 };
 
@@ -306,6 +310,8 @@ const struct OneSynthParams newPresetParams  = {
         { FM_DECIMATION_CURRENT, 0, 0, 0 },
         // Voice priority mode
         { VOICE_PRIORITY_LAST_KEY, 0, 0, 0 },
+        // Free envelope curves (Atk / Rel for Env1 and Env2)
+        { CURVE_TYPE_LIN, CURVE_TYPE_LIN, CURVE_TYPE_LIN, CURVE_TYPE_LIN },
         "Default"
 };
 

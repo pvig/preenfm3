@@ -61,6 +61,27 @@ extern float userEnvCurves[4][64];
 
 extern struct table allLfoTables[CURVE_TYPE_MAX];
 
+static inline const struct table& getEnvCurveTable(float curveValue) {
+    if (!(curveValue == curveValue) || curveValue < 0.0f) {
+        return allLfoTables[CURVE_TYPE_LIN];
+    }
+    int index = (int) (curveValue + 0.5f);
+    if (index >= CURVE_TYPE_MAX) {
+        return allLfoTables[CURVE_TYPE_LIN];
+    }
+    return allLfoTables[index];
+}
+
+static inline float interpolateEnvCurve(const struct table& curveTable, float phase, float previousValue, float nextValue) {
+    float fIndex = phase * curveTable.size;
+    int index = (int) fIndex;
+    float floatingPart = fIndex - index;
+    float from = curveTable.table[index];
+    float to = curveTable.table[index + 1];
+    float tmpValue = from * (1.0f - floatingPart) + to * floatingPart;
+    return tmpValue * (nextValue - previousValue) + previousValue;
+}
+
 class Env
 {
 public:

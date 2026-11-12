@@ -23,12 +23,17 @@ LfoEnv::LfoEnv() {
     stateTarget[ENV_STATE_DEAD] = 0.0f;
     stateInc[ENV_STATE_ON_S] = 0.0f;
     stateInc[ENV_STATE_DEAD] = 0.0f;
+    atkCurveParam = 0;
+    relCurveParam = 0;
 }
 
 
-void LfoEnv::init(struct EnvelopeLfoParams * envParams, Matrix *matrix, SourceEnum source, DestinationEnum dest) {
+void LfoEnv::init(struct EnvelopeLfoParams * envParams, float* atkCurve, float* relCurve, Matrix *matrix, SourceEnum source, DestinationEnum dest) {
 	Lfo::init(matrix, source, dest);
 	this->envParams = envParams;
+    this->atkCurveParam = atkCurve;
+    this->relCurveParam = relCurve;
+    applyCurves();
 	this->valueChanged(0);
     this->valueChanged(1);
     this->valueChanged(2);

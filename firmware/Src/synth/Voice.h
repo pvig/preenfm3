@@ -417,6 +417,8 @@ public:
             this->lfoStepSeq[1].valueChanged(j);
 
         }
+        this->lfoEnv[0].applyCurves();
+        this->lfoEnv2[0].applyCurves();
         v0L = v1L = 0.0f;
         v0R = v1R = 0.0f;
     }
@@ -437,6 +439,10 @@ public:
             case ROW_LFOSEQ1:
             case ROW_LFOSEQ2:
                 lfoStepSeq[currentRow - ROW_LFOSEQ1].valueChanged(encoder);
+                break;
+            case ROW_LFO_ENV_CURVES:
+                lfoEnv[0].applyCurves();
+                lfoEnv2[0].applyCurves();
                 break;
         }
     }

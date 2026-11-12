@@ -677,6 +677,7 @@ void Synth::newParamValue(int timbre, int currentRow, int encoder, ParameterDisp
         case ROW_LFOOSC1 ... ROW_LFOOSC3:
         case ROW_LFOENV1 ... ROW_LFOENV2:
         case ROW_LFOSEQ1 ... ROW_LFOSEQ2:
+        case ROW_LFO_ENV_CURVES:
             // timbres[timbre].lfo[currentRow - ROW_LFOOSC1]->valueChanged(encoder);
             timbres_[timbre].lfoValueChange(currentRow, encoder, newValue);
             break;

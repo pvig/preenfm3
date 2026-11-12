@@ -260,22 +260,8 @@ void FirmwareTftDisplay::oscilloBgSetEnvelope(float a, float d, float s, float r
 
 }
 
-void FirmwareTftDisplay::oscilloBgSetLfoEnvelope(float a, float d, float s, float r, float aL, float dL, float sL, float rL) {
-    oscilParams1[0] = a;
-    oscilParams1[1] = d + oscilParams1[0];
-    oscilParams1[2] = s + oscilParams1[1];
-    oscilParams1[3] = r + oscilParams1[2];
-
-    oscilParams2[0] = aL;
-    oscilParams2[1] = dL;
-    oscilParams2[2] = sL;
-    oscilParams2[3] = rL;
-
-    envCurve[0] = 1;
-    envCurve[1] = 1;
-    envCurve[2] = 1;
-    envCurve[3] = 1;
-
+void FirmwareTftDisplay::oscilloBgSetLfoEnvelope(float a, float d, float s, float r, float aL, float dL, float sL, float rL, int8_t aCurve, int8_t dCurve, int8_t sCurve, int8_t rCurve) {
+    oscilloBgSetEnvelope(a, d, s, r, aL, dL, sL, rL, aCurve, dCurve, sCurve, rCurve);
     oscilParams1[4] = COLOR_BLUE;
 }
 

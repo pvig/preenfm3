@@ -1685,6 +1685,47 @@ struct ParameterRowDisplay lfoEnv2ParameterRow = {
             nullNamesOrder,
             nullNamesOrder } } };
 
+struct ParameterRowDisplay lfoEnvCurvesParameterRow = {
+    "Free Env",
+    {
+        "AtkCrv",
+        "RelCrv",
+        "AtkCrv",
+        "RelCrv" },
+    {
+        {
+            CURVE_TYPE_EXP,
+            CURVE_TYPE_MAX - 1,
+            CURVE_TYPE_MAX,
+            DISPLAY_TYPE_STRINGS,
+            envCurveNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            CURVE_TYPE_EXP,
+            CURVE_TYPE_MAX - 1,
+            CURVE_TYPE_MAX,
+            DISPLAY_TYPE_STRINGS,
+            envCurveNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            CURVE_TYPE_EXP,
+            CURVE_TYPE_MAX - 1,
+            CURVE_TYPE_MAX,
+            DISPLAY_TYPE_STRINGS,
+            envCurveNames,
+            nullNamesOrder,
+            nullNamesOrder },
+        {
+            CURVE_TYPE_EXP,
+            CURVE_TYPE_MAX - 1,
+            CURVE_TYPE_MAX,
+            DISPLAY_TYPE_STRINGS,
+            envCurveNames,
+            nullNamesOrder,
+            nullNamesOrder } } };
+
 
 
 const char *matrixSourceNames[MATRIX_SOURCE_MAX] = { /* 0 */ "none  ", "Lfo 1 ", "Lfo 2 ", "Lfo 3 ", "Env 1 ", "Env 2 ", "Seq 1 ", "Seq 2 ",
@@ -2177,7 +2218,8 @@ struct AllParameterRowsDisplay allParameterRows = {
         &oscPhaseParameterRow,
         &oscPhaseParameterRow,
         &engineDecimationParameterRow,
-        &enginePriorityParameterRow
+        &enginePriorityParameterRow,
+        &lfoEnvCurvesParameterRow
 
 } };
 
@@ -3023,11 +3065,11 @@ const struct Pfm3OneButtonState pfm3ButtonEnvState1 = {
             ROW_LFOENV1,
             3 },
         {
-            ROW_NONE,
-            ENCODER_NONE },
+            ROW_LFO_ENV_CURVES,
+            0 },
         {
-            ROW_NONE,
-            ENCODER_NONE } } };
+            ROW_LFO_ENV_CURVES,
+            1 } } };
 
 const struct Pfm3OneButtonState pfm3ButtonEnvState2 = {
     "Free Env 2",
@@ -3045,11 +3087,11 @@ const struct Pfm3OneButtonState pfm3ButtonEnvState2 = {
             ROW_LFOENV2,
             3 },
         {
-            ROW_NONE,
-            ENCODER_NONE },
+            ROW_LFO_ENV_CURVES,
+            2 },
         {
-            ROW_NONE,
-            ENCODER_NONE } } };
+            ROW_LFO_ENV_CURVES,
+            3 } } };
 
 const struct Pfm3OneButton pfm3ButtonEnvs = {
     "Envs",
@@ -3496,6 +3538,7 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
         }
         case ROW_LFOENV1:
         case ROW_LFOENV2:
+        case ROW_LFO_ENV_CURVES:
             refreshLfoEnv();
             break;
         }
@@ -4763,15 +4806,21 @@ void FMDisplayEditor::refreshLfoEnv() {
     }
     uint8_t envNumber = synthState_->fullState.buttonState[page->buttonId];
 
+    LfoEnvCurveParams *lfoCurves = &synthState_->params->lfoEnvCurves;
+
     if (envNumber == 0) {
         EnvelopeLfoParams *envParam = &synthState_->params->lfoEnv1;
         tft_->oscilloBgSetLfoEnvelope(envParam->attack, envParam->decay, 1.0f, envParam->release, 1.0f,
-            envParam->sustain, envParam->sustain, 0.0f);
+            envParam->sustain, envParam->sustain, 0.0f,
+            (int8_t) lfoCurves->env1AtkCurve, (int8_t) lfoCurves->env1RelCurve,
+            CURVE_TYPE_LIN, (int8_t) lfoCurves->env1RelCurve);
         tft_->oscilloBgActionEnvelope();
     } else if (envNumber == 1) {
         Envelope2LfoParams *envParam = &synthState_->params->lfoEnv2;
         tft_->oscilloBgSetLfoEnvelope(envParam->silence, envParam->attack, envParam->decay, 0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f);
+            0.0f,
+            CURVE_TYPE_LIN, (int8_t) lfoCurves->env2AtkCurve,
+            (int8_t) lfoCurves->env2RelCurve, CURVE_TYPE_LIN);
         tft_->oscilloBgActionEnvelope();
     }
 

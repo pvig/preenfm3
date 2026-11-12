@@ -16,6 +16,7 @@
  */
 
 #include "PreenFMFileType.h"
+#include "SynthState.h"
 
 __attribute__((section(".ram_d2b"))) char storageBuffer[PROPERTY_FILE_SIZE];
 __attribute__((section(".ram_d2b"))) static FIL file;
@@ -334,7 +335,11 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     flashMemory->flashEngineIm1.modulationIndex4 = params->engineIm2.modulationIndex4;
     flashMemory->flashEngineIm2.modulationIndex5 = params->engineIm3.modulationIndex5;
     flashMemory->flashEngineIm2.modulationIndex6 = params->engineIm3.modulationIndex6;
-    flashMemory->flashEngineIm2.notUsed1 = 0.0f;
+    // Store (curve + 1) in flashEngineIm2 so legacy 0-filled patches default to CURVE_TYPE_LIN.
+    flashMemory->flashEngineIm2.lfoEnvCurves.env1AtkCurve = (uint8_t) (params->lfoEnvCurves.env1AtkCurve + 0.5f) + 1;
+    flashMemory->flashEngineIm2.lfoEnvCurves.env1RelCurve = (uint8_t) (params->lfoEnvCurves.env1RelCurve + 0.5f) + 1;
+    flashMemory->flashEngineIm2.lfoEnvCurves.env2AtkCurve = (uint8_t) (params->lfoEnvCurves.env2AtkCurve + 0.5f) + 1;
+    flashMemory->flashEngineIm2.lfoEnvCurves.env2RelCurve = (uint8_t) (params->lfoEnvCurves.env2RelCurve + 0.5f) + 1;
     flashMemory->flashEngineIm2.notUsed2 = 0.0f;
 
     flashMemory->flashEngineVeloIm1.modulationIndexVelo1 = params->engineIm1.modulationIndexVelo1;
@@ -412,6 +417,13 @@ inline int iszero(void *ptr, int bytes) {
     return 1;
 }
 
+static inline float decodeLfoEnvCurve(uint8_t raw) {
+    if (raw == 0 || raw > CURVE_TYPE_MAX) {
+        return (float) CURVE_TYPE_LIN;
+    }
+    return (float) (raw - 1);
+}
+
 void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashMemory, struct OneSynthParams *params, bool loadArp) {
     // First engine line
     fsu_->copyFloat((float*) &flashMemory->engine1, (float*) &params->engine1, 4);
@@ -428,6 +440,10 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     params->engineIm2.modulationIndex4 = flashMemory->flashEngineIm1.modulationIndex4;
     params->engineIm3.modulationIndex5 = flashMemory->flashEngineIm2.modulationIndex5;
     params->engineIm3.modulationIndex6 = flashMemory->flashEngineIm2.modulationIndex6;
+    params->lfoEnvCurves.env1AtkCurve = decodeLfoEnvCurve(flashMemory->flashEngineIm2.lfoEnvCurves.env1AtkCurve);
+    params->lfoEnvCurves.env1RelCurve = decodeLfoEnvCurve(flashMemory->flashEngineIm2.lfoEnvCurves.env1RelCurve);
+    params->lfoEnvCurves.env2AtkCurve = decodeLfoEnvCurve(flashMemory->flashEngineIm2.lfoEnvCurves.env2AtkCurve);
+    params->lfoEnvCurves.env2RelCurve = decodeLfoEnvCurve(flashMemory->flashEngineIm2.lfoEnvCurves.env2RelCurve);
     params->engineIm1.modulationIndexVelo1 = flashMemory->flashEngineVeloIm1.modulationIndexVelo1;
     params->engineIm1.modulationIndexVelo2 = flashMemory->flashEngineVeloIm1.modulationIndexVelo2;
     params->engineIm2.modulationIndexVelo3 = flashMemory->flashEngineVeloIm1.modulationIndexVelo3;

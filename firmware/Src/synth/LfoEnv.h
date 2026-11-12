@@ -28,12 +28,18 @@ public:
 
     using Lfo::init;
 
-	void init(struct EnvelopeLfoParams * envParams, Matrix* matrix, SourceEnum source, DestinationEnum dest);
+	void init(struct EnvelopeLfoParams * envParams, float* atkCurve, float* relCurve, Matrix* matrix, SourceEnum source, DestinationEnum dest);
+
+	void applyCurves() {
+        tables[ENV_STATE_ON_A] = atkCurveParam ? getEnvCurveTable(*atkCurveParam) : allLfoTables[CURVE_TYPE_LIN];
+        tables[ENV_STATE_ON_D] = relCurveParam ? getEnvCurveTable(*relCurveParam) : allLfoTables[CURVE_TYPE_LIN];
+        tables[ENV_STATE_ON_R] = tables[ENV_STATE_ON_D];
+    }
 
 	void valueChanged(int encoder) {
         switch (encoder) {
         case 0:
-            stateInc[ENV_STATE_ON_A] = 0.0008f / (envParams->attack + 0.0001);
+            stateInc[ENV_STATE_ON_A] = 0.0008f / (envParams->attack + 0.0001f);
             break;
         case 1:
             stateInc[ENV_STATE_ON_D] = 0.0008f / (envParams->decay + 0.0001);
@@ -43,7 +49,7 @@ public:
             stateTarget[ENV_STATE_ON_S] =  envParams->sustain;
             break;
         case 3:
-            stateInc[ENV_STATE_ON_R] = 0.0008f / (envParams->release + 0.0001);
+            stateInc[ENV_STATE_ON_R] = 0.0008f / (envParams->release + 0.0001f);
             break;
         }	}
 
@@ -66,7 +72,7 @@ public:
             env.envState++;
             newState();
         } else if (likely(stateInc[env.envState] > 0)) {
-            env.currentValue = env.previousStateValue * (1- env.currentPhase) + env.nextStateValue * env.currentPhase;
+            env.currentValue = interpolateEnvCurve(tables[env.envState], env.currentPhase, env.previousStateValue, env.nextStateValue);
         }
 
 		matrix->setSource((enum SourceEnum) source, env.currentValue);
@@ -92,7 +98,10 @@ private:
     // float
     float stateInc[ENV_NUMBER_OF_STATES];
 
+    struct table tables[ENV_NUMBER_OF_STATES];
     EnvelopeLfoParams* envParams;
+    float* atkCurveParam;
+    float* relCurveParam;
 	EnvData env;
 };
 
