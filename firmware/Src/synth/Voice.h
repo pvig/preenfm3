@@ -105,6 +105,8 @@ public:
 
         bool enabled = true;
         bool hqInterpolation = false;
+        uint8_t oversample2x = 0;
+        float rateScale = 1.0f;
         uint8_t bits = 1;
 
         if (mode <= FM_DECIMATION_1BIT) {
@@ -113,12 +115,19 @@ public:
             enabled = false;
             hqInterpolation = true;
             bits = 19;
+        } else if (mode == FM_DECIMATION_HQ2X) {
+            enabled = false;
+            oversample2x = 1;
+            rateScale = 0.5f;
+            bits = 19;
         } else if (mode >= FM_DECIMATION_FULL) {
             enabled = false;
             bits = 19;
         } else {
             bits = (uint8_t)(mode + 1);
         }
+
+        oversample2x_ = oversample2x;
 
         oscState1_.waveDecimationEnabled = enabled;
         oscState2_.waveDecimationEnabled = enabled;
@@ -133,6 +142,20 @@ public:
         oscState4_.waveInterpolationEnabled = hqInterpolation;
         oscState5_.waveInterpolationEnabled = hqInterpolation;
         oscState6_.waveInterpolationEnabled = hqInterpolation;
+
+        oscState1_.oversample2x = oversample2x;
+        oscState2_.oversample2x = oversample2x;
+        oscState3_.oversample2x = oversample2x;
+        oscState4_.oversample2x = oversample2x;
+        oscState5_.oversample2x = oversample2x;
+        oscState6_.oversample2x = oversample2x;
+
+        oscState1_.phaseRateScale = rateScale;
+        oscState2_.phaseRateScale = rateScale;
+        oscState3_.phaseRateScale = rateScale;
+        oscState4_.phaseRateScale = rateScale;
+        oscState5_.phaseRateScale = rateScale;
+        oscState6_.phaseRateScale = rateScale;
 
         oscState1_.waveDecimationBits = bits;
         oscState2_.waveDecimationBits = bits;
@@ -505,6 +528,42 @@ private:
     // Used when note Off is received during Quick Release
     uint8_t noteAlreadyFinished;
     int8_t lastDecimationMode_;
+    uint8_t oversample2x_;
+
+    void runAlgoBlock(int osMode, float invStep, float dcPole, bool allowEndNote);
+    void decimateHalfBand2x(const float* firstHalf, float* secondHalfAndOut);
+
+    inline __attribute__((always_inline)) void prepareEnvBlock(
+        Env& env,
+        struct EnvData& envState,
+        float& valueMem,
+        float& outValue,
+        float& outInc,
+        int envIdx,
+        int osMode,
+        float invStep)
+    {
+        if (osMode == 2) {
+            outValue = valueMem;
+            outInc = envIncScratch_[envIdx];
+            valueMem = envEndScratch_[envIdx];
+            return;
+        }
+        outValue = valueMem;
+        float envNext = env.getNextAmpExp(&envState);
+        outInc = (envNext - outValue) * invStep;
+        if (osMode == 1) {
+            envEndScratch_[envIdx] = envNext;
+            envIncScratch_[envIdx] = outInc;
+            valueMem = outValue + 32.0f * outInc;
+        } else {
+            valueMem = envNext;
+        }
+    }
+
+    static float envEndScratch_[6];
+    static float envIncScratch_[6];
+    float (*decimHistory_)[6];
 
 
     // env Value

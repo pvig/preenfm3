@@ -54,6 +54,10 @@ struct OscState {
     float waveDecimationHeldSample;
     // Warp value after matrix modulation and clamping.
     float effectiveWarp;
+    // Phase rate multiplier (1.0f at 1x, 0.5f when Voice runs 2x oversampling).
+    float phaseRateScale;
+    // Non-zero when Voice runs 2x oversampling (adapts feedback DC-blocker pole).
+    uint8_t oversample2x;
 };
 
 
@@ -204,7 +208,7 @@ public:
         float warp = oscState->effectiveWarp;
         float mipmapFreq = (warp != 0.0f) ? oscState->frequency * (1.0f + fabsf(warp)) : oscState->frequency;
         float* wave = getWaveTableMipmap(shape, mipmapFreq);
-        float phaseIncrement = oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd;
+        float phaseIncrement = (oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd) * oscState->phaseRateScale;
         bool waveDecimationEnabled = oscState->waveDecimationEnabled != 0;
         bool waveInterpolationEnabled = (oscState->waveInterpolationEnabled != 0) && !waveDecimationEnabled;
 
@@ -333,7 +337,7 @@ public:
     // Phase increment per sample (wavetable index units) for the current oscState->frequency.
     inline __attribute__((always_inline)) float getPhaseIncrement(struct OscState *oscState)  {
         struct WaveTable* waveTable = &waveTables[(int) oscillator->shape];
-        return oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd;
+        return (oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd) * oscState->phaseRateScale;
     }
 
     // Sub-sample accurate hard sync of this (slave) oscillator on a master oscillator wrap.
@@ -377,7 +381,7 @@ public:
         float warp = oscState->effectiveWarp;
         bool warpEnabled = warp != 0.0f;
         float *wave = getWaveTableMipmap(shape, warpEnabled ? oscState->frequency * (1.0f + fabsf(warp)) : oscState->frequency);
-        float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
+        float freq = (oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd) * oscState->phaseRateScale;
         bool waveDecimationEnabled = oscState->waveDecimationEnabled != 0;
         float fIndex = oscState->index;
         if (unlikely(freq < 0.0f)) {
@@ -504,7 +508,8 @@ public:
         int max = waveTables[shape].max;
         float warp = oscState->effectiveWarp;
         float *wave = getWaveTableMipmap(shape, (warp != 0.0f) ? oscState->frequency * (1.0f + fabsf(warp)) : oscState->frequency);
-        float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
+        float freq = (oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd) * oscState->phaseRateScale;
+        float dcPole = oscState->oversample2x ? 0.997625f : 0.99525f;
         float fIndex = oscState->index;
         if (unlikely(freq < 0.0f)) {
             int shift = ((int)(-32.0f * freq) | max) + 1;
@@ -537,13 +542,13 @@ public:
                 for (int k = 0; k < 32; k++) {
                     fIndex += halfFreq;
                     float s1 = sampleLinear(wave, fIndex + localLastValue0 * phaseModulationAmplitude, max);
-                    float midLast0 = s1 - localLastValue1 + .99525f * localLastValue0;
+                    float midLast0 = s1 - localLastValue1 + dcPole * localLastValue0;
 
                     fIndex += halfFreq;
                     float s2 = sampleLinear(wave, fIndex + midLast0 * phaseModulationAmplitude, max);
 
                     float newValue = 0.5f * s1 + 0.25f * (localLastValue1 + s2);
-                    localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
+                    localLastValue0 = newValue - localLastValue1 + dcPole * localLastValue0;
                     localLastValue1 = newValue;
 
                     oscValuesToFill[k] = localLastValue0 * localEnvM;
@@ -561,7 +566,7 @@ public:
                     int index = (iIndex + (int)phaseModulationOffset) & max;
 
                     float newValue = wave[index];
-                    localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
+                    localLastValue0 = newValue - localLastValue1 + dcPole * localLastValue0;
                     localLastValue1 = newValue;
 
                     int q = (int)(localLastValue0 * decimationScale);
@@ -573,7 +578,7 @@ public:
                     fIndex += freq;
                     float modIndex = fIndex + localLastValue0 * phaseModulationAmplitude;
                     float newValue = sampleLinear(wave, modIndex, max);
-                    localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
+                    localLastValue0 = newValue - localLastValue1 + dcPole * localLastValue0;
                     localLastValue1 = newValue;
 
                     oscValuesToFill[k] = localLastValue0 * localEnvM;
@@ -596,7 +601,7 @@ public:
                     float fPhase = (float)(iIndex & max) + (fIndex - (float)iIndex);
                     float warpedPhase = warpPhaseSmooth(fPhase, fHalfSize, invHalfSize, warpScale);
                     float s1 = sampleLinear(wave, warpedPhase + localLastValue0 * phaseModulationAmplitude, max);
-                    float midLast0 = s1 - localLastValue1 + .99525f * localLastValue0;
+                    float midLast0 = s1 - localLastValue1 + dcPole * localLastValue0;
 
                     fIndex += halfFreq;
                     iIndex = (int)fIndex;
@@ -605,7 +610,7 @@ public:
                     float s2 = sampleLinear(wave, warpedPhase + midLast0 * phaseModulationAmplitude, max);
 
                     float newValue = 0.5f * s1 + 0.25f * (localLastValue1 + s2);
-                    localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
+                    localLastValue0 = newValue - localLastValue1 + dcPole * localLastValue0;
                     localLastValue1 = newValue;
 
                     oscValuesToFill[k] = localLastValue0 * localEnvM;
@@ -625,7 +630,7 @@ public:
                     int index = (warpedIndex + (int)phaseModulationOffset) & max;
 
                     float newValue = wave[index];
-                    localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
+                    localLastValue0 = newValue - localLastValue1 + dcPole * localLastValue0;
                     localLastValue1 = newValue;
 
                     int q = (int)(localLastValue0 * decimationScale);
@@ -641,7 +646,7 @@ public:
 
                     float modIndex = warpedPhase + localLastValue0 * phaseModulationAmplitude;
                     float newValue = sampleLinear(wave, modIndex, max);
-                    localLastValue0 = newValue - localLastValue1 + .99525f * localLastValue0;
+                    localLastValue0 = newValue - localLastValue1 + dcPole * localLastValue0;
                     localLastValue1 = newValue;
 
                     oscValuesToFill[k] = localLastValue0 * localEnvM;
@@ -666,7 +671,7 @@ public:
         int max = waveTables[shape].max;
         float warp = oscState->effectiveWarp;
         float *wave = getWaveTableMipmap(shape, (warp != 0.0f) ? oscState->frequency * (1.0f + fabsf(warp)) : oscState->frequency);
-        float freq = oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd;
+        float freq = (oscState->frequency * waveTables[shape].precomputedValue + waveTables[shape].floatToAdd) * oscState->phaseRateScale;
         bool warpEnabled = warp != 0.0f;
         float fIndex = oscState->index;
         if (unlikely(freq < 0.0f)) {

@@ -274,8 +274,8 @@ void Timbre::fxAfterBlock()
         float fxParamTmp = sigmoidPos(lfoRaw); 
         delayReadFrac = (fxParamTmp + 99 * delayReadFrac) * 0.01f; // smooth change
 
-        float currentDelaySize1 = delaySize1;
-        delaySize1 = clamp(delayBufStereoDiv4 * delayReadFrac, 0, delayBufStereoSizeM1);
+        float currentDelaySize1 = clamp(delaySize1, 2.0f, (float)(delayBufStereoSize - 3));
+        delaySize1 = clamp(delayBufStereoDiv4 * delayReadFrac, 2.0f, (float)(delayBufStereoSize - 3));
         float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
 
         float currentFeedback = feedback;
@@ -353,8 +353,8 @@ void Timbre::fxAfterBlock()
             dReadPos = modulo2((float)dWritePos - currentDelaySize1, delayBufStereoSize);
             delayReadPos90 = modulo2(dReadPos - driftOffset, delayBufStereoSize);
 
-            l5 = delayInterpolation(dReadPos, delayBuf, delayBufStereoSizeM1);
-            l6 = delayInterpolation2(delayReadPos90, delayBuf, delayBufStereoSizeM1, delayBufStereoSize);
+            l5 = delayInterpolationHermite(dReadPos, delayBuf, delayBufStereoSizeM1, 0);
+            l6 = delayInterpolationHermite(delayReadPos90, delayBuf, delayBufStereoSizeM1, delayBufStereoSize);
 
             l1 += f2 * b1;
             b1 += f2 * (l5 - l1 - b1);
@@ -450,13 +450,13 @@ void Timbre::fxAfterBlock()
         float readPos2 = foldAbs(readPos1 + 0.3333f);
         float readPos3 = foldAbs(readPos1 + 0.6666f);
 
-        float currentDelaySize1 = delaySize1;
-        float currentDelaySize2 = delaySize2;
-        float currentDelaySize3 = delaySize3;
+        float currentDelaySize1 = clamp(delaySize1, 2.0f, (float)(delayBufferSize - 3));
+        float currentDelaySize2 = clamp(delaySize2, 2.0f, (float)(delayBufferSize - 3));
+        float currentDelaySize3 = clamp(delaySize3, 2.0f, (float)(delayBufferSize - 3));
         float chorusSize = delayBufStereoSize; // 21ms
-        delaySize1 = 1 + chorusSize * readPos1;
-        delaySize2 = 1 + chorusSize * readPos2;
-        delaySize3 = 1 + chorusSize * readPos3;
+        delaySize1 = clamp(1 + chorusSize * readPos1, 2.0f, (float)(delayBufferSize - 3));
+        delaySize2 = clamp(1 + chorusSize * readPos2, 2.0f, (float)(delayBufferSize - 3));
+        delaySize3 = clamp(1 + chorusSize * readPos3, 2.0f, (float)(delayBufferSize - 3));
         float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
         float delaySizeInc2 = (delaySize2 - currentDelaySize2) * INV_BLOCK_SIZE;
         float delaySizeInc3 = (delaySize3 - currentDelaySize3) * INV_BLOCK_SIZE;
@@ -504,13 +504,13 @@ void Timbre::fxAfterBlock()
             float dWritePosF = (float)dWritePos;
 
             delReadPos1 = modulo2(dWritePosF - currentDelaySize1, delayBufferSize);
-            delayOut1 = delayInterpolation(delReadPos1, delayBuf, delayBufferSizeM1);
+            delayOut1 = delayInterpolationHermite(delReadPos1, delayBuf, delayBufferSizeM1, 0);
 
             delReadPos2 = modulo2(dWritePosF - currentDelaySize2, delayBufferSize);
-            delayOut2 = delayInterpolation(delReadPos2, delayBuf, delayBufferSizeM1);
+            delayOut2 = delayInterpolationHermite(delReadPos2, delayBuf, delayBufferSizeM1, 0);
 
             delReadPos3 = modulo2(dWritePosF - currentDelaySize3, delayBufferSize);
-            delayOut3 = delayInterpolation(delReadPos3, delayBuf, delayBufferSizeM1);
+            delayOut3 = delayInterpolationHermite(delReadPos3, delayBuf, delayBufferSizeM1, 0);
 
             float delaySumOut = bass + (delayOut1 - delayOut3 + delayOut2);
             float delaySumOut2 = bass + (delayOut3 - delayOut1 + delayOut2);
@@ -587,10 +587,10 @@ void Timbre::fxAfterBlock()
         float fxParamTmp2 = sigmoidPos(foldAbs(0.25f + (0.125f * (lfo2 + param1S))));
         delayReadFrac2 = (fxParamTmp2 + 99 * delayReadFrac2) * 0.01f; // smooth change
 
-        float currentDelaySize1 = clamp(delaySize1, 0, delayBufStereoSizeM1);
-        float currentDelaySize2 = clamp(delaySize2, 0, delayBufStereoSizeM1);
-        delaySize1 = clamp(1 + delayBufStereoSize * delayReadFrac, 0, delayBufStereoSizeM1);
-        delaySize2 = clamp(1 + delayBufStereoSize * delayReadFrac2, 0, delayBufStereoSizeM1);
+        float currentDelaySize1 = clamp(delaySize1, 2.0f, (float)(delayBufStereoSize - 3));
+        float currentDelaySize2 = clamp(delaySize2, 2.0f, (float)(delayBufStereoSize - 3));
+        delaySize1 = clamp(1 + delayBufStereoSize * delayReadFrac, 2.0f, (float)(delayBufStereoSize - 3));
+        delaySize2 = clamp(1 + delayBufStereoSize * delayReadFrac2, 2.0f, (float)(delayBufStereoSize - 3));
         float delaySizeInc1 = (delaySize1 - currentDelaySize1) * INV_BLOCK_SIZE;
         float delaySizeInc2 = (delaySize2 - currentDelaySize2) * INV_BLOCK_SIZE;
 
@@ -655,8 +655,8 @@ void Timbre::fxAfterBlock()
             delReadPos = modulo2(dWritePosF - currentDelaySize1, delayBufStereoSize);
             delReadPos2 = modulo2(dWritePosF - currentDelaySize2, delayBufStereoSize);
 
-            delayOut1 = delayInterpolation(delReadPos, delayBuf, delayBufStereoSizeM1);
-            delayOut3 = delayInterpolation2(delReadPos2, delayBuf, delayBufStereoSizeM1, delayBufStereoSize);
+            delayOut1 = delayInterpolationHermite(delReadPos, delayBuf, delayBufStereoSizeM1, 0);
+            delayOut3 = delayInterpolationHermite(delReadPos2, delayBuf, delayBufStereoSizeM1, delayBufStereoSize);
 
             outL = lpc1 + delayOut3;
             outR = lpc2 + delayOut1;
@@ -2426,6 +2426,17 @@ inline float Timbre::delayInterpolation2(float readPos, float buffer[], int buff
     float y0 = buffer[offset + ((readPosInt - 1) & bufferLenM1)];
     float x = 1 - (readPos - floorf(readPos));
     return (y0 - y1) * x + y1;
+}
+
+inline float Timbre::delayInterpolationHermite(float readPos, const float buffer[], int bufferLenM1, int offset)
+{
+    int readPosInt = (int)readPos;
+    float frac = readPos - (float)readPosInt;
+    float xm1 = buffer[offset + ((readPosInt - 1) & bufferLenM1)];
+    float x0  = buffer[offset + (readPosInt & bufferLenM1)];
+    float x1  = buffer[offset + ((readPosInt + 1) & bufferLenM1)];
+    float x2  = buffer[offset + ((readPosInt + 2) & bufferLenM1)];
+    return hermiteInterpolation(frac, xm1, x0, x1, x2);
 }
 
 inline float Timbre::hermiteInterpolation(float frac, float xm1, float x0, float x1, float x2)

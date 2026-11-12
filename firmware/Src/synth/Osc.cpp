@@ -301,6 +301,8 @@ void Osc::newNote(struct OscState* oscState, float newNoteFrequency, float phase
     oscState->waveDecimationStepPhase = 0;
     oscState->waveInterpolationEnabled = 0;
     oscState->waveDecimationHeldSample = 0.0f;
+    oscState->phaseRateScale = 1.0f;
+    oscState->oversample2x = 0;
     switch ((int)oscillator->frequencyType) {
     case OSC_FT_KEYBOARD:
         oscState->mainFrequency = newNoteFrequency * oscillator->frequencyMul * (1.0f + oscillator->detune * .05f) * (synthState_->mixerState.tuning_ * INV440);

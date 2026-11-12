@@ -659,14 +659,14 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
         params->engineDecimation.decimation = FM_DECIMATION_FULL;
     }
 
-    // Legacy presets may contain 20..24-bit values. Keep HQ (20), clamp 21..24 to the 19-bit max.
-    if (params->engineDecimation.decimation > FM_DECIMATION_HQ
+    // Legacy presets may contain 20..24-bit values. Keep HQ (20) and HQ x2 (21), clamp 22..24 to the 19-bit max.
+    if (params->engineDecimation.decimation > FM_DECIMATION_HQ2X
         && params->engineDecimation.decimation <= 24.0f) {
         params->engineDecimation.decimation = FM_DECIMATION_19BIT;
     }
 
     if (params->engineDecimation.decimation < FM_DECIMATION_1BIT
-        || params->engineDecimation.decimation > FM_DECIMATION_HQ) {
+        || params->engineDecimation.decimation > FM_DECIMATION_HQ2X) {
         params->engineDecimation.decimation = FM_DECIMATION_FULL;
     }
 
