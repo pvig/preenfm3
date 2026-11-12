@@ -2428,7 +2428,7 @@ inline float Timbre::delayInterpolation2(float readPos, float buffer[], int buff
     return (y0 - y1) * x + y1;
 }
 
-inline float Timbre::delayInterpolationHermite(float readPos, const float buffer[], int bufferLenM1, int offset)
+__attribute__((noinline)) float Timbre::delayInterpolationHermite(float readPos, const float buffer[], int bufferLenM1, int offset)
 {
     int readPosInt = (int)readPos;
     float frac = readPos - (float)readPosInt;

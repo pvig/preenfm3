@@ -205,7 +205,7 @@ private:
     void initFx();
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     float delayInterpolation2(float readPos, float buffer[], int bufferLenM1, int offset);
-    float delayInterpolationHermite(float readPos, const float buffer[], int bufferLenM1, int offset);
+    __attribute__((noinline)) float delayInterpolationHermite(float readPos, const float buffer[], int bufferLenM1, int offset);
     float hermiteInterpolation(float frac, float xm1, float x0, float x1, float x2);
     float iirFilter(float x, float a0, float *yn1, float *yn2, float *xn1, float *xn2);
 
