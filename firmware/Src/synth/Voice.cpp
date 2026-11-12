@@ -3857,12 +3857,13 @@ void Voice::nextBlock() {
                 prevPhase = phase;
                 float window = 1.f - phase;
 
-                // sync slave osc
+                oscState1_.frequency = freq3 * voiceIm1 + osc1FrequencyPlusMatrix;
+
+                // sync slave osc (sub-sample accurate)
                 if (unlikely(isSync)) {
-                    oscState1_.index = currentTimbre->osc1_.geIndexFromtPhase(phase);
+                    currentTimbre->osc1_.hardSyncToMaster(&oscState1_, &currentTimbre->osc3_, &oscState3_, phase);
                 }
 
-                oscState1_.frequency = freq3 * voiceIm1 + osc1FrequencyPlusMatrix;
                 float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
                 carSample1 *= fabsf(carSample1); // vosim shape
                 float car1 = carSample1 * env1Value * mix1V;
@@ -3955,18 +3956,19 @@ void Voice::nextBlock() {
                 prevPhase = phase;
                 float window = 1.f - phase;
 
-                // sync slave osc
+                oscState1_.frequency = freq3 * voiceIm1 + osc1FrequencyPlusMatrix + freq4 * voiceIm3;
+                oscState2_.frequency = freq3 * voiceIm2 + osc2FrequencyPlusMatrix + freq4 * voiceIm4;
+
+                // sync slave osc (sub-sample accurate)
                 if (unlikely(isSync)) {
-                    oscState1_.index = currentTimbre->osc1_.geIndexFromtPhase(phase);
-                    oscState2_.index = currentTimbre->osc2_.geIndexFromtPhase(phase);
+                    currentTimbre->osc1_.hardSyncToMaster(&oscState1_, &currentTimbre->osc3_, &oscState3_, phase);
+                    currentTimbre->osc2_.hardSyncToMaster(&oscState2_, &currentTimbre->osc3_, &oscState3_, phase);
                 }
 
-                oscState1_.frequency = freq3 * voiceIm1 + osc1FrequencyPlusMatrix + freq4 * voiceIm3;
                 float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
                 carSample1 *= fabsf(carSample1); // vosim shape
                 float car1 = carSample1 * env1Value * mix1V;
 
-                oscState2_.frequency = freq3 * voiceIm2 + osc2FrequencyPlusMatrix + freq4 * voiceIm4;
                 float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_) * window;
                 carSample2 *= fabsf(carSample2); // vosim shape
                 float car2 = carSample2 * env2Value * mix2V;
@@ -4053,24 +4055,25 @@ void Voice::nextBlock() {
                 prevPhase = phase;
                 float window = 1.f - phase;
 
-                // sync slave osc
+                oscState3_.frequency = freq4 * voiceIm3 + osc3FrequencyPlusMatrix;
+                oscState2_.frequency = freq4 * voiceIm2 + osc2FrequencyPlusMatrix;
+                oscState1_.frequency = freq4 * voiceIm1 + osc1FrequencyPlusMatrix;
+
+                // sync slave osc (sub-sample accurate)
                 if (unlikely(isSync)) {
-                    oscState1_.index = currentTimbre->osc1_.geIndexFromtPhase(phase);
-                    oscState2_.index = currentTimbre->osc2_.geIndexFromtPhase(phase);
-                    oscState3_.index = currentTimbre->osc3_.geIndexFromtPhase(phase);
+                    currentTimbre->osc1_.hardSyncToMaster(&oscState1_, &currentTimbre->osc4_, &oscState4_, phase);
+                    currentTimbre->osc2_.hardSyncToMaster(&oscState2_, &currentTimbre->osc4_, &oscState4_, phase);
+                    currentTimbre->osc3_.hardSyncToMaster(&oscState3_, &currentTimbre->osc4_, &oscState4_, phase);
                 }
 
-                oscState3_.frequency = freq4 * voiceIm3 + osc3FrequencyPlusMatrix;
                 float carSample3 = currentTimbre->osc3_.getNextSample(&oscState3_) * window;
                 carSample3 *= fabsf(carSample3); // vosim shape
                 float car3 = carSample3 * env3Value * mix3V;
 
-                oscState2_.frequency = freq4 * voiceIm2 + osc2FrequencyPlusMatrix;
                 float carSample2 = currentTimbre->osc2_.getNextSample(&oscState2_) * window;
                 carSample2 *= fabsf(carSample2); // vosim shape
                 float car2 = carSample2 * env2Value * mix2V;
 
-                oscState1_.frequency = freq4 * voiceIm1 + osc1FrequencyPlusMatrix;
                 float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
                 carSample1 *= fabsf(carSample1); // vosim shape
                 float car1 = carSample1 * env1Value * mix1V;
@@ -4165,12 +4168,13 @@ void Voice::nextBlock() {
                 prevPhase = phase;
                 float window = 1.f - phase;
 
-                // sync slave osc
+                oscState1_.frequency = freq2 * voiceIm1 + freq3 * voiceIm2 + freq4 * voiceIm3 + osc1FrequencyPlusMatrix;
+
+                // sync slave osc (sub-sample accurate)
                 if (unlikely(isSync)) {
-                    oscState1_.index = currentTimbre->osc1_.geIndexFromtPhase(phase);
+                    currentTimbre->osc1_.hardSyncToMaster(&oscState1_, &currentTimbre->osc4_, &oscState4_, phase);
                 }
 
-                oscState1_.frequency = freq2 * voiceIm1 + freq3 * voiceIm2 + freq4 * voiceIm3 + osc1FrequencyPlusMatrix;
                 float carSample1 = currentTimbre->osc1_.getNextSample(&oscState1_) * window;
                 carSample1 *= fabsf(carSample1); // vosim shape
                 float currentSample = carSample1 * env1Value * mix1V;

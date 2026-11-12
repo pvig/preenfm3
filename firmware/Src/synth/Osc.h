@@ -314,6 +314,40 @@ public:
         return phase * waveTable->max;
     }
 
+    // Phase increment per sample (wavetable index units) for the current oscState->frequency.
+    inline __attribute__((always_inline)) float getPhaseIncrement(struct OscState *oscState)  {
+        struct WaveTable* waveTable = &waveTables[(int) oscillator->shape];
+        return oscState->frequency * waveTable->precomputedValue + waveTable->floatToAdd;
+    }
+
+    // Sub-sample accurate hard sync of this (slave) oscillator on a master oscillator wrap.
+    // Must be called after the master getNextSample() that wrapped (masterPhase = elapsed phase
+    // since the wrap) and after oscState->frequency of this slave is set for the current sample,
+    // and before this slave getNextSample().
+    // The slave restarts at phase 0 at the exact wrap instant, so it only advances by the
+    // fraction of the sample elapsed since the wrap instead of being rounded to a whole sample.
+    inline __attribute__((always_inline)) void hardSyncToMaster(struct OscState *oscState, Osc *masterOsc, struct OscState *masterState, float masterPhase)  {
+        struct WaveTable* waveTable = &waveTables[(int) oscillator->shape];
+        float masterIncrement = masterOsc->getPhaseIncrement(masterState) * waveTables[(int) masterOsc->oscillator->shape].phaseMul;
+
+        if (unlikely(oscState->waveDecimationEnabled != 0 || masterState->waveDecimationEnabled != 0 || !(masterIncrement > 0.0f))) {
+            // Decimated or reversed phase: keep the legacy sample-rounded reset.
+            oscState->index = masterPhase * waveTable->max;
+            return;
+        }
+
+        // Fraction of the current sample that elapsed since the master wrap (0..1).
+        float elapsed = masterPhase / masterIncrement;
+        if (elapsed > 1.0f) {
+            elapsed = 1.0f;
+        }
+        // getNextSample() will add one full increment: pre-compensate so that the slave
+        // phase after that call is exactly elapsed * increment. Offset by one table length
+        // to keep the index positive.
+        float slaveIncrement = getPhaseIncrement(oscState);
+        oscState->index = (float) (waveTable->max + 1) + (elapsed - 1.0f) * slaveIncrement;
+    }
+
     // Block renderer for Full mode. If HQ interpolation is requested, this function
     // delegates to getNextBlockHQ so the HQ path stays centralized.
     inline __attribute__((always_inline)) float* getNextBlock(struct OscState *oscState)  {
