@@ -660,11 +660,15 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     }
 
     // Legacy presets (< 1.6) may contain 20..24-bit values where 21..24 must clamp to 19-bit.
-    // From 1.6 onward, 21 is FM_DECIMATION_HQ2X.
+    // From 1.6 onward, 21 is FM_DECIMATION_HQ2X. Legacy HQ (20) remaps to Full (19).
     float maxDecimation = (patchVersion < 1.6f) ? (float) FM_DECIMATION_HQ : (float) FM_DECIMATION_HQ2X;
     if (params->engineDecimation.decimation > maxDecimation
         && params->engineDecimation.decimation <= 24.0f) {
         params->engineDecimation.decimation = FM_DECIMATION_19BIT;
+    }
+
+    if (params->engineDecimation.decimation == (float) FM_DECIMATION_HQ) {
+        params->engineDecimation.decimation = FM_DECIMATION_FULL;
     }
 
     if (!(params->engineDecimation.decimation >= FM_DECIMATION_1BIT

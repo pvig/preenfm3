@@ -299,7 +299,6 @@ void Osc::newNote(struct OscState* oscState, float newNoteFrequency, float phase
     oscState->index = waveTables[(int) oscillator->shape].max * phase;
     oscState->effectiveWarp = 0.0f;
     oscState->waveDecimationStepPhase = 0;
-    oscState->waveInterpolationEnabled = 0;
     oscState->waveDecimationHeldSample = 0.0f;
     oscState->phaseRateScale = 1.0f;
     oscState->oversample2x = 0;

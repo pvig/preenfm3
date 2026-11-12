@@ -177,13 +177,12 @@ const char *decimationNames[] = {
     "18bit",
     "19bit",
     "Full ",
-    "HQ   ",
+    "Full ",
     "HQ x2"
 };
 
 const unsigned char decimationNamesOrder[] = {
     FM_DECIMATION_HQ2X,
-    FM_DECIMATION_HQ,
     FM_DECIMATION_FULL,
     FM_DECIMATION_19BIT,
     FM_DECIMATION_18BIT,
@@ -207,27 +206,27 @@ const unsigned char decimationNamesOrder[] = {
 };
 
 const unsigned char decimationNamesOrderReversed[] = {
-    21, // 1 bit
-    20, // 2 bit
-    19, // 3 bit
-    18, // 4 bit
-    17, // 5 bit
-    16, // 6 bit
-    15, // 7 bit
-    14, // 8 bit
-    13, // 9 bit
-    12, // 10 bit
-    11, // 11 bit
-    10, // 12 bit
-    9,  // 13 bit
-    8,  // 14 bit
-    7,  // 15 bit
-    6,  // 16 bit
-    5,  // 17 bit
-    4,  // 18 bit
-    3,  // 19 bit
-    2,  // Full
-    1,  // HQ
+    20, // 1 bit
+    19, // 2 bit
+    18, // 3 bit
+    17, // 4 bit
+    16, // 5 bit
+    15, // 6 bit
+    14, // 7 bit
+    13, // 8 bit
+    12, // 9 bit
+    11, // 10 bit
+    10, // 11 bit
+    9,  // 12 bit
+    8,  // 13 bit
+    7,  // 14 bit
+    6,  // 15 bit
+    5,  // 16 bit
+    4,  // 17 bit
+    3,  // 18 bit
+    2,  // 19 bit
+    1,  // Full
+    1,  // Legacy HQ -> Full
     0   // HQ x2
 };
 
@@ -240,9 +239,9 @@ struct ParameterRowDisplay engineDecimationParameterRow = {
         "" },
     {
         {
-            FM_DECIMATION_1BIT,
-            FM_DECIMATION_HQ2X,
-            FM_DECIMATION_HQ2X + 1,
+            0,
+            20,
+            21,
             DISPLAY_TYPE_STRINGS,
             decimationNames,
             decimationNamesOrder,
