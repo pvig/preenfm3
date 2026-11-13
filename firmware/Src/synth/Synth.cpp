@@ -680,6 +680,9 @@ void Synth::newParamValue(int timbre, int currentRow, int encoder, ParameterDisp
         case ROW_LFO_ENV_CURVES:
             // timbres[timbre].lfo[currentRow - ROW_LFOOSC1]->valueChanged(encoder);
             timbres_[timbre].lfoValueChange(currentRow, encoder, newValue);
+            if ((currentRow == ROW_LFOSEQ1 || currentRow == ROW_LFOSEQ2) && encoder == ENCODER_STEPSEQ_MODE) {
+                timbres_[timbre].verifyLfoUsed(ENCODER_MATRIX_SOURCE, 0.0f, 1.0f);
+            }
             break;
         case ROW_PERFORMANCE1:
             timbres_[timbre].setMatrixSource((enum SourceEnum) (MATRIX_SOURCE_CC1 + encoder), newValue);
@@ -988,6 +991,7 @@ void Synth::setNewStepModeFromMidi(int timbre, int whichStepSeq, int step, int n
                 step);
         }
         this->timbres_[timbre].setSeqStepMode(whichStepSeq, step, newMode);
+        this->timbres_[timbre].verifyLfoUsed(ENCODER_MATRIX_SOURCE, 0.0f, 1.0f);
         this->synthState_->propagateNewParamValueFromExternal(timbre, ROW_LFOSEQ1 + whichStepSeq, ENCODER_STEPSEQ_MODE,
             NULL, oldMode, newMode);
     }

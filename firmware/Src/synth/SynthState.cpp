@@ -151,6 +151,22 @@ void SynthState::encoderTurnedForStepSequencer(int row, int encoder4, int encode
             propagateNewParamValue(currentTimbre, row, encoder4, (ParameterDisplay*) NULL, oldValue, newValue);
         }
     } else if (encoder6 == 5) {
+        static const uint8_t stepSeqModeOrder[STEPSEQ_MODE_COUNT] = {
+            STEPSEQ_MODE_NORM,
+            STEPSEQ_MODE_GLIDE1,
+            STEPSEQ_MODE_GLIDE2,
+            STEPSEQ_MODE_GLIDE3,
+            STEPSEQ_MODE_MUTE,
+            STEPSEQ_MODE_PASS,
+            STEPSEQ_MODE_LFO1,
+            STEPSEQ_MODE_LFO2,
+            STEPSEQ_MODE_LFO3,
+            STEPSEQ_MODE_RATCHET2,
+            STEPSEQ_MODE_RATCHET3,
+            STEPSEQ_MODE_RATCHET4,
+            STEPSEQ_MODE_RESET
+        };
+
         char *step = &seqSteps->steps[(int) stepSelect[whichStepSeq]];
         int oldMode = (((uint8_t) (*step)) >> 4) & 0x0F;
         if (oldMode >= STEPSEQ_MODE_COUNT) {
@@ -158,12 +174,21 @@ void SynthState::encoderTurnedForStepSequencer(int row, int encoder4, int encode
         }
         int valueBits = (*step) & 0x0F;
 
-        int newMode = oldMode + ticks;
-        if (newMode >= STEPSEQ_MODE_COUNT) {
-            newMode = STEPSEQ_MODE_COUNT - 1;
-        } else if (newMode < 0) {
-            newMode = 0;
+        int pos = 0;
+        for (int i = 0; i < STEPSEQ_MODE_COUNT; i++) {
+            if (stepSeqModeOrder[i] == oldMode) {
+                pos = i;
+                break;
+            }
         }
+        int dir = (ticks > 0) ? 1 : ((ticks < 0) ? -1 : 0);
+        int newPos = pos + dir;
+        if (newPos >= STEPSEQ_MODE_COUNT) {
+            newPos = STEPSEQ_MODE_COUNT - 1;
+        } else if (newPos < 0) {
+            newPos = 0;
+        }
+        int newMode = stepSeqModeOrder[newPos];
         if (oldMode != newMode) {
             (*step) = (char) ((newMode << 4) | valueBits);
             propagateNewParamValue(currentTimbre, row, encoder4, (ParameterDisplay*) NULL, oldMode, newMode);

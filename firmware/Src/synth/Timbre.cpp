@@ -1358,6 +1358,19 @@ void Timbre::verifyLfoUsed(int encoder, float oldValue, float newValue) {
         }
     }
 
+    // Keep LFO 1..3 running when referenced as a step trig/ratchet gate in an active StepSeq.
+    for (int s = 0; s < 2; s++) {
+        if (lfoUSed_[5 + s] > 0) {
+            const StepSequencerSteps *seqSteps = (s == 0) ? &params_.lfoSteps1 : &params_.lfoSteps2;
+            for (int k = 0; k < 16; k++) {
+                int mode = ((uint8_t) seqSteps->steps[k] >> 4) & 0x0F;
+                if (mode >= STEPSEQ_MODE_LFO1 && mode <= STEPSEQ_MODE_LFO3) {
+                    lfoUSed_[mode - STEPSEQ_MODE_LFO1]++;
+                }
+            }
+        }
+    }
+
     /*
      lcd.setCursor(11, 1);
      lcd.print('>');

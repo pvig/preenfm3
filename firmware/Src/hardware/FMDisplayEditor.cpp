@@ -3574,7 +3574,7 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
 }
 
 static const char * const stepSeqModeNames[STEPSEQ_MODE_COUNT] = {
-    "Norm", "Gld1", "Gld2", "Gld3", "Mute", "Pass", "Rset"
+    "Norm", "Gld1", "Gld2", "Gld3", "Mute", "Pass", "Rset", "Lfo1", "Lfo2", "Lfo3", "1/32", "1/48", "1/64"
 };
 
 static TFT_COLOR getStepSeqStepColor(uint8_t stepByte, int k, bool selected) {
@@ -3593,6 +3593,14 @@ static TFT_COLOR getStepSeqStepColor(uint8_t stepByte, int k, bool selected) {
         return COLOR_GREEN;
     case STEPSEQ_MODE_RESET:
         return COLOR_RED;
+    case STEPSEQ_MODE_LFO1:
+    case STEPSEQ_MODE_LFO2:
+    case STEPSEQ_MODE_LFO3:
+        return COLOR_BLUE;
+    case STEPSEQ_MODE_RATCHET2:
+    case STEPSEQ_MODE_RATCHET3:
+    case STEPSEQ_MODE_RATCHET4:
+        return COLOR_WHITE;
     default:
         return (k % 4) == 0 ? COLOR_WHITE : COLOR_GRAY;
     }

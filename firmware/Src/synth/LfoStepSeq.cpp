@@ -173,6 +173,30 @@ void LfoStepSeq::nextValueInMatrix() {
 			// Option A (Slide/Tie): keep gate open across glided steps.
 			targetOutput = linValues[stepVal];
 			gated = false;
+		} else if (stepMode >= STEPSEQ_MODE_LFO1 && stepMode <= STEPSEQ_MODE_LFO3) {
+			// LFO-controlled trig/ratchet: gate opens when the selected LFO > 0 (and step gate is open).
+			bool lfoTrigOpen = this->matrix->getSource((SourceEnum) (MATRIX_SOURCE_LFO1 + (stepMode - STEPSEQ_MODE_LFO1))) > 0.0f;
+			bool stepGateOpen = (gatePlusMatrix >= 1.0f) || (gatePlusMatrix > 0.0f && phaseDecimal <= gatePlusMatrix);
+			if (lfoTrigOpen && stepGateOpen) {
+				targetOutput = linValues[stepVal];
+				gated = false;
+			} else {
+				targetOutput = 0.0f;
+				gated = true;
+			}
+		} else if (stepMode >= STEPSEQ_MODE_RATCHET2 && stepMode <= STEPSEQ_MODE_RATCHET4) {
+			// Classic subdivisions per 1/16 step: 2 (1/32), 3 (1/48 triplet), 4 (1/64).
+			int subDiv = 2 + (stepMode - STEPSEQ_MODE_RATCHET2);
+			float subPhase = phaseDecimal * (float) subDiv;
+			subPhase -= (int) subPhase;
+			float ratchetGate = (gatePlusMatrix >= 1.0f) ? 0.5f : gatePlusMatrix;
+			if (ratchetGate <= 0.0f || subPhase > ratchetGate) {
+				targetOutput = 0.0f;
+				gated = true;
+			} else {
+				targetOutput = linValues[stepVal];
+				gated = false;
+			}
 		} else if (gatePlusMatrix <= 0.0f) {
 			targetOutput = 0.0f;
 		} else if (gatePlusMatrix < 1.0f) {
@@ -235,7 +259,14 @@ void LfoStepSeq::noteOn() {
 		}
 		uint8_t stepByte = (uint8_t) seqSteps->steps[activeSteps[(int) phase]];
 		int stepMode = (stepByte >> 4) & 0x0F;
-		targetOutput = (stepMode == STEPSEQ_MODE_MUTE) ? 0.0f : linValues[stepByte & 0x0F];
+		if (stepMode == STEPSEQ_MODE_MUTE) {
+			targetOutput = 0.0f;
+		} else if (stepMode >= STEPSEQ_MODE_LFO1 && stepMode <= STEPSEQ_MODE_LFO3) {
+			bool lfoTrigOpen = this->matrix->getSource((SourceEnum) (MATRIX_SOURCE_LFO1 + (stepMode - STEPSEQ_MODE_LFO1))) > 0.0f;
+			targetOutput = lfoTrigOpen ? linValues[stepByte & 0x0F] : 0.0f;
+		} else {
+			targetOutput = linValues[stepByte & 0x0F];
+		}
 	}
 }
 
