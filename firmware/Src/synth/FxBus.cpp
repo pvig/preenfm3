@@ -890,26 +890,27 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             break;
         }
         case SATURATION_FUZZ: {
-            // High-Gain Fuzz / Hard Limiting: aggressive high drive with sharp square clipping
+            // Vintage Transistor / Octave-Diode Fuzz: high gain, C1 crossover pinch,
+            // asymmetric hard clipping (+0.80 / -1.20) + rectified octave-up bite with balanced +-0.096 peaks.
             while (samples < end) {
-                float x_in = 12.0f * *samples;
-                float x_d = x_in - 0.18f * x_in * fabsf(x_in);
-                float x2 = x_d * x_d;
-                *samples++ = 0.18f * (x_d / sqrtf(sqrtf(1.0f + x2 * x2)));
+                float x = 20.0f * *samples;
+                float ax = fabsf(x);
+                float gated = x * (ax / (0.06f + ax));
+                float clipped = (gated > 0.80f) ? 0.80f : ((gated < -1.20f) ? -1.20f : gated);
+                *samples++ = 0.10f * (clipped + 0.20f * fabsf(clipped));
             }
             break;
         }
         case SATURATION_OVERDRIVE: {
-            // Balanced Asymmetric Amp Overdrive with parallel clean blend (~27% dry / ~73% drive):
-            // Smooth Class-A biased sigmoid (C-infinity, no zero-crossing kink) so single notes
-            // and polyphonic chords hit the same sweet spot with rich H2/H3 bite and clear chord voicing
-            const float bias = 0.18f;
-            const float dc = 0.177153f; // bias / sqrtf(1.0f + bias * bias)
+            // Balanced Asymmetric Amp Overdrive with parallel clean blend (~30% dry / ~70% drive):
+            // Smooth Class-A biased sigmoid (C-infinity) with moderate gain so chords stay open and dynamic.
+            const float bias = 0.16f;
+            const float dc = 0.15799f; // bias / sqrtf(1.0f + bias * bias)
             while (samples < end) {
                 float s = *samples;
-                float xb = 8.5f * s + bias;
+                float xb = 6.0f * s + bias;
                 float clip = (xb / sqrtf(1.0f + xb * xb)) - dc;
-                *samples++ = 0.24f * s + 0.13f * clip;
+                *samples++ = 0.26f * s + 0.13f * clip;
             }
             break;
         }
