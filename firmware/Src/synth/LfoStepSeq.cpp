@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
 #include "LfoStepSeq.h"
 #include "Osc.h"
 
@@ -26,11 +27,12 @@ static const float linValues[16] = {
     12.0f / 12.0f, 13.0f / 12.0f, 14.0f / 12.0f, 15.0f / 12.0f
 };
 
-void LfoStepSeq::init(struct StepSequencerParams* stepSeqParam, struct StepSequencerSteps *stepSeqSteps, Matrix *matrix, SourceEnum source, DestinationEnum dest) {
+void LfoStepSeq::init(struct StepSequencerParams* stepSeqParam, struct StepSequencerSteps *stepSeqSteps, Matrix *matrix, SourceEnum source, DestinationEnum dest, DestinationEnum lenDest) {
 	Lfo::init(matrix, source, (DestinationEnum)0);
     this->seqParams = stepSeqParam;
     this->seqSteps = stepSeqSteps;
     this->matrixGateDestination = dest;
+    this->matrixLengthDestination = lenDest;
 	gated = false;
 	stepOnNoteStarted = false;
 	targetOutput = 0.0f;
@@ -41,15 +43,21 @@ void LfoStepSeq::init(struct StepSequencerParams* stepSeqParam, struct StepSeque
 }
 
 int LfoStepSeq::getActiveSteps(uint8_t activeSteps[16]) const {
-	int count = 0;
-	for (int k = 0; k < 16; k++) {
-		int mode = ((uint8_t) seqSteps->steps[k] >> 4) & 0x0F;
-		if (mode == STEPSEQ_MODE_RESET) {
-			if (k == 0) {
-				activeSteps[count++] = 0;
-			}
-			break;
+	int maxSteps = (int) seqParams->loopLength;
+	if (maxSteps < 1 || maxSteps > 16) {
+		maxSteps = 16;
+	}
+	if (this->matrix != NULL && this->matrixLengthDestination != DESTINATION_NONE) {
+		maxSteps += (int) roundf(this->matrix->getDestination(this->matrixLengthDestination) * 12.0f);
+		if (maxSteps < 1) {
+			maxSteps = 1;
+		} else if (maxSteps > 16) {
+			maxSteps = 16;
 		}
+	}
+	int count = 0;
+	for (int k = 0; k < maxSteps; k++) {
+		int mode = ((uint8_t) seqSteps->steps[k] >> 4) & 0x0F;
 		if (mode != STEPSEQ_MODE_PASS) {
 			activeSteps[count++] = (uint8_t) k;
 		}

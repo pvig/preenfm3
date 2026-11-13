@@ -3851,7 +3851,7 @@ void Voice::setCurrentTimbre(Timbre *timbre) {
 
     // Step sequencer
     for (int k = 0; k < NUMBER_OF_LFO_STEP; k++) {
-        lfoStepSeq[k].init(stepseqparams[k], stepseqs[k], &matrix, (SourceEnum) (MATRIX_SOURCE_LFOSEQ1 + k), (DestinationEnum) (LFOSEQ1_GATE + k));
+        lfoStepSeq[k].init(stepseqparams[k], stepseqs[k], &matrix, (SourceEnum) (MATRIX_SOURCE_LFOSEQ1 + k), (DestinationEnum) (LFOSEQ1_GATE + k), (DestinationEnum) (LFOSEQ1_LENGTH + k));
     }
 
     setNewEffectParam(0);

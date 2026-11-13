@@ -618,7 +618,7 @@ enum LfoSyncMode {
 struct StepSequencerParams {
     float bpm;
     float gate;
-    float unused1;
+    float loopLength;
     float unused2;
 };
 
@@ -633,7 +633,6 @@ enum StepSeqMode {
     STEPSEQ_MODE_GLIDE3,
     STEPSEQ_MODE_MUTE,
     STEPSEQ_MODE_PASS,
-    STEPSEQ_MODE_RESET,
     STEPSEQ_MODE_LFO1,
     STEPSEQ_MODE_LFO2,
     STEPSEQ_MODE_LFO3,
@@ -858,6 +857,8 @@ enum DestinationEnum {
     OSC5_WARP,
     OSC6_WARP,
     MTX_DEST_NOTE_ADD,
+    LFOSEQ1_LENGTH,
+    LFOSEQ2_LENGTH,
     DESTINATION_MAX
 };
 

@@ -976,6 +976,11 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre, int midiChannel) {
             cc.value[1] = seqSteps->steps[step] & 0x0F;
             writeMidiCCOut(&cc);
 
+            sendMidiDin5Out();
+            sendMidiUsbOutIfBufferFull();
+            while (usartBufferOut.getCount() > 0) {
+            }
+
             // Step mode (MSB = 5 / 6, LSB = 0..15)
             uint8_t mode = (((uint8_t) seqSteps->steps[step]) >> 4) & 0x0F;
             if (mode >= STEPSEQ_MODE_COUNT) {
@@ -999,6 +1004,29 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre, int midiChannel) {
             // Wait for midi (USART) to be all sent
             while (usartBufferOut.getCount() > 0) {
             }
+        }
+
+        // Loop length (MSB = 5 / 6, LSB = 16)
+        const StepSequencerParams *seqParams = &((StepSequencerParams *) (&paramsToSend->lfoSeq1))[whichStepSeq];
+        int loopLen = (int) seqParams->loopLength;
+        if (loopLen < 1 || loopLen > 16) {
+            loopLen = 16;
+        }
+        cc.value[0] = 99;
+        cc.value[1] = whichStepSeq + 5;
+        writeMidiCCOut(&cc);
+        cc.value[0] = 98;
+        cc.value[1] = 16;
+        writeMidiCCOut(&cc);
+        cc.value[0] = 6;
+        cc.value[1] = 0;
+        writeMidiCCOut(&cc);
+        cc.value[0] = 38;
+        cc.value[1] = (unsigned char) loopLen;
+        writeMidiCCOut(&cc);
+        sendMidiDin5Out();
+        sendMidiUsbOutIfBufferFull();
+        while (usartBufferOut.getCount() > 0) {
         }
     }
 
@@ -1109,8 +1137,8 @@ void MidiDecoder::decodeNrpn(int timbre, int midiChannel, bool allowDump) {
     }
 
     // Step sequencer modes & loop length : MSB = 5 ou 6
-    // LSB = 0..15 : mode du pas (0=Norm, 1..3=Gld1..3, 4=Mute, 5=Pass, 6=Rset)
-    // LSB = 16    : longueur de boucle (1..16, ou 0 pour effacer Rset)
+    // LSB = 0..15 : mode du pas (0=Norm, 1..3=Gld1..3, 4=Mute, 5=Pass, 6..8=Lfo1..3, 9..11=1/32..1/64)
+    // LSB = 16    : longueur de boucle (1..16, ou 0 -> 16)
     if (this->currentNrpn[timbre].paramMSB == 5 || this->currentNrpn[timbre].paramMSB == 6) {
         unsigned int whichStepSeq = this->currentNrpn[timbre].paramMSB - 5;
         unsigned int lsb = this->currentNrpn[timbre].paramLSB;
@@ -1282,15 +1310,15 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             if (encoder == 2) {
                 return;
             }
-            if (encoder == 3 || encoder == ENCODER_STEPSEQ_MODE) {
-                // We modify a step value (MSB = 2/3) or step mode (MSB = 5/6)
+            if (encoder == 3 || encoder == ENCODER_STEPSEQ_MODE || encoder == ENCODER_STEPSEQ_LEN) {
+                // Step value (MSB=2/3, LSB=step), mode (MSB=5/6, LSB=step), or loop length (MSB=5/6, LSB=16)
                 int currentStepSeq = currentrow - ROW_LFOSEQ1;
                 // NRPN is 4 control change
                 cc.value[0] = 99;
-                cc.value[1] = currentStepSeq + ((encoder == ENCODER_STEPSEQ_MODE) ? 5 : 2);
+                cc.value[1] = currentStepSeq + ((encoder == ENCODER_STEPSEQ_MODE || encoder == ENCODER_STEPSEQ_LEN) ? 5 : 2);
                 writeMidiCCOut(&cc);
                 cc.value[0] = 98;
-                cc.value[1] = this->synthState_->stepSelect[currentStepSeq];
+                cc.value[1] = (encoder == ENCODER_STEPSEQ_LEN) ? 16 : this->synthState_->stepSelect[currentStepSeq];
                 writeMidiCCOut(&cc);
                 cc.value[0] = 6;
                 cc.value[1] = 0;
@@ -1580,6 +1608,12 @@ void MidiDecoder::writeMidiCCOut(struct MidiEvent *toSend) {
 
     // We don't send midi to both USB and USART at the same time...
     if (this->synthState_->fullState.midiConfigValue[MIDICONFIG_USB] == USBMIDI_IN_AND_OUT) {
+        if ((usbMidiOutBuffWrt - usbMidiOutBuff) > 60) {
+            sendMidiUsbOut();
+        }
+        if ((usbMidiOutBuffWrt - usbMidiOutBuff) > 60) {
+            usbMidiOutBuffWrt = usbMidiOutBuff;
+        }
         // usbBuf[0] = [number of cable on 4 bits] [event type on 4 bites]
         *usbMidiOutBuffWrt++ = 0x00 | (toSend->eventType >> 4);
         *usbMidiOutBuffWrt++ = toSend->eventType + toSend->channel;
@@ -1605,7 +1639,7 @@ void MidiDecoder::sendMidiDin5Out() {
 
 
 void MidiDecoder::sendMidiUsbOutIfBufferFull() {
-	if ((usbMidiOutBuffWrt - usbMidiOutBuff) == 64) {
+	if ((usbMidiOutBuffWrt - usbMidiOutBuff) >= 64) {
 		sendMidiUsbOut();
 	}
 }

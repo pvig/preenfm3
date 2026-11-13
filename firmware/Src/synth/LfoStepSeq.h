@@ -26,7 +26,7 @@ class LfoStepSeq: public Lfo {
 public:
 	using Lfo::init;
 
-	void init(struct StepSequencerParams* stepSeqParam, struct StepSequencerSteps* stepSeqSteps, Matrix* matrix, SourceEnum source, DestinationEnum dest);
+	void init(struct StepSequencerParams* stepSeqParam, struct StepSequencerSteps* stepSeqSteps, Matrix* matrix, SourceEnum source, DestinationEnum dest, DestinationEnum lenDest);
 	void valueChanged(int encoder);
 	void nextValueInMatrix();
 	void noteOn();
@@ -47,6 +47,7 @@ private:
     bool gated;
     bool stepOnNoteStarted;
     DestinationEnum matrixGateDestination;
+    DestinationEnum matrixLengthDestination;
 };
 
 #endif /* LFOENV_H_ */

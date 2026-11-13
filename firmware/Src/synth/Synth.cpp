@@ -1002,16 +1002,18 @@ void Synth::setNewStepSeqLoopLengthFromMidi(int timbre, int whichStepSeq, int le
         return;
     }
 
-    int targetResetStep = length - 1; // -1 if length == 0 (clears all Rset)
-    for (int step = 0; step < 16; step++) {
-        int mode = this->timbres_[timbre].getSeqStepMode(whichStepSeq, step);
-        if (step == targetResetStep) {
-            if (mode != STEPSEQ_MODE_RESET) {
-                setNewStepModeFromMidi(timbre, whichStepSeq, step, STEPSEQ_MODE_RESET);
-            }
-        } else if (mode == STEPSEQ_MODE_RESET) {
-            setNewStepModeFromMidi(timbre, whichStepSeq, step, STEPSEQ_MODE_NORM);
-        }
+    int targetLen = (length == 0) ? 16 : length;
+    StepSequencerParams *seqParams = (whichStepSeq == 0)
+        ? &this->timbres_[timbre].getParamRaw()->lfoSeq1
+        : &this->timbres_[timbre].getParamRaw()->lfoSeq2;
+    int oldLen = (int) seqParams->loopLength;
+    if (oldLen < 1 || oldLen > 16) {
+        oldLen = 16;
+    }
+    if (oldLen != targetLen) {
+        seqParams->loopLength = (float) targetLen;
+        this->synthState_->propagateNewParamValueFromExternal(timbre, ROW_LFOSEQ1 + whichStepSeq, ENCODER_STEPSEQ_LEN,
+            NULL, oldLen, targetLen);
     }
 }
 
