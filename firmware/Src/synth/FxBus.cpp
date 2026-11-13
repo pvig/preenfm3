@@ -890,14 +890,15 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             break;
         }
         case SATURATION_FUZZ: {
-            // Vintage Transistor / Octave-Diode Fuzz: high gain, C1 crossover pinch,
-            // asymmetric hard clipping (+0.80 / -1.20) + rectified octave-up bite with balanced +-0.096 peaks.
+            // Bright Airy Silicon/Octave Fuzz: smooth zero-crossing (no sputter),
+            // asymmetric diode saturation + octave-up shimmer + subtle parallel air.
             while (samples < end) {
-                float x = 20.0f * *samples;
+                float s = *samples;
+                float x = 14.0f * s;
                 float ax = fabsf(x);
-                float gated = x * (ax / (0.06f + ax));
-                float clipped = (gated > 0.80f) ? 0.80f : ((gated < -1.20f) ? -1.20f : gated);
-                *samples++ = 0.10f * (clipped + 0.20f * fabsf(clipped));
+                float norm = (x >= 0.0f) ? (1.0f + 1.15f * ax) : (1.0f + 0.85f * ax);
+                float clip = x / norm;
+                *samples++ = 0.095f * (clip + 0.28f * fabsf(clip)) + 0.06f * s;
             }
             break;
         }
