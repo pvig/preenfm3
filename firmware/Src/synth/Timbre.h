@@ -62,6 +62,8 @@ public:
     void setNewEffecParam(int encoder);
     int getSeqStepValue(int whichStepSeq, int step);
     void setSeqStepValue(int whichStepSeq, int step, int value);
+    int getSeqStepMode(int whichStepSeq, int step);
+    void setSeqStepMode(int whichStepSeq, int step, int mode);
     // Arpegiator
     void arpeggiatorNoteOn(char note, char velocity);
     void arpeggiatorNoteOff(char note);
@@ -183,6 +185,10 @@ public:
 
     uint8_t getMPESetting() {
         return mpeSetting_;
+    }
+
+    float getScaleFrequency(int noteIndex) const {
+        return mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[noteIndex & 0x7F];
     }
 
 private:

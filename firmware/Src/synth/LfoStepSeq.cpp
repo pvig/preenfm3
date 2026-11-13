@@ -18,8 +18,13 @@
 #include "LfoStepSeq.h"
 #include "Osc.h"
 
-float expValues[] = {0, 0.0594630944, 0.1224620483, 0.189207115, 0.2599210499, 0.3348398542, 0.4142135624, 0.4983070769,
-        0.587401052, 0.6817928305, 0.7817974363, 0.8877486254, 1, 1.1189261887, 1.2449240966, 1.37841423 };
+// Linear step values (12 = 1.0f -> 1 octave / 12 degrees in Note+ with mul = 1.0)
+static const float linValues[16] = {
+    0.0f / 12.0f, 1.0f / 12.0f, 2.0f / 12.0f, 3.0f / 12.0f,
+    4.0f / 12.0f, 5.0f / 12.0f, 6.0f / 12.0f, 7.0f / 12.0f,
+    8.0f / 12.0f, 9.0f / 12.0f, 10.0f / 12.0f, 11.0f / 12.0f,
+    12.0f / 12.0f, 13.0f / 12.0f, 14.0f / 12.0f, 15.0f / 12.0f
+};
 
 void LfoStepSeq::init(struct StepSequencerParams* stepSeqParam, struct StepSequencerSteps *stepSeqSteps, Matrix *matrix, SourceEnum source, DestinationEnum dest) {
 	Lfo::init(matrix, source, (DestinationEnum)0);
@@ -27,14 +32,39 @@ void LfoStepSeq::init(struct StepSequencerParams* stepSeqParam, struct StepSeque
     this->seqSteps = stepSeqSteps;
     this->matrixGateDestination = dest;
 	gated = false;
+	stepOnNoteStarted = false;
+	targetOutput = 0.0f;
+	currentOutput = 0.0f;
 	valueChanged(0);
 	ticks = 1536;
 	midiClock(0, true);
 }
 
+int LfoStepSeq::getActiveSteps(uint8_t activeSteps[16]) const {
+	int count = 0;
+	for (int k = 0; k < 16; k++) {
+		int mode = ((uint8_t) seqSteps->steps[k] >> 4) & 0x0F;
+		if (mode == STEPSEQ_MODE_RESET) {
+			if (k == 0) {
+				activeSteps[count++] = 0;
+			}
+			break;
+		}
+		if (mode != STEPSEQ_MODE_PASS) {
+			activeSteps[count++] = (uint8_t) k;
+		}
+	}
+	return count;
+}
+
 void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
 
 	ticks &= 0x7ff;
+	uint8_t activeSteps[16];
+	int loopLen = getActiveSteps(activeSteps);
+	if (loopLen == 0) {
+		loopLen = 1;
+	}
 
     switch ((int)this->seqParams->bpm)  {
 	case LFO_SEQ_MIDICLOCK_DIV_4:
@@ -44,7 +74,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 0.5f * invTab[ticks];
                 ticks = 0;
 			}
-            phase = (float)(songPosition & 0x3f) * .25f;
+            phase = (float)((songPosition >> 2) % loopLen) + (float)(songPosition & 0x3) * .25f;
 		}
 		break;
 	case LFO_SEQ_MIDICLOCK_DIV_2:
@@ -53,7 +83,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 1.0f * invTab[ticks];
 				ticks = 0;
 			}
-			phase = (float)(songPosition & 0x1f) * .5f;
+			phase = (float)((songPosition >> 1) % loopLen) + (float)(songPosition & 0x1) * .5f;
 		}
 		break;
 	case LFO_SEQ_MIDICLOCK:
@@ -64,7 +94,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 2.0f * invTab[ticks];
 				ticks = 0;
 			}
-			phase = (songPosition & 0xF);
+			phase = (float)(songPosition % loopLen);
 		}
 		break;
 	case LFO_SEQ_MIDICLOCK_TIME_2:
@@ -73,7 +103,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 4.0f * invTab[ticks];
 				ticks = 0;
 			}
-			phase = ((songPosition << 1) & 0xF);
+			phase = (float)((songPosition << 1) % loopLen);
 		}
 		break;
 	case LFO_SEQ_MIDICLOCK_TIME_4:
@@ -82,7 +112,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 8.0f * invTab[ticks];
 				ticks = 0;
 			}
-            phase = ((songPosition << 1) & 0xF);
+            phase = (float)((songPosition << 1) % loopLen);
 		}
 		break;
 	}
@@ -91,11 +121,15 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
 
 void LfoStepSeq::valueChanged(int encoder) {
 	if (encoder < 2) {
-		if (seqParams->bpm < LFO_SEQ_MIDICLOCK_DIV_4 ) {
+		if (seqParams->bpm < LFO_SEQ_MIDICLOCK_DIV_4) {
 		    // bpm / 60 = Herz
 		    // We have 4 tick per beat so * 4
 		    // 4/60 = .066666
 			phaseStep = seqParams->bpm * 0.066666666666666f * PREENFM_FREQUENCY_INVERSED_LFO;
+		} else if ((int) seqParams->bpm == LFO_SEQ_STEP_ON_NOTE) {
+			phaseStep = 0.0f;
+			phase = (float) ((int) phase);
+			stepOnNoteStarted = false;
 		}
 	}
 }
@@ -108,44 +142,100 @@ void LfoStepSeq::nextValueInMatrix() {
 	int phaseInteger = phase;
 	phase -= phaseInteger;
 	float phaseDecimal = phase;
-	phaseInteger &= 0xf; // modulo 16
+
+	uint8_t activeSteps[16];
+	int count = getActiveSteps(activeSteps);
+	if (count > 0 && phaseInteger >= count) {
+		phaseInteger %= count;
+	} else if (count == 0) {
+		phaseInteger = 0;
+	}
 	phase += phaseInteger;
 
 	// Add gate and matrix value
 	float gatePlusMatrix = seqParams->gate + (this->matrix->getDestination(matrixGateDestination));
 
-	// We'll reach the new value phaseStep by phaseStep to reduce audio click !
-	if (gatePlusMatrix <= 0) {
-		target = 0;
-	} else if (gatePlusMatrix < 1.0) {
-		// Gated ?
-		if (!gated && phaseDecimal > gatePlusMatrix) {
-			target = 0;
+	int stepMode = STEPSEQ_MODE_NORM;
+	bool isGlide = false;
+	if (count == 0) {
+		targetOutput = 0.0f;
+		gated = true;
+	} else {
+		uint8_t stepByte = (uint8_t) seqSteps->steps[activeSteps[phaseInteger]];
+		int stepVal = stepByte & 0x0F;
+		stepMode = (stepByte >> 4) & 0x0F;
+		isGlide = (stepMode >= STEPSEQ_MODE_GLIDE1 && stepMode <= STEPSEQ_MODE_GLIDE3);
+
+		if (stepMode == STEPSEQ_MODE_MUTE) {
+			targetOutput = 0.0f;
 			gated = true;
-		}
-		// End of gate ?
-		if (gated && phaseDecimal < gatePlusMatrix) {
-			target = seqSteps->steps[(int)phase]; // 16 steps
+		} else if (isGlide) {
+			// Option A (Slide/Tie): keep gate open across glided steps.
+			targetOutput = linValues[stepVal];
+			gated = false;
+		} else if (gatePlusMatrix <= 0.0f) {
+			targetOutput = 0.0f;
+		} else if (gatePlusMatrix < 1.0f) {
+			if (phaseDecimal > gatePlusMatrix) {
+				targetOutput = 0.0f;
+				gated = true;
+			} else {
+				targetOutput = linValues[stepVal];
+				gated = false;
+			}
+		} else {
+			targetOutput = linValues[stepVal];
 			gated = false;
 		}
-	} else {
-		target = seqSteps->steps[(int)phase];
 	}
 
-	if (currentValue < target) {
-		currentValue++;
+	if (isGlide) {
+		// Exponential portamento scaled by phaseStep (3 speeds: Gld1 fast, Gld2 medium, Gld3 slow).
+		static const float glideRates[3] = { 8.0f, 2.6667f, 1.1429f };
+		float effectivePhaseStep = (phaseStep > 0.0f) ? phaseStep : (120.0f * 0.066666666666666f * PREENFM_FREQUENCY_INVERSED_LFO);
+		float coeff = effectivePhaseStep * glideRates[stepMode - STEPSEQ_MODE_GLIDE1];
+		if (coeff > 1.0f) {
+			coeff = 1.0f;
+		}
+		currentOutput += coeff * (targetOutput - currentOutput);
+	} else {
+		// Fast anti-click ramp on non-glided steps.
+		float diff = targetOutput - currentOutput;
+		if (diff > 0.1f) {
+			currentOutput += 0.1f;
+		} else if (diff < -0.1f) {
+			currentOutput -= 0.1f;
+		} else {
+			currentOutput = targetOutput;
+		}
 	}
-	if (currentValue > target) {
-		currentValue--;
-	}
-	//matrix->setSource(source, expValues[currentValue]);
-	matrix->setSource((enum SourceEnum)source, expValues[currentValue]);
+	matrix->setSource((enum SourceEnum)source, currentOutput);
 }
 
 void LfoStepSeq::noteOn() {
 	if (seqParams->bpm < LFO_SEQ_MIDICLOCK_DIV_4) {
 		phase = 0;
-		target = seqSteps->steps[0];
+		uint8_t activeSteps[16];
+		int count = getActiveSteps(activeSteps);
+		targetOutput = (count > 0) ? linValues[seqSteps->steps[activeSteps[0]] & 0x0F] : 0.0f;
+	} else if ((int) seqParams->bpm == LFO_SEQ_STEP_ON_NOTE) {
+		uint8_t activeSteps[16];
+		int count = getActiveSteps(activeSteps);
+		if (count == 0) {
+			phase = 0;
+			targetOutput = 0.0f;
+			return;
+		}
+		if (!stepOnNoteStarted) {
+			phase = 0;
+			stepOnNoteStarted = true;
+		} else {
+			int nextStep = ((int) phase + 1) % count;
+			phase = (float) nextStep;
+		}
+		uint8_t stepByte = (uint8_t) seqSteps->steps[activeSteps[(int) phase]];
+		int stepMode = (stepByte >> 4) & 0x0F;
+		targetOutput = (stepMode == STEPSEQ_MODE_MUTE) ? 0.0f : linValues[stepByte & 0x0F];
 	}
 }
 

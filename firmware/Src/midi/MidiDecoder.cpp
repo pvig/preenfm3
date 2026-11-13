@@ -664,12 +664,6 @@ void MidiDecoder::controlChange(int timbre, MidiEvent& midiEvent, bool allowNrpn
         case CC_LFO_ENV2_SILENCE:
             this->synth->setNewValueFromMidi(timbre, ROW_LFOENV2, ENCODER_LFO_ENV2_SILENCE, (float) midiEvent.value[1] * .125f);
             break;
-        case CC_STEPSEQ5_GATE:
-        case CC_STEPSEQ6_GATE:
-            // cc.value[1] = newValue * 100.0f + .1f;
-            this->synth->setNewValueFromMidi(timbre, ROW_LFOSEQ1 + midiEvent.value[0] - CC_STEPSEQ5_GATE, ENCODER_STEPSEQ_GATE,
-                    (float) midiEvent.value[1] * .01f);
-            break;
         case CC_MATRIX_SOURCE_CC1:
         case CC_MATRIX_SOURCE_CC2:
         case CC_MATRIX_SOURCE_CC3:
@@ -966,7 +960,9 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre, int midiChannel) {
 
     // Step Seq
     for (int whichStepSeq = 0; whichStepSeq < 2; whichStepSeq++) {
+        StepSequencerSteps * seqSteps = &((StepSequencerSteps *) (&paramsToSend->lfoSteps1))[whichStepSeq];
         for (int step = 0; step < 16; step++) {
+            // Step value (MSB = 2 / 3, LSB = 0..15)
             cc.value[0] = 99;
             cc.value[1] = whichStepSeq + 2;
             writeMidiCCOut(&cc);
@@ -977,8 +973,25 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre, int midiChannel) {
             cc.value[1] = 0;
             writeMidiCCOut(&cc);
             cc.value[0] = 38;
-            StepSequencerSteps * seqSteps = &((StepSequencerSteps *) (&paramsToSend->lfoSteps1))[whichStepSeq];
-            cc.value[1] = seqSteps->steps[step];
+            cc.value[1] = seqSteps->steps[step] & 0x0F;
+            writeMidiCCOut(&cc);
+
+            // Step mode (MSB = 5 / 6, LSB = 0..15)
+            uint8_t mode = (((uint8_t) seqSteps->steps[step]) >> 4) & 0x0F;
+            if (mode >= STEPSEQ_MODE_COUNT) {
+                mode = STEPSEQ_MODE_NORM;
+            }
+            cc.value[0] = 99;
+            cc.value[1] = whichStepSeq + 5;
+            writeMidiCCOut(&cc);
+            cc.value[0] = 98;
+            cc.value[1] = step;
+            writeMidiCCOut(&cc);
+            cc.value[0] = 6;
+            cc.value[1] = 0;
+            writeMidiCCOut(&cc);
+            cc.value[0] = 38;
+            cc.value[1] = mode;
             writeMidiCCOut(&cc);
 
             sendMidiDin5Out();
@@ -1085,13 +1098,28 @@ void MidiDecoder::decodeNrpn(int timbre, int midiChannel, bool allowDump) {
         return;
     }
 
-    // Step sequencer : MSB = 2 ou 3, et LSB = 0 à 15 (steps 0-15 uniquement)
+    // Step sequencer : MSB = 2 ou 3, et LSB = 0 à 15 (valeurs des pas 0-15)
     if ((this->currentNrpn[timbre].paramMSB == 2 || this->currentNrpn[timbre].paramMSB == 3)
             && this->currentNrpn[timbre].paramLSB < 16) {
         unsigned int whichStepSeq = this->currentNrpn[timbre].paramMSB - 2;
         unsigned int step = this->currentNrpn[timbre].paramLSB;
         unsigned int v = this->currentNrpn[timbre].valueLSB;
         this->synth->setNewStepValueFromMidi(timbre, whichStepSeq, step, v);
+        return;
+    }
+
+    // Step sequencer modes & loop length : MSB = 5 ou 6
+    // LSB = 0..15 : mode du pas (0=Norm, 1..3=Gld1..3, 4=Mute, 5=Pass, 6=Rset)
+    // LSB = 16    : longueur de boucle (1..16, ou 0 pour effacer Rset)
+    if (this->currentNrpn[timbre].paramMSB == 5 || this->currentNrpn[timbre].paramMSB == 6) {
+        unsigned int whichStepSeq = this->currentNrpn[timbre].paramMSB - 5;
+        unsigned int lsb = this->currentNrpn[timbre].paramLSB;
+        unsigned int v = this->currentNrpn[timbre].valueLSB;
+        if (lsb < 16) {
+            this->synth->setNewStepModeFromMidi(timbre, whichStepSeq, lsb, v);
+        } else if (lsb == 16) {
+            this->synth->setNewStepSeqLoopLengthFromMidi(timbre, whichStepSeq, v);
+        }
         return;
     }
 
@@ -1254,12 +1282,12 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             if (encoder == 2) {
                 return;
             }
-            if (encoder == 3) {
-                // We modify a step value, we want to send that
+            if (encoder == 3 || encoder == ENCODER_STEPSEQ_MODE) {
+                // We modify a step value (MSB = 2/3) or step mode (MSB = 5/6)
                 int currentStepSeq = currentrow - ROW_LFOSEQ1;
                 // NRPN is 4 control change
                 cc.value[0] = 99;
-                cc.value[1] = currentStepSeq + 2;
+                cc.value[1] = currentStepSeq + ((encoder == ENCODER_STEPSEQ_MODE) ? 5 : 2);
                 writeMidiCCOut(&cc);
                 cc.value[0] = 98;
                 cc.value[1] = this->synthState_->stepSelect[currentStepSeq];
@@ -1438,12 +1466,6 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
             if (encoder == ENCODER_LFO_ENV2_SILENCE) {
                 cc.value[0] = CC_LFO_ENV2_SILENCE;
                 cc.value[1] = newValue * 8.0f + .1f;
-            }
-            break;
-        case ROW_LFOSEQ1 ... ROW_LFOSEQ2:
-            if (encoder == ENCODER_STEPSEQ_GATE) {
-                cc.value[0] = CC_STEPSEQ5_GATE + (currentrow - ROW_LFOSEQ1);
-                cc.value[1] = newValue * 100.0f + .1f;
             }
             break;
         case ROW_EFFECT1:

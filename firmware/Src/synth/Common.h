@@ -251,6 +251,7 @@ enum {
     LFO_SEQ_MIDICLOCK,
     LFO_SEQ_MIDICLOCK_TIME_2,
     LFO_SEQ_MIDICLOCK_TIME_4,
+    LFO_SEQ_STEP_ON_NOTE,
 };
 
 #define LFO_FREQ_MAX  99.9f
@@ -625,6 +626,17 @@ struct StepSequencerSteps {
     char steps[16];
 };
 
+enum StepSeqMode {
+    STEPSEQ_MODE_NORM = 0,
+    STEPSEQ_MODE_GLIDE1,
+    STEPSEQ_MODE_GLIDE2,
+    STEPSEQ_MODE_GLIDE3,
+    STEPSEQ_MODE_MUTE,
+    STEPSEQ_MODE_PASS,
+    STEPSEQ_MODE_RESET,
+    STEPSEQ_MODE_COUNT
+};
+
 struct EffectRowParams {
     float type;
     float param1;
@@ -839,6 +851,7 @@ enum DestinationEnum {
     OSC4_WARP,
     OSC5_WARP,
     OSC6_WARP,
+    MTX_DEST_NOTE_ADD,
     DESTINATION_MAX
 };
 

@@ -1756,10 +1756,20 @@ const char *matrixDestNames[DESTINATION_MAX] = { "None ", "Gate ", "IM 1 ", "IM 
     /*filter2 amp*/  "Fx2Am",
     /*osc phase*/  "o1 Ph", "o2 Ph", "o3 Ph", "o4 Ph", "o5 Ph", "o6 Ph",
     /*osc warp*/   "o1 Wr", "o2 Wr", "o3 Wr", "o4 Wr", "o5 Wr", "o6 Wr",
+    /*note add*/   "Note+"
     };
-const unsigned char matrixTargetOrder[DESTINATION_MAX] = { 0, 1, 2, 3, 4, 5, 48, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 43, 24, 25, 26, 27, 28, 29,
-    30, 45, 44, 46, 31, 47, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 49, 50, 51, 52, 53,
-    54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65 };
+const unsigned char matrixTargetOrder[DESTINATION_MAX] = {
+    0, 1, 2, 3, 4, 5, 48, 6,
+    7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    17, 18, 19, 20, 21, 22, 23, 43, 66,
+    54, 55, 56, 57, 58, 59,
+    60, 61, 62, 63, 64, 65,
+    24, 25, 26, 27, 28, 29,
+    30, 45, 44, 46, 31, 47,
+    32, 33, 34, 35,
+    36, 37, 38, 39, 40, 41,
+    42, 49, 50, 51, 52, 53
+};
 
 unsigned char matrixTargetPosition[DESTINATION_MAX];
 
@@ -1890,7 +1900,8 @@ const char *lfoSeqMidiClock[] = {
     "Ck/2",
     "Ck  ",
     "Ck*2",
-    "Ck*4" };
+    "Ck*4",
+    "Note" };
 
 struct ParameterRowDisplay lfoStepParameterRow = {
     "Step Seq",
@@ -1902,8 +1913,8 @@ struct ParameterRowDisplay lfoStepParameterRow = {
     {
         {
             10,
-            245,
-            236,
+            246,
+            237,
             DISPLAY_TYPE_STEP_SEQ_BPM,
             nullNames,
             nullNamesOrder,
@@ -3123,7 +3134,7 @@ const struct Pfm3OneButtonState pfm3ButtonStepSeqStep1 = {
             3 },
         {
             ROW_NONE,
-            ENCODER_INVISIBLE } } };
+            ENCODER_STEPSEQ_MODE } } };
 
 const struct Pfm3OneButtonState pfm3ButtonStepSeqStep2 = {
     "Step Sequencer 2",
@@ -3145,7 +3156,7 @@ const struct Pfm3OneButtonState pfm3ButtonStepSeqStep2 = {
             3 },
         {
             ROW_NONE,
-            ENCODER_INVISIBLE } } };
+            ENCODER_STEPSEQ_MODE } } };
 
 const struct Pfm3OneButton pfm3ButtonSteps = {
     "Steps",
@@ -3419,13 +3430,18 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
             }
             }
         }
-        if (rowToTest == rowEncoder.row && encoder == rowEncoder.encoder) {
+        if ((rowToTest == rowEncoder.row || encoder == ENCODER_STEPSEQ_MODE) && encoder == rowEncoder.encoder) {
             encoder6 = enc;
         }
     }
     // Can be called when new param value is received on Midi
     // So encoder6 can often be -1
     if (encoder6 != -1) {
+        if ((currentRow == ROW_LFOSEQ1 || currentRow == ROW_LFOSEQ2) && encoder > ENCODER_STEPSEQ_GATE) {
+            updateStepSequencer(currentRow, encoder, oldValue, newValue);
+            return;
+        }
+
         uint8_t x = getX(encoder6);
 
         tft_->setCursor(x, encoder6 > 2 ? LINE_PARAM_VALUE2 : LINE_PARAM_VALUE1);
@@ -3557,6 +3573,31 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
 
 }
 
+static const char * const stepSeqModeNames[STEPSEQ_MODE_COUNT] = {
+    "Norm", "Gld1", "Gld2", "Gld3", "Mute", "Pass", "Rset"
+};
+
+static TFT_COLOR getStepSeqStepColor(uint8_t stepByte, int k, bool selected) {
+    if (selected) {
+        return COLOR_YELLOW;
+    }
+    int mode = (stepByte >> 4) & 0x0F;
+    switch (mode) {
+    case STEPSEQ_MODE_GLIDE1:
+    case STEPSEQ_MODE_GLIDE2:
+    case STEPSEQ_MODE_GLIDE3:
+        return COLOR_CYAN;
+    case STEPSEQ_MODE_MUTE:
+        return COLOR_DARK_GRAY;
+    case STEPSEQ_MODE_PASS:
+        return COLOR_GREEN;
+    case STEPSEQ_MODE_RESET:
+        return COLOR_RED;
+    default:
+        return (k % 4) == 0 ? COLOR_WHITE : COLOR_GRAY;
+    }
+}
+
 void FMDisplayEditor::displayParamValue(int encoder, TFT_COLOR color) {
     const struct Pfm3EditMenu *editMenu = mainMenu.editMenu[synthState_->fullState.mainPage];
     const struct Pfm3OneButton *page = editMenu->pages[synthState_->fullState.editPage];
@@ -3594,7 +3635,22 @@ void FMDisplayEditor::displayParamValue(int encoder, TFT_COLOR color) {
             tft_->setCharColor(color);
             struct StepSequencerParams * stepParams = &synthState_->params->lfoSeq1;
             int stepButtonState = synthState_->fullState.buttonState[BUTTONID_EDIT_STEPS];
-            tft_->print(lfoSyncParameterRow.params[0].valueName[stepParams[stepButtonState].bpm < 240.5f ? 0 : 1]);
+            float bpm = stepParams[stepButtonState].bpm;
+            if (bpm >= 245.5f) {
+                tft_->print("Note");
+            } else {
+                tft_->print(lfoSyncParameterRow.params[0].valueName[bpm < 240.5f ? 0 : 1]);
+            }
+        } else if (rowEncoder.encoder == ENCODER_STEPSEQ_MODE) {
+            tft_->setCharBackgroundColor(COLOR_BLACK);
+            tft_->setCharColor(color);
+            StepSequencerSteps *seqSteps = &synthState_->params->lfoSteps1;
+            int stepButtonState = synthState_->fullState.buttonState[BUTTONID_EDIT_STEPS];
+            int mode = (((uint8_t) seqSteps[stepButtonState].steps[(int) synthState_->stepSelect[stepButtonState]]) >> 4) & 0x0F;
+            if (mode >= STEPSEQ_MODE_COUNT) {
+                mode = STEPSEQ_MODE_NORM;
+            }
+            tft_->print(stepSeqModeNames[mode]);
         }
     }
 }
@@ -3799,7 +3855,9 @@ void FMDisplayEditor::refreshEditorByStep(int &refreshStatus, int &endRefreshSta
                 }
             } else {
                 // Special case
-                if (rowEncoder.encoder >= ENCODER_MODULATOR_SYNC_LFO) {
+                if (rowEncoder.encoder == ENCODER_STEPSEQ_MODE) {
+                    tft_->print("Mode");
+                } else if (rowEncoder.encoder >= ENCODER_MODULATOR_SYNC_LFO) {
                     tft_->print(lfoSyncParameterRow.paramName[0]);
                 }
             }
@@ -3947,18 +4005,18 @@ void FMDisplayEditor::updateStepSequencer(int currentRow, int encoder, int oldVa
         // new value to display
         tft_->setCharColor(COLOR_YELLOW);
         tft_->setCursor(synthState_->stepSelect[whichStepSeq], 6);
-        tft_->print((char) (127 + newValue));
+        tft_->print((char) (127 + (newValue & 0x0F)));
     } else if (encoder == 2) {
-        if ((oldValue % 4) == 0) {
-            tft_->setCharColor(COLOR_WHITE);
-        } else {
-            tft_->setCharColor(COLOR_GRAY);
-        }
+        tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[oldValue], oldValue, false));
         tft_->setCursor(oldValue, 6);
-        tft_->print((char) (127 + seqSteps->steps[oldValue]));
+        tft_->print((char) (127 + (seqSteps->steps[oldValue] & 0x0F)));
         tft_->setCharColor(COLOR_YELLOW);
         tft_->setCursor(newValue, 6);
-        tft_->print((char) (127 + seqSteps->steps[newValue]));
+        tft_->print((char) (127 + (seqSteps->steps[newValue] & 0x0F)));
+        displayParamValue(5, COLOR_WHITE);
+    } else if (encoder == ENCODER_STEPSEQ_MODE) {
+        valueChangedCounter_[5] = 4;
+        displayParamValue(5, COLOR_YELLOW);
     }
 }
 
@@ -4013,14 +4071,15 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
     case DISPLAY_TYPE_STEP_SEQ_BPM:
         if (newValue > 240.5f) {
             tft_->print(lfoSeqMidiClock[newValue - 241]);
-            if (oldValue < 240.5f) {
-                // Update Sync : Second button in the page
+            if (oldValue < 240.5f || (oldValue < 245.5f && newValue >= 245.5f)
+                    || (oldValue >= 245.5f && newValue < 245.5f)) {
+                // Update Sync : First button in the page
                 displayParamValue(0, COLOR_WHITE);
             }
         } else {
             tft_->printValueWithSpace(newValue);
             if (oldValue > 240.5f) {
-                // Update Sync : Second button in the page
+                // Update Sync : First button in the page
                 displayParamValue(0, COLOR_WHITE);
             }
         }
@@ -4105,14 +4164,8 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
 
             tft_->setCharBackgroundColor(COLOR_BLACK);
             for (int k = 0; k < 16; k++) {
-                if (synthState_->stepSelect[whichStepSeq] == k) {
-                    tft_->setCharColor(COLOR_YELLOW);
-                } else if ((k % 4) == 0) {
-                    tft_->setCharColor(COLOR_WHITE);
-                } else {
-                    tft_->setCharColor(COLOR_GRAY);
-                }
-                tft_->print((char) (127 + seqSteps->steps[k]));
+                tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[k], k, synthState_->stepSelect[whichStepSeq] == k));
+                tft_->print((char) (127 + (seqSteps->steps[k] & 0x0F)));
             }
         }
     }
@@ -4179,7 +4232,11 @@ void FMDisplayEditor::encoderTurnedPfm3(int encoder6, int ticks) {
             synthState_->encoderTurnedForStepSequencer(row, encoder4, encoder6, ticks);
             return;
         }
-    };
+    } else if (unlikely(row == ROW_NONE && encoder4 == ENCODER_STEPSEQ_MODE)) {
+        int seqRow = ROW_LFOSEQ1 + synthState_->fullState.buttonState[BUTTONID_EDIT_STEPS];
+        synthState_->encoderTurnedForStepSequencer(seqRow, encoder4, encoder6, ticks);
+        return;
+    }
 
     encoderTurnedPfm2(row, encoder4, ticks);
 }
@@ -4296,7 +4353,7 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
 
         return;
     } else  if (unlikely(encoder4 == ENCODER_MODULATOR_SYNC_STEPS)) {
-        // Simulate we're Osc freq
+        // 3-state StepSeq sync selector: Int (BPM 10..240) / Ext (Ck/4..Ck*4) / Note (Step-on-Note)
         int stepButtonState = synthState_->fullState.buttonState[BUTTONID_EDIT_STEPS];
 
         row =  ROW_LFOSEQ1 + stepButtonState;
@@ -4304,33 +4361,33 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
         num = encoder4 + row * NUMBER_OF_ENCODERS_PFM2;
         param = &(allParameterRows.row[row]->params[encoder4]);
 
-        // Block if necessary
-        if ((ticks > 0 && ((float*) synthState_->params)[num] > 240.5f)
-            || (ticks < 0 && ((float*) synthState_->params)[num] < 240.5f)) {
+        float &bpm = ((float*) synthState_->params)[num];
+        float oldBpm = bpm;
+        int syncIdx = (oldBpm >= 245.5f) ? 2 : ((oldBpm >= 240.5f) ? 1 : 0);
+        int dir = ticks > 0 ? 1 : (ticks < 0 ? -1 : 0);
+        int targetIdx = syncIdx + dir;
+        if (dir == 0 || targetIdx < 0 || targetIdx > 2) {
             return;
         }
 
-        float bpmToSet;
-        if (lfoFreqPreviousValue[3 + stepButtonState] == -1.0f) {
-            bpmToSet = ticks > 0 ? 243.0f : 120.0f;
-        } else {
-            bpmToSet = lfoFreqPreviousValue[3 + stepButtonState];
-            // User arrive in Ext/Int area with BPM encoder ?
-            if (ticks < 0 && bpmToSet > 240.5f) {
-                bpmToSet = 240.0f;
-            } else if (ticks > 0 && bpmToSet < 240.5f) {
-                bpmToSet = 241.0f;
-            }
+        if (syncIdx == 0) {
+            lfoFreqPreviousValue[3 + stepButtonState] = oldBpm;
         }
-        lfoFreqPreviousValue[3 + stepButtonState] = ((float*) synthState_->params)[num];
 
-        if (ticks > 0) {
-            ticks = 50;
-            ((float*) synthState_->params)[num] = bpmToSet -  ticks;
+        float targetBpm;
+        if (targetIdx == 0) {
+            float prev = lfoFreqPreviousValue[3 + stepButtonState];
+            targetBpm = (prev >= 10.0f && prev <= 240.0f) ? prev : 120.0f;
+        } else if (targetIdx == 1) {
+            targetBpm = 243.0f;
         } else {
-            ticks = -240;
-            ((float*) synthState_->params)[num] = bpmToSet -  ticks;
+            targetBpm = (float) LFO_SEQ_STEP_ON_NOTE;
         }
+
+        bpm = targetBpm;
+        synthState_->propagateNewParamValue(currentTimbre_, row, ENCODER_STEPSEQ_BPM, param, oldBpm, bpm);
+        displayParamValue(0, COLOR_WHITE);
+        return;
     } else {
         num = encoder4 + row * NUMBER_OF_ENCODERS_PFM2;
         param = &(allParameterRows.row[row]->params[encoder4]);

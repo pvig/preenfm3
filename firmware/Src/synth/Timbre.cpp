@@ -816,18 +816,35 @@ void Timbre::setNewValue(int index, struct ParameterDisplay *param, float newVal
 int Timbre::getSeqStepValue(int whichStepSeq, int step) {
 
     if (whichStepSeq == 0) {
-        return params_.lfoSteps1.steps[step];
+        return params_.lfoSteps1.steps[step] & 0x0F;
     } else {
-        return params_.lfoSteps2.steps[step];
+        return params_.lfoSteps2.steps[step] & 0x0F;
     }
 }
 
 void Timbre::setSeqStepValue(int whichStepSeq, int step, int value) {
 
     if (whichStepSeq == 0) {
-        params_.lfoSteps1.steps[step] = value;
+        params_.lfoSteps1.steps[step] = (char) ((params_.lfoSteps1.steps[step] & 0xF0) | (value & 0x0F));
     } else {
-        params_.lfoSteps2.steps[step] = value;
+        params_.lfoSteps2.steps[step] = (char) ((params_.lfoSteps2.steps[step] & 0xF0) | (value & 0x0F));
+    }
+}
+
+int Timbre::getSeqStepMode(int whichStepSeq, int step) {
+    uint8_t raw = (whichStepSeq == 0) ? (uint8_t) params_.lfoSteps1.steps[step] : (uint8_t) params_.lfoSteps2.steps[step];
+    int mode = (raw >> 4) & 0x0F;
+    return (mode < STEPSEQ_MODE_COUNT) ? mode : STEPSEQ_MODE_NORM;
+}
+
+void Timbre::setSeqStepMode(int whichStepSeq, int step, int mode) {
+    if (mode < 0 || mode >= STEPSEQ_MODE_COUNT) {
+        return;
+    }
+    if (whichStepSeq == 0) {
+        params_.lfoSteps1.steps[step] = (char) (((mode & 0x0F) << 4) | (params_.lfoSteps1.steps[step] & 0x0F));
+    } else {
+        params_.lfoSteps2.steps[step] = (char) (((mode & 0x0F) << 4) | (params_.lfoSteps2.steps[step] & 0x0F));
     }
 }
 

@@ -974,6 +974,43 @@ void Synth::setNewStepValueFromMidi(int timbre, int whichStepSeq, int step, int 
     }
 }
 
+void Synth::setNewStepModeFromMidi(int timbre, int whichStepSeq, int step, int newMode) {
+    if (whichStepSeq < 0 || whichStepSeq > 1 || step < 0 || step > 15 || newMode < 0 || newMode >= STEPSEQ_MODE_COUNT) {
+        return;
+    }
+
+    int oldMode = this->timbres_[timbre].getSeqStepMode(whichStepSeq, step);
+    if (oldMode != newMode) {
+        int oldStep = this->synthState_->stepSelect[whichStepSeq];
+        this->synthState_->stepSelect[whichStepSeq] = step;
+        if (oldStep != step) {
+            this->synthState_->propagateNewParamValueFromExternal(timbre, ROW_LFOSEQ1 + whichStepSeq, 2, NULL, oldStep,
+                step);
+        }
+        this->timbres_[timbre].setSeqStepMode(whichStepSeq, step, newMode);
+        this->synthState_->propagateNewParamValueFromExternal(timbre, ROW_LFOSEQ1 + whichStepSeq, ENCODER_STEPSEQ_MODE,
+            NULL, oldMode, newMode);
+    }
+}
+
+void Synth::setNewStepSeqLoopLengthFromMidi(int timbre, int whichStepSeq, int length) {
+    if (whichStepSeq < 0 || whichStepSeq > 1 || length < 0 || length > 16) {
+        return;
+    }
+
+    int targetResetStep = length - 1; // -1 if length == 0 (clears all Rset)
+    for (int step = 0; step < 16; step++) {
+        int mode = this->timbres_[timbre].getSeqStepMode(whichStepSeq, step);
+        if (step == targetResetStep) {
+            if (mode != STEPSEQ_MODE_RESET) {
+                setNewStepModeFromMidi(timbre, whichStepSeq, step, STEPSEQ_MODE_RESET);
+            }
+        } else if (mode == STEPSEQ_MODE_RESET) {
+            setNewStepModeFromMidi(timbre, whichStepSeq, step, STEPSEQ_MODE_NORM);
+        }
+    }
+}
+
 void Synth::setNewSymbolInPresetName(int timbre, int index, char newchar) {
     this->timbres_[timbre].getParamRaw()->presetName[index] = newchar;
 }

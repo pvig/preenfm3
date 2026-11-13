@@ -482,7 +482,8 @@ private:
     float freqAi, freqAo;
     float freqBi, freqBo;
     // Harm freq shifting
-    float freqHarm, targetFreqHarm;
+    float freqHarm, targetFreqHarm, baseFreqHarm, noteAddScaleRatio;
+    int lastNoteAdd;
 
     EnvData envState1_;
     EnvData envState2_;

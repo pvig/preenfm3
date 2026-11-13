@@ -20,6 +20,7 @@
 
 #define MATRIX_SIZE 12
 
+#include <math.h>
 #include "Common.h"
 
 class Matrix {
@@ -83,35 +84,56 @@ public:
 
         // For first row can be modified by destination
         if (likely(rows[0].source != MATRIX_SOURCE_NONE)) {
-            float sourceTimesMul = sources[(int) rows[0].source] * (rows[0].mul + mul1);
-            // First one was not set to 0 above (tiny optim)
-            destinations[(int) rows[0].dest1] = sourceTimesMul;
-            destinations[(int) rows[0].dest2] += sourceTimesMul;
+            applyRow<true>(0, rows[0].mul + mul1);
         }
         if (likely(rows[1].source != MATRIX_SOURCE_NONE)) {
-            float sourceTimesMul = sources[(int) rows[1].source] * (rows[1].mul + mul2);
-            destinations[(int) rows[1].dest1] += sourceTimesMul;
-            destinations[(int) rows[1].dest2] += sourceTimesMul;
+            applyRow<false>(1, rows[1].mul + mul2);
         }
         if (likely(rows[2].source != MATRIX_SOURCE_NONE)) {
-            float sourceTimesMul = sources[(int) rows[2].source] * (rows[2].mul + mul3);
-            destinations[(int) rows[2].dest1] += sourceTimesMul;
-            destinations[(int) rows[2].dest2] += sourceTimesMul;
+            applyRow<false>(2, rows[2].mul + mul3);
         }
         if (likely(rows[3].source != MATRIX_SOURCE_NONE)) {
-            float sourceTimesMul = sources[(int) rows[3].source] * (rows[3].mul + mul4);
-            destinations[(int) rows[3].dest1] += sourceTimesMul;
-            destinations[(int) rows[3].dest2] += sourceTimesMul;
+            applyRow<false>(3, rows[3].mul + mul4);
         }
 
         // and compute other rows
         for (int r = 4; r < MATRIX_SIZE; r++) {
             if (likely(rows[r].source != MATRIX_SOURCE_NONE && rows[r].mul != 0.0f)) {
-                float sourceTimesMul = sources[(int) rows[r].source] * rows[r].mul;
-                destinations[(int) rows[r].dest1] += sourceTimesMul;
-                destinations[(int) rows[r].dest2] += sourceTimesMul;
+                applyRow<false>(r, rows[r].mul);
             }
         }
+    }
+
+    template <bool isFirstRow>
+    inline __attribute__((always_inline)) void applyRow(int r, float mul) {
+        uint8_t srcIdx = (uint8_t) rows[r].source;
+        float src = sources[srcIdx];
+        float val1 = src * mul;
+        float val2 = val1;
+        uint8_t d1 = (uint8_t) rows[r].dest1;
+        uint8_t d2 = (uint8_t) rows[r].dest2;
+
+        // StepSeq outputs linear values (step / 12.0f); convert to 2^x - 1 only for linear-Hz Osc Freq destinations.
+        if (unlikely(srcIdx == MATRIX_SOURCE_LFOSEQ1 || srcIdx == MATRIX_SOURCE_LFOSEQ2)) {
+            bool d1Osc = (d1 >= OSC1_FREQ && d1 <= ALL_OSC_FREQ);
+            bool d2Osc = (d2 >= OSC1_FREQ && d2 <= ALL_OSC_FREQ);
+            if (unlikely(d1Osc || d2Osc)) {
+                float expMul = (exp2f(src) - 1.0f) * mul;
+                if (d1Osc) {
+                    val1 = expMul;
+                }
+                if (d2Osc) {
+                    val2 = expMul;
+                }
+            }
+        }
+
+        if (isFirstRow) {
+            destinations[d1] = val1;
+        } else {
+            destinations[d1] += val1;
+        }
+        destinations[d2] += val2;
     }
 
     void setSource(SourceEnum source, float value) __attribute__((always_inline)) {

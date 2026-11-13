@@ -123,14 +123,12 @@ enum AllControlChange {
     CC_OSC6_FREQ            = 55,
 
     // ------------------------------------------------------------------------
-    // LFO Frequencies, Env Silence & StepSeq Gate (56 - 61)
+    // LFO Frequencies & Env Silence (56 - 59)
     // ------------------------------------------------------------------------
     CC_LFO1_FREQ            = 56,
     CC_LFO2_FREQ            = 57,
     CC_LFO3_FREQ            = 58,
     CC_LFO_ENV2_SILENCE     = 59,
-    CC_STEPSEQ5_GATE        = 60,
-    CC_STEPSEQ6_GATE        = 61,
 
     // ------------------------------------------------------------------------
     // Envelope Global Shortcuts & Hold Pedal (62 - 64)

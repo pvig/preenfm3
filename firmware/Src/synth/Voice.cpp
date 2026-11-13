@@ -499,7 +499,10 @@ Voice::Voice(void) {
     freqAi = freqAo = 0.0f;
     freqBi = freqBo = 0.0f;
     freqHarm = 1.0f;
+    baseFreqHarm = 1.0f;
     targetFreqHarm = 0.0f;
+    noteAddScaleRatio = 1.0f;
+    lastNoteAdd = 0;
     lastDecimationMode_ = -1;
     oversample2x_ = 0;
     decimHistory_ = voiceDecimHistory[nextVoiceDecimIndex % MAX_NUMBER_OF_VOICES];
@@ -561,6 +564,7 @@ void Voice::noteOnWithoutPop(short newNote, float newNoteFrequency, short veloci
         this->nextMainFrequency = newNoteFrequency;
         this->holdedByPedal = false;
         this->noteAlreadyFinished = 0;
+        this->lastNoteAdd = 0x7FFF;
     } else {
         // update note now so that the noteOff is triggered by the new note
         this->note = newNote;
@@ -707,6 +711,7 @@ void Voice::noteOn(short newNote, float newNoteFrequency, short velocity, float 
     this->newNotePending = false;
     this->holdedByPedal = false;
     this->noteAlreadyFinished = 0;
+    this->lastNoteAdd = 0x7FFF;
     this->fdbLastValue[0] = 0.0f;
     this->fdbLastValue[1] = 0.0f;
     this->fdbLastValue[2] = 0.0f;
@@ -857,6 +862,7 @@ void Voice::nextBlock() {
 
 
     // * 20 so that we have a full tone for full pitchbend
+    bool updateFreqHarm = false;
     float newTargetFreqHarm = matrix.getDestination(ALL_OSC_FREQ_HARM) * 20.0f;
     if (unlikely(currentTimbre->getMPESetting() > 0)) {
         newTargetFreqHarm += (matrix.getSource(MATRIX_SOURCE_PITCHBEND_MPE) * mpeBitchBend[currentTimbre->getMPESetting()]);
@@ -869,7 +875,34 @@ void Voice::nextBlock() {
         // Max = 1024
         index &= 0x3ff;
         float fp = findex - index;
-        freqHarm = (exp2_harm[index] * (1.0f - fp) + exp2_harm[index + 1] * fp);
+        baseFreqHarm = (exp2_harm[index] * (1.0f - fp) + exp2_harm[index + 1] * fp);
+        updateFreqHarm = true;
+    }
+
+    int noteAdd = (int) roundf(matrix.getDestination(MTX_DEST_NOTE_ADD) * 12.0f);
+    if (unlikely(noteAdd != lastNoteAdd)) {
+        lastNoteAdd = noteAdd;
+        if (noteAdd == 0) {
+            noteAddScaleRatio = 1.0f;
+        } else {
+            int baseNote = (int) ((uint8_t) this->note & 0x7F);
+            int effectiveNote = baseNote + noteAdd;
+            if (effectiveNote < 0) {
+                effectiveNote = 0;
+            } else if (effectiveNote > 127) {
+                effectiveNote = 127;
+            }
+            float baseScaleFreq = currentTimbre->getScaleFrequency(baseNote);
+            float targetScaleFreq = currentTimbre->getScaleFrequency(effectiveNote);
+            if (baseScaleFreq > 0.0f && targetScaleFreq > 0.0f) {
+                noteAddScaleRatio = targetScaleFreq / baseScaleFreq;
+            }
+        }
+        updateFreqHarm = true;
+    }
+
+    if (unlikely(updateFreqHarm)) {
+        freqHarm = baseFreqHarm * noteAddScaleRatio;
     }
 
     if (unlikely(oversample2x_)) {

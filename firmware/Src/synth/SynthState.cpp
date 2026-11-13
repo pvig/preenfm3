@@ -136,18 +136,37 @@ void SynthState::encoderTurnedForStepSequencer(int row, int encoder4, int encode
 
     } else if (encoder6 == 4) {
         char *step = &seqSteps->steps[(int) stepSelect[whichStepSeq]];
-        int oldValue = (int) (*step);
+        int oldValue = (*step) & 0x0F;
+        int glideBits = (*step) & 0xF0;
 
-        int newValue = (*step) + ticks;
+        int newValue = oldValue + ticks;
 
         if (newValue > 15) {
             newValue = 15;
         } else if (newValue < 0) {
             newValue = 0;
         }
-        if ((*step) != newValue) {
-            (*step) = newValue;
-            propagateNewParamValue(currentTimbre, row, encoder4, (ParameterDisplay*) NULL, oldValue, (int) (*step));
+        if (oldValue != newValue) {
+            (*step) = (char) (glideBits | newValue);
+            propagateNewParamValue(currentTimbre, row, encoder4, (ParameterDisplay*) NULL, oldValue, newValue);
+        }
+    } else if (encoder6 == 5) {
+        char *step = &seqSteps->steps[(int) stepSelect[whichStepSeq]];
+        int oldMode = (((uint8_t) (*step)) >> 4) & 0x0F;
+        if (oldMode >= STEPSEQ_MODE_COUNT) {
+            oldMode = STEPSEQ_MODE_NORM;
+        }
+        int valueBits = (*step) & 0x0F;
+
+        int newMode = oldMode + ticks;
+        if (newMode >= STEPSEQ_MODE_COUNT) {
+            newMode = STEPSEQ_MODE_COUNT - 1;
+        } else if (newMode < 0) {
+            newMode = 0;
+        }
+        if (oldMode != newMode) {
+            (*step) = (char) ((newMode << 4) | valueBits);
+            propagateNewParamValue(currentTimbre, row, encoder4, (ParameterDisplay*) NULL, oldMode, newMode);
         }
     }
 }
@@ -833,6 +852,7 @@ DestinationEnum getRandomModDestination(int modulationRandom, const OneSynthPara
             return osc6Active;
         case ALL_OSC_FREQ:
         case ALL_OSC_FREQ_HARM:
+        case MTX_DEST_NOTE_ADD:
         case ALL_PAN:
         case ALL_MIX:
             return anyOscActive;

@@ -35,15 +35,17 @@ public:
 
 
 private:
+	int getActiveSteps(uint8_t activeSteps[16]) const;
 	StepSequencerParams* seqParams;
 	StepSequencerSteps* seqSteps;
 
     float phase;
     float phaseStep;
     int gateValue;
-    int target;
-    int currentValue;
+    float targetOutput;
+    float currentOutput;
     bool gated;
+    bool stepOnNoteStarted;
     DestinationEnum matrixGateDestination;
 };
 

@@ -124,6 +124,8 @@ public:
     void setNewMixerValueFromMidi(int timbre, int mixerValue, float newValue);
     void setNewSeqValueFromMidi(uint8_t timbre, uint8_t seqValue, uint8_t newValue);
     void setNewStepValueFromMidi(int timbre, int whichStepSeq, int step, int value);
+    void setNewStepModeFromMidi(int timbre, int whichStepSeq, int step, int mode);
+    void setNewStepSeqLoopLengthFromMidi(int timbre, int whichStepSeq, int length);
     void setNewSymbolInPresetName(int timbre, int index, char newchar);
     void loadPreenFMPatchFromMidi(int timbre, int bank, int bankLSB, int patchNumber);
     void setHoldPedal(int timbre, int value);
