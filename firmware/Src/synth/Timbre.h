@@ -130,6 +130,12 @@ public:
         OnMidiStop();
     }
 
+    bool isArpeggiatorActive() const {
+        return params_.engineArp1.clock > 0.0f && running_ != 0;
+    }
+
+    int getArpStepTicks() const;
+
     void midiClockContinue(int songPosition);
     void midiClockStart();
     void midiClockSongPositionStep(int songPosition);

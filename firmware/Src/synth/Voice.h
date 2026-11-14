@@ -339,11 +339,52 @@ public:
         if (likely(currentTimbre->isLfoUsed(4))) {
             lfoEnv2[0].noteOn();
         }
-        if (likely(currentTimbre->isLfoUsed(5))) {
-            lfoStepSeq[0].noteOn();
+        if (!currentTimbre->isArpeggiatorActive()) {
+            if (likely(currentTimbre->isLfoUsed(5))) {
+                lfoStepSeq[0].noteOn();
+            }
+            if (likely(currentTimbre->isLfoUsed(6))) {
+                lfoStepSeq[1].noteOn();
+            }
         }
-        if (likely(currentTimbre->isLfoUsed(6))) {
+    }
+
+    void arpStartStepSeq() {
+        lfoStepSeq[0].arpStart();
+        lfoStepSeq[1].arpStart();
+    }
+
+    void arpStepSeqNoteOn() {
+        bool updated = false;
+        if (currentTimbre->isLfoUsed(5) && lfoStepSeq[0].isStepOnNote()) {
+            lfoStepSeq[0].noteOn();
+            updated = true;
+        }
+        if (currentTimbre->isLfoUsed(6) && lfoStepSeq[1].isStepOnNote()) {
             lfoStepSeq[1].noteOn();
+            updated = true;
+        }
+        if (updated) {
+            this->matrix.computeAllDestinations();
+        }
+    }
+
+    void syncStepSeqFrom(const Voice *refVoice) {
+        if (refVoice != this) {
+            lfoStepSeq[0].syncFrom(refVoice->lfoStepSeq[0]);
+            lfoStepSeq[1].syncFrom(refVoice->lfoStepSeq[1]);
+        }
+    }
+
+    void updateArpModulatorsInMatrix() {
+        if (!isPlaying()) {
+            if (currentTimbre->isLfoUsed(5)) {
+                this->lfoStepSeq[0].nextValueInMatrix();
+            }
+            if (currentTimbre->isLfoUsed(6)) {
+                this->lfoStepSeq[1].nextValueInMatrix();
+            }
+            this->matrix.computeAllDestinations();
         }
     }
 

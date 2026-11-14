@@ -302,7 +302,24 @@ void LfoStepSeq::noteOn() {
 		} else {
 			targetOutput = linValues[stepByte & 0x0F];
 		}
+		currentOutput = targetOutput;
+		matrix->setSource((enum SourceEnum) source, currentOutput);
 	}
+}
+
+void LfoStepSeq::arpStart() {
+	phase = 0;
+	loopCount = 0;
+	stepOnNoteStarted = false;
+}
+
+void LfoStepSeq::syncFrom(const LfoStepSeq &other) {
+	phase = other.phase;
+	loopCount = other.loopCount;
+	stepOnNoteStarted = other.stepOnNoteStarted;
+	targetOutput = other.targetOutput;
+	currentOutput = other.currentOutput;
+	matrix->setSource((enum SourceEnum) source, currentOutput);
 }
 
 void LfoStepSeq::noteOff() {

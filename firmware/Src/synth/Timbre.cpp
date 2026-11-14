@@ -305,6 +305,9 @@ void Timbre::preenNoteOn(char note, char velocity, bool restored) {
         } else {
             voices_[voiceToUse]->noteOn(note, noteFrequency, velocity);
         }
+        if (isArpeggiatorActive() && voiceNumber_[0] >= 0 && voiceToUse != voiceNumber_[0]) {
+            voices_[voiceToUse]->syncStepSeqFrom(voices_[voiceNumber_[0]]);
+        }
 
         lastPlayedNote_ = voiceToUse;
         if (note <= lowerNote_ || lowerNoteReleased_) {
@@ -562,6 +565,9 @@ void Timbre::cleanNextBlock() {
 void Timbre::prepareMatrixForNewBlock() {
     for (int k = 0; k < numberOfVoices_; k++) {
         voices_[voiceNumber_[k]]->prepareMatrixForNewBlock();
+    }
+    if (isArpeggiatorActive() && voiceNumber_[0] >= 0) {
+        voices_[voiceNumber_[0]]->updateArpModulatorsInMatrix();
     }
 }
 
@@ -933,7 +939,38 @@ void Timbre::OnMidiClock() {
     }
 }
 
+int Timbre::getArpStepTicks() const {
+    int divIdx = (int) params_.engineArp2.division;
+    if (voiceNumber_[0] >= 0) {
+        divIdx += (int) roundf(voices_[voiceNumber_[0]]->matrix.getDestination(MTX_DEST_ARP_DIV) * 12.0f);
+    }
+    if (divIdx < 0) {
+        divIdx = 0;
+    } else if (divIdx > 16) {
+        divIdx = 16;
+    }
+    return midi_clock_tick_per_step[divIdx];
+}
+
 void Timbre::SendNote(uint8_t note, uint8_t velocity) {
+    Matrix *arpMatrix = (voiceNumber_[0] >= 0) ? &voices_[voiceNumber_[0]]->matrix : NULL;
+    if (arpMatrix != NULL) {
+        int effNote = (int) note + (int) roundf(arpMatrix->getDestination(MTX_DEST_ARP_NOTE) * 12.0f);
+        if (effNote < 0) {
+            effNote = 0;
+        } else if (effNote > 127) {
+            effNote = 127;
+        }
+        note = (uint8_t) effNote;
+
+        int effVel = (int) velocity + (int) roundf(arpMatrix->getDestination(MTX_DEST_ARP_VEL) * 64.0f);
+        if (effVel < 1) {
+            effVel = 1;
+        } else if (effVel > 127) {
+            effVel = 127;
+        }
+        velocity = (uint8_t) effVel;
+    }
 
     // If there are some Note Off messages for the note about to be triggeered
     // remove them from the queue and process them now.
@@ -943,7 +980,18 @@ void Timbre::SendNote(uint8_t note, uint8_t velocity) {
 
     // Send a note on and schedule a note off later.
     preenNoteOn(note, velocity);
-    event_scheduler_.Schedule(note, 0, midi_clock_tick_per_step[(int) params_.engineArp2.duration] - 1, 0);
+
+    int durTicks = (int) midi_clock_tick_per_step[(int) params_.engineArp2.duration] - 1;
+    if (arpMatrix != NULL) {
+        int stepTicks = getArpStepTicks();
+        durTicks += (int) roundf(arpMatrix->getDestination(MTX_DEST_ARP_GATE) * (float) stepTicks);
+    }
+    if (durTicks < 1) {
+        durTicks = 1;
+    } else if (durTicks > 192) {
+        durTicks = 192;
+    }
+    event_scheduler_.Schedule(note, 0, (uint8_t) durTicks, 0);
 }
 
 void Timbre::SendLater(uint8_t note, uint8_t velocity, uint8_t when, uint8_t tag) {
@@ -992,7 +1040,7 @@ void Timbre::Tick() {
 
     SendScheduledNotes();
 
-    if (tick_ >= midi_clock_tick_per_step[(int) params_.engineArp2.division]) {
+    if (tick_ >= getArpStepTicks()) {
         tick_ = 0;
         uint16_t pattern = getArpeggiatorPattern();
         uint8_t has_arpeggiator_note = (bitmask_ & pattern) ? 255 : 0;
@@ -1000,6 +1048,9 @@ void Timbre::Tick() {
         const int direction = params_.engineArp1.direction;
 
         if (num_notes && has_arpeggiator_note) {
+            if (voiceNumber_[0] >= 0) {
+                voices_[voiceNumber_[0]]->arpStepSeqNoteOn();
+            }
             if (ARPEGGIO_DIRECTION_CHORD != direction) {
                 StepArpeggio();
                 int step, transpose = 0;
@@ -1111,7 +1162,12 @@ void Timbre::Start() {
     bitmask_ = 1;
     recording_ = 0;
     running_ = 1;
-    tick_ = midi_clock_tick_per_step[(int) params_.engineArp2.division] - 1;
+    for (int k = 0; k < numberOfVoices_; k++) {
+        if (voiceNumber_[k] >= 0) {
+            voices_[voiceNumber_[k]]->arpStartStepSeq();
+        }
+    }
+    tick_ = getArpStepTicks() - 1;
     current_octave_ = 127;
     current_direction_ = __getDirection(params_.engineArp1.direction);
 }

@@ -1757,7 +1757,8 @@ const char *matrixDestNames[DESTINATION_MAX] = { "None ", "Gate ", "IM 1 ", "IM 
     /*osc phase*/  "o1 Ph", "o2 Ph", "o3 Ph", "o4 Ph", "o5 Ph", "o6 Ph",
     /*osc warp*/   "o1 Wr", "o2 Wr", "o3 Wr", "o4 Wr", "o5 Wr", "o6 Wr",
     /*note add*/   "Note+",
-    /*stepseq len*/ "stp1L", "stp2L"
+    /*stepseq len*/ "stp1L", "stp2L",
+    /*arp*/        "Arp+ ", "ArpVl", "ArpGt", "ArpDv"
     };
 const unsigned char matrixTargetOrder[DESTINATION_MAX] = {
     0, 1, 2, 3, 4, 5, 48, 6,
@@ -1768,7 +1769,7 @@ const unsigned char matrixTargetOrder[DESTINATION_MAX] = {
     24, 25, 26, 27, 28, 29,
     30, 45, 44, 46, 31, 47,
     32, 33, 34, 35,
-    36, 37, 38, 39, 40, 41, 67, 68,
+    36, 37, 38, 39, 40, 41, 67, 68, 69, 70, 71, 72,
     42, 49, 50, 51, 52, 53
 };
 

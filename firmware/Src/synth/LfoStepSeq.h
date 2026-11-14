@@ -32,6 +32,11 @@ public:
 	void noteOn();
 	void noteOff();
 	void midiClock(int songPosition, bool computeStep);
+	void arpStart();
+	void syncFrom(const LfoStepSeq &other);
+	bool isStepOnNote() const {
+		return (int) seqParams->bpm == LFO_SEQ_STEP_ON_NOTE;
+	}
 
 
 private:
