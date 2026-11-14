@@ -35,6 +35,7 @@ void LfoStepSeq::init(struct StepSequencerParams* stepSeqParam, struct StepSeque
     this->matrixLengthDestination = lenDest;
 	gated = false;
 	stepOnNoteStarted = false;
+	loopCount = 0;
 	targetOutput = 0.0f;
 	currentOutput = 0.0f;
 	valueChanged(0);
@@ -82,6 +83,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 0.5f * invTab[ticks];
                 ticks = 0;
 			}
+            loopCount = (songPosition >> 2) / loopLen;
             phase = (float)((songPosition >> 2) % loopLen) + (float)(songPosition & 0x3) * .25f;
 		}
 		break;
@@ -91,6 +93,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 1.0f * invTab[ticks];
 				ticks = 0;
 			}
+			loopCount = (songPosition >> 1) / loopLen;
 			phase = (float)((songPosition >> 1) % loopLen) + (float)(songPosition & 0x1) * .5f;
 		}
 		break;
@@ -102,6 +105,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 2.0f * invTab[ticks];
 				ticks = 0;
 			}
+			loopCount = songPosition / loopLen;
 			phase = (float)(songPosition % loopLen);
 		}
 		break;
@@ -111,6 +115,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 4.0f * invTab[ticks];
 				ticks = 0;
 			}
+			loopCount = (songPosition << 1) / loopLen;
 			phase = (float)((songPosition << 1) % loopLen);
 		}
 		break;
@@ -120,6 +125,7 @@ void LfoStepSeq::midiClock(int songPosition, bool computeStep) {
                 phaseStep = 8.0f * invTab[ticks];
 				ticks = 0;
 			}
+            loopCount = (songPosition << 1) / loopLen;
             phase = (float)((songPosition << 1) % loopLen);
 		}
 		break;
@@ -154,6 +160,9 @@ void LfoStepSeq::nextValueInMatrix() {
 	uint8_t activeSteps[16];
 	int count = getActiveSteps(activeSteps);
 	if (count > 0 && phaseInteger >= count) {
+		if (seqParams->bpm < LFO_SEQ_MIDICLOCK_DIV_4) {
+			loopCount += phaseInteger / count;
+		}
 		phaseInteger %= count;
 	} else if (count == 0) {
 		phaseInteger = 0;
@@ -174,7 +183,10 @@ void LfoStepSeq::nextValueInMatrix() {
 		stepMode = (stepByte >> 4) & 0x0F;
 		isGlide = (stepMode >= STEPSEQ_MODE_GLIDE1 && stepMode <= STEPSEQ_MODE_GLIDE3);
 
-		if (stepMode == STEPSEQ_MODE_MUTE) {
+		bool altMuted = (stepMode == STEPSEQ_MODE_ALT2 && (loopCount & 1) != 0)
+			|| (stepMode == STEPSEQ_MODE_ALT3 && (loopCount % 3) != 0);
+
+		if (stepMode == STEPSEQ_MODE_MUTE || altMuted) {
 			targetOutput = 0.0f;
 			gated = true;
 		} else if (isGlide) {
@@ -247,27 +259,42 @@ void LfoStepSeq::nextValueInMatrix() {
 void LfoStepSeq::noteOn() {
 	if (seqParams->bpm < LFO_SEQ_MIDICLOCK_DIV_4) {
 		phase = 0;
+		loopCount = 0;
 		uint8_t activeSteps[16];
 		int count = getActiveSteps(activeSteps);
-		targetOutput = (count > 0) ? linValues[seqSteps->steps[activeSteps[0]] & 0x0F] : 0.0f;
+		if (count > 0) {
+			uint8_t stepByte = (uint8_t) seqSteps->steps[activeSteps[0]];
+			int stepMode = (stepByte >> 4) & 0x0F;
+			targetOutput = (stepMode == STEPSEQ_MODE_MUTE) ? 0.0f : linValues[stepByte & 0x0F];
+		} else {
+			targetOutput = 0.0f;
+		}
 	} else if ((int) seqParams->bpm == LFO_SEQ_STEP_ON_NOTE) {
 		uint8_t activeSteps[16];
 		int count = getActiveSteps(activeSteps);
 		if (count == 0) {
 			phase = 0;
+			loopCount = 0;
 			targetOutput = 0.0f;
 			return;
 		}
 		if (!stepOnNoteStarted) {
 			phase = 0;
+			loopCount = 0;
 			stepOnNoteStarted = true;
 		} else {
-			int nextStep = ((int) phase + 1) % count;
+			int nextStep = (int) phase + 1;
+			if (nextStep >= count) {
+				nextStep = 0;
+				loopCount++;
+			}
 			phase = (float) nextStep;
 		}
 		uint8_t stepByte = (uint8_t) seqSteps->steps[activeSteps[(int) phase]];
 		int stepMode = (stepByte >> 4) & 0x0F;
-		if (stepMode == STEPSEQ_MODE_MUTE) {
+		bool altMuted = (stepMode == STEPSEQ_MODE_ALT2 && (loopCount & 1) != 0)
+			|| (stepMode == STEPSEQ_MODE_ALT3 && (loopCount % 3) != 0);
+		if (stepMode == STEPSEQ_MODE_MUTE || altMuted) {
 			targetOutput = 0.0f;
 		} else if (stepMode >= STEPSEQ_MODE_LFO1 && stepMode <= STEPSEQ_MODE_LFO3) {
 			bool lfoTrigOpen = this->matrix->getSource((SourceEnum) (MATRIX_SOURCE_LFO1 + (stepMode - STEPSEQ_MODE_LFO1))) > 0.0f;

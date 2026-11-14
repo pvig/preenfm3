@@ -1137,7 +1137,7 @@ void MidiDecoder::decodeNrpn(int timbre, int midiChannel, bool allowDump) {
     }
 
     // Step sequencer modes & loop length : MSB = 5 ou 6
-    // LSB = 0..15 : mode du pas (0=Norm, 1..3=Gld1..3, 4=Mute, 5=Pass, 6..8=Lfo1..3, 9..11=1/32..1/64)
+    // LSB = 0..15 : mode du pas (0=Norm, 1..3=Gld1..3, 4=Mute, 5=Pass, 6..8=Lfo1..3, 9..11=1/32..1/64, 12=Alt2, 13=Alt3)
     // LSB = 16    : longueur de boucle (1..16, ou 0 -> 16)
     if (this->currentNrpn[timbre].paramMSB == 5 || this->currentNrpn[timbre].paramMSB == 6) {
         unsigned int whichStepSeq = this->currentNrpn[timbre].paramMSB - 5;

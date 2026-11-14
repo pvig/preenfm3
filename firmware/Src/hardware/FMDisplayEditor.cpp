@@ -3575,13 +3575,10 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
 }
 
 static const char * const stepSeqModeNames[STEPSEQ_MODE_COUNT] = {
-    "Norm", "Gld1", "Gld2", "Gld3", "Mute", "Pass", "Lfo1", "Lfo2", "Lfo3", "1/32", "1/48", "1/64"
+    "Norm", "Gld1", "Gld2", "Gld3", "Mute", "Pass", "Lfo1", "Lfo2", "Lfo3", "1/32", "1/48", "1/64", "Alt2", "Alt3"
 };
 
-static TFT_COLOR getStepSeqStepColor(uint8_t stepByte, int k, bool selected) {
-    if (selected) {
-        return COLOR_YELLOW;
-    }
+static TFT_COLOR getStepSeqStepColor(uint8_t stepByte, int k) {
     int mode = (stepByte >> 4) & 0x0F;
     switch (mode) {
     case STEPSEQ_MODE_GLIDE1:
@@ -3600,6 +3597,9 @@ static TFT_COLOR getStepSeqStepColor(uint8_t stepByte, int k, bool selected) {
     case STEPSEQ_MODE_RATCHET3:
     case STEPSEQ_MODE_RATCHET4:
         return COLOR_WHITE;
+    case STEPSEQ_MODE_ALT2:
+    case STEPSEQ_MODE_ALT3:
+        return COLOR_RED;
     default:
         return (k % 4) == 0 ? COLOR_WHITE : COLOR_GRAY;
     }
@@ -4002,6 +4002,30 @@ void FMDisplayEditor::updateArpPattern(int currentRow, int encoder, int oldValue
     }
 }
 
+static void drawStepSeqLoopArrow(TftDisplay *tft, int loopLen) {
+    if (loopLen < 1 || loopLen > 16) {
+        loopLen = 16;
+    }
+    const int yBase = 7 * TFT_BIG_CHAR_HEIGHT;
+    tft->fillArea(0, yBase, 16 * TFT_BIG_CHAR_WIDTH, 14, COLOR_BLACK);
+
+    const int endX = loopLen * TFT_BIG_CHAR_WIDTH - 2;
+    // Left-pointing arrowhead under step 1
+    tft->fillArea(1, yBase + 6, 2, 2, COLOR_RED);
+    tft->fillArea(3, yBase + 5, 2, 4, COLOR_RED);
+    tft->fillArea(5, yBase + 4, 1, 6, COLOR_RED);
+    // Horizontal shaft from step 1 to end of loopLen
+    tft->fillArea(3, yBase + 6, endX - 3, 2, COLOR_RED);
+    // Vertical return tick under last active step
+    tft->fillArea(endX - 2, yBase + 1, 2, 7, COLOR_RED);
+}
+
+static void drawStepSeqSelectedDot(TftDisplay *tft, int step, TFT_COLOR color) {
+    if (step >= 0 && step < 16) {
+        tft->fillArea(step * TFT_BIG_CHAR_WIDTH + 3, 6 * TFT_BIG_CHAR_HEIGHT - 4, 5, 4, color);
+    }
+}
+
 void FMDisplayEditor::updateStepSequencer(int currentRow, int encoder, int oldValue, int newValue) {
     int whichStepSeq = currentRow - ROW_LFOSEQ1;
 
@@ -4011,30 +4035,25 @@ void FMDisplayEditor::updateStepSequencer(int currentRow, int encoder, int oldVa
 
     if (encoder == 3) {
         // new value to display
-        tft_->setCharColor(COLOR_YELLOW);
-        tft_->setCursor(synthState_->stepSelect[whichStepSeq], 6);
+        int sel = synthState_->stepSelect[whichStepSeq];
+        tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[sel], sel));
+        tft_->setCursor(sel, 6);
         tft_->print((char) (127 + (newValue & 0x0F)));
     } else if (encoder == 2) {
-        tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[oldValue], oldValue, false));
-        tft_->setCursor(oldValue, 6);
-        tft_->print((char) (127 + (seqSteps->steps[oldValue] & 0x0F)));
-        tft_->setCharColor(COLOR_YELLOW);
-        tft_->setCursor(newValue, 6);
-        tft_->print((char) (127 + (seqSteps->steps[newValue] & 0x0F)));
+        drawStepSeqSelectedDot(tft_, oldValue, COLOR_BLACK);
+        drawStepSeqSelectedDot(tft_, newValue, COLOR_YELLOW);
         displayParamValue(5, COLOR_WHITE);
     } else if (encoder == ENCODER_STEPSEQ_MODE) {
+        int sel = synthState_->stepSelect[whichStepSeq];
+        tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[sel], sel));
+        tft_->setCursor(sel, 6);
+        tft_->print((char) (127 + (seqSteps->steps[sel] & 0x0F)));
         valueChangedCounter_[5] = 4;
         displayParamValue(5, COLOR_YELLOW);
     } else if (encoder == ENCODER_STEPSEQ_LEN) {
         valueChangedCounter_[0] = 4;
         displayParamValue(0, COLOR_YELLOW);
-        int oldPos = (oldValue >= 1 && oldValue <= 16) ? (oldValue - 1) : 15;
-        int newPos = (newValue >= 1 && newValue <= 16) ? (newValue - 1) : 15;
-        tft_->setCursor(oldPos, 7);
-        tft_->print(' ');
-        tft_->setCharColor(COLOR_RED);
-        tft_->setCursor(newPos, 7);
-        tft_->print('^');
+        drawStepSeqLoopArrow(tft_, newValue);
     }
 }
 
@@ -4173,19 +4192,13 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
 
             tft_->setCharBackgroundColor(COLOR_BLACK);
             for (int k = 0; k < 16; k++) {
-                tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[k], k, synthState_->stepSelect[whichStepSeq] == k));
+                tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[k], k));
                 tft_->print((char) (127 + (seqSteps->steps[k] & 0x0F)));
             }
+            tft_->fillArea(0, 6 * TFT_BIG_CHAR_HEIGHT - 4, 16 * TFT_BIG_CHAR_WIDTH, 4, COLOR_BLACK);
+            drawStepSeqSelectedDot(tft_, synthState_->stepSelect[whichStepSeq], COLOR_YELLOW);
             const StepSequencerParams *seqParams = &((StepSequencerParams*) (&synthState_->params->lfoSeq1))[whichStepSeq];
-            int loopLen = (int) seqParams->loopLength;
-            if (loopLen < 1 || loopLen > 16) {
-                loopLen = 16;
-            }
-            tft_->setCursor(0, 7);
-            tft_->print("                ");
-            tft_->setCharColor(COLOR_RED);
-            tft_->setCursor(loopLen - 1, 7);
-            tft_->print('^');
+            drawStepSeqLoopArrow(tft_, (int) seqParams->loopLength);
         }
     }
         break;

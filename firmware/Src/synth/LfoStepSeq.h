@@ -42,6 +42,7 @@ private:
     float phase;
     float phaseStep;
     int gateValue;
+    int loopCount;
     float targetOutput;
     float currentOutput;
     bool gated;
