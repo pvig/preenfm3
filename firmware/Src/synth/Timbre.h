@@ -77,6 +77,9 @@ public:
     void setArpeggiatorClock(float bpm);
     void resetArpeggiator();
     uint16_t getArpeggiatorPattern() const;
+    uint16_t getArpeggiatorAccentMask() const;
+    int getArpeggiatorPatternLength() const;
+    int getArpeggiatorStepMode() const;
 
     void noteOn(char note, char velocity);
     void noteOff(char note);
@@ -211,6 +214,8 @@ private:
     void OnMidiStop();
     void OnMidiClock();
     void SendNote(uint8_t note, uint8_t velocity);
+    void updateArpRatchet();
+    void stopArpRatchet();
 
     /** --------------FX conf--------------  */
     void fxAfterBlock();
@@ -403,6 +408,22 @@ private:
     int8_t start_step_;
     uint8_t ignore_note_off_messages_;
     uint8_t recording_;
+
+    uint16_t extClockCounter_;
+    float extBlocksPerTick_;
+    float arpRatchetSubBlocks_;
+    float arpRatchetGateBlocks_;
+    float arpRatchetTotalBlocks_;
+    float arpRatchetElapsedBlocks_;
+    float arpRatchetSubElapsed_;
+    uint8_t arpRatchetNotes_[8];
+    uint8_t arpRatchetCount_;
+    uint8_t arpRatchetVelocity_;
+    uint8_t arpRatchetHitIndex_;
+    uint8_t arpRatchetSubDiv_;
+    int8_t arpRatchetSign_;
+    bool arpRatchetGateOpen_;
+    bool arpRatchetActive_;
 
     // lfoUsed
     uint8_t lfoUSed_[NUMBER_OF_LFO];

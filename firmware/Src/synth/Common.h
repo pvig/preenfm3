@@ -396,11 +396,14 @@ struct EngineArp2 {
     float latche;
 };
 
-/* low 16 bits = pattern mask, high reserved for now */
+/* low 16 bits = pattern mask, high 16 bits = accent mask */
 typedef uint32_t arp_pattern_t;
 #define ARP_PATTERN_GETMASK(x) (uint16_t)( (x) & 0xffff)
-#define ARP_PATTERN_SETMASK(p,m) do { (p) = ((p) & ~0xffff) | ((m) & 0xffff); } while (0)
+#define ARP_PATTERN_SETMASK(p,m) do { (p) = ((p) & ~0xffffu) | ((uint32_t)(m) & 0xffffu); } while (0)
+#define ARP_PATTERN_GETACCENT(x) (uint16_t)( ((x) >> 16) & 0xffff)
+#define ARP_PATTERN_SETACCENT(p,a) do { (p) = ((p) & 0xffffu) | (((uint32_t)(a) & 0xffffu) << 16); } while (0)
 #define ARP_PATTERN(x) ((uint32_t)(x) & 0xffff)
+#define ARP_PATTERN_ACCENT(m,a) (((uint32_t)(m) & 0xffffu) | (((uint32_t)(a) & 0xffffu) << 16))
 #define ARP_MASK_GETNIBBLE(m,i) (((m) >> (i*4)) & 0xf)
 #define ARP_MASK_SETNIBBLE(m,i,v) do {  mask &= ~(0xf << (i*4)); mask |= (v << (i*4)); } while(0)
 
@@ -759,6 +762,185 @@ struct OneSynthParams {
     struct LfoSyncModes lfoSyncModes;
 };
 
+static inline int getArpUserPatternLength(const struct OneSynthParams *params, int userIdx) {
+    if (userIdx < 0 || userIdx >= 4) {
+        return 16;
+    }
+    union { float f; uint32_t u; } conv;
+    conv.f = params->lfoPhases.unused1;
+    int len = (int) ((conv.u >> (userIdx * 4)) & 0x0Fu);
+    return (len == 0) ? 16 : len;
+}
+
+static inline void setArpUserPatternLength(struct OneSynthParams *params, int userIdx, int length) {
+    if (userIdx < 0 || userIdx >= 4) {
+        return;
+    }
+    if (length < 1 || length > 16) {
+        length = 16;
+    }
+    union { float f; uint32_t u; } conv;
+    conv.f = params->lfoPhases.unused1;
+    uint32_t packed = conv.u & 0xFFFFFu;
+    uint32_t shift = (uint32_t) (userIdx * 4);
+    packed &= ~(0x0Fu << shift);
+    packed |= ((uint32_t) (length == 16 ? 0 : length) << shift);
+    conv.u = (packed == 0u) ? 0u : (0x3F800000u | packed);
+    params->lfoPhases.unused1 = conv.f;
+}
+
+static inline int getArpEuclideanSeed(const struct OneSynthParams *params) {
+    union { float f; uint32_t u; } conv;
+    conv.f = params->lfoPhases.unused1;
+    return (int) ((conv.u >> 16) & 0x0Fu);
+}
+
+static inline void setArpEuclideanSeed(struct OneSynthParams *params, int seed) {
+    if (seed < 0) {
+        seed = 0;
+    } else if (seed > 15) {
+        seed = 15;
+    }
+    union { float f; uint32_t u; } conv;
+    conv.f = params->lfoPhases.unused1;
+    uint32_t packed = (conv.u & 0xFFFFu) | (((uint32_t) seed & 0x0Fu) << 16);
+    conv.u = (packed == 0u) ? 0u : (0x3F800000u | packed);
+    params->lfoPhases.unused1 = conv.f;
+}
+
+static inline void computeArpPresetMasks(uint16_t stepMask, uint16_t baseAccent, uint16_t baseTie,
+        int seed, uint16_t *outAccent, uint16_t *outTie) {
+    if (seed <= 0) {
+        *outAccent = 0;
+        *outTie = 0;
+        return;
+    }
+    if (seed == 1) {
+        *outAccent = baseAccent;
+        *outTie = baseTie;
+        return;
+    }
+    seed -= 1;
+
+    uint8_t active[16];
+    int n = 0;
+    int baseK = 0;
+    int baseTies = 0;
+    for (int s = 0; s < 16; s++) {
+        uint16_t bit = (uint16_t) (1u << s);
+        if (stepMask & bit) {
+            active[n++] = (uint8_t) s;
+            if (baseAccent & bit) {
+                baseK++;
+            }
+            if (baseTie & bit) {
+                baseTies++;
+            }
+        }
+    }
+    if (n == 0) {
+        *outAccent = 0;
+        *outTie = 0;
+        return;
+    }
+
+    if (baseK < 1) {
+        baseK = 1;
+    }
+    int k = baseK + ((seed / 4) % 3) - 1;
+    if (k < 1) {
+        k = 1;
+    }
+    if (n > 1 && k >= n) {
+        k = n - 1;
+    }
+
+    int rot = seed % n;
+    uint16_t accMask = 0;
+    for (int i = 0; i < n; i++) {
+        int pos = (i + n - rot) % n;
+        if (((pos * k) % n) < k) {
+            accMask |= (uint16_t) (1u << active[i]);
+        }
+    }
+
+    uint16_t tieMask = 0;
+    if (baseTies > 0) {
+        uint8_t cand[16];
+        int cCount = 0;
+        for (int i = 0; i < n; i++) {
+            int s = active[(i + rot) % n];
+            uint16_t bit = (uint16_t) (1u << s);
+            uint16_t nextBit = (uint16_t) (1u << ((s + 1) & 15));
+            if ((accMask & bit) && !(stepMask & nextBit)) {
+                cand[cCount++] = (uint8_t) s;
+            }
+        }
+        if (cCount == 0) {
+            for (int i = 0; i < n; i++) {
+                int s = active[(i + rot) % n];
+                uint16_t nextBit = (uint16_t) (1u << ((s + 1) & 15));
+                if (!(stepMask & nextBit)) {
+                    cand[cCount++] = (uint8_t) s;
+                }
+            }
+        }
+        if (cCount > 0) {
+            int stepPick = cCount / baseTies;
+            if (stepPick < 1) {
+                stepPick = 1;
+            }
+            int picked = 0;
+            for (int i = 0; i < cCount && picked < baseTies; i += stepPick) {
+                tieMask |= (uint16_t) (1u << cand[i]);
+                picked++;
+            }
+        }
+    }
+
+    *outAccent = accMask;
+    *outTie = tieMask;
+}
+
+enum ArpStepMode {
+    ARP_STEP_MODE_NORM = 0,
+    ARP_STEP_MODE_TIE,
+    ARP_STEP_MODE_OCT_UP,
+    ARP_STEP_MODE_RATCHET2,
+    ARP_STEP_MODE_COUNT
+};
+
+static inline int getArpUserStepMode(const struct OneSynthParams *params, int userIdx, int step) {
+    if (userIdx < 0 || userIdx >= 4 || step < 0 || step >= 16) {
+        return ARP_STEP_MODE_NORM;
+    }
+    const struct OperatorPhaseRowParams *phaseRow = &(&params->phaseOp1)[userIdx];
+    union { float f; uint32_t u; } conv;
+    conv.f = (step < 8) ? phaseRow->unused1 : phaseRow->unused2;
+    int shift = (step & 7) * 2;
+    int mode = (int) ((conv.u >> shift) & 0x3u);
+    return (mode < ARP_STEP_MODE_COUNT) ? mode : ARP_STEP_MODE_NORM;
+}
+
+static inline void setArpUserStepMode(struct OneSynthParams *params, int userIdx, int step, int mode) {
+    if (userIdx < 0 || userIdx >= 4 || step < 0 || step >= 16) {
+        return;
+    }
+    if (mode < 0 || mode >= ARP_STEP_MODE_COUNT) {
+        mode = ARP_STEP_MODE_NORM;
+    }
+    struct OperatorPhaseRowParams *phaseRow = &(&params->phaseOp1)[userIdx];
+    float *slot = (step < 8) ? &phaseRow->unused1 : &phaseRow->unused2;
+    union { float f; uint32_t u; } conv;
+    conv.f = *slot;
+    uint32_t packed = conv.u & 0xFFFFu;
+    uint32_t shift = (uint32_t) ((step & 7) * 2);
+    packed &= ~(0x3u << shift);
+    packed |= ((uint32_t) mode << shift);
+    conv.u = (packed == 0u) ? 0u : (0x3F800000u | packed);
+    *slot = conv.f;
+}
+
 enum SourceEnum {
     MATRIX_SOURCE_NONE = 0,
     MATRIX_SOURCE_LFO1,
@@ -865,6 +1047,7 @@ enum DestinationEnum {
     MTX_DEST_ARP_VEL,
     MTX_DEST_ARP_GATE,
     MTX_DEST_ARP_DIV,
+    MTX_DEST_ARP_RATCHET,
     DESTINATION_MAX
 };
 

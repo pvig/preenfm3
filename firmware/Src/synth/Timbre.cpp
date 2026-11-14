@@ -85,12 +85,21 @@ inline static int __canTranspose( int _direction ) {
 }
 
 arp_pattern_t lut_res_arpeggiator_patterns[ ARPEGGIATOR_PRESET_PATTERN_COUNT ]  = {
-  ARP_PATTERN(21845), ARP_PATTERN(62965), ARP_PATTERN(46517), ARP_PATTERN(54741),
-  ARP_PATTERN(43861), ARP_PATTERN(22869), ARP_PATTERN(38293), ARP_PATTERN(2313),
-  ARP_PATTERN(37449), ARP_PATTERN(21065), ARP_PATTERN(18761), ARP_PATTERN(54553),
-  ARP_PATTERN(27499), ARP_PATTERN(23387), ARP_PATTERN(30583), ARP_PATTERN(28087),
-  ARP_PATTERN(22359), ARP_PATTERN(28527), ARP_PATTERN(30431), ARP_PATTERN(43281),
-  ARP_PATTERN(28609), ARP_PATTERN(53505)
+  ARP_PATTERN_ACCENT(21845, 0x1041), ARP_PATTERN_ACCENT(62965, 0x50a1), ARP_PATTERN_ACCENT(46517, 0x1081), ARP_PATTERN_ACCENT(54741, 0x4141),
+  ARP_PATTERN_ACCENT(43861, 0x0841), ARP_PATTERN_ACCENT(22869, 0x1041), ARP_PATTERN_ACCENT(38293, 0x1081), ARP_PATTERN_ACCENT(2313,  0x0101),
+  ARP_PATTERN_ACCENT(37449, 0x0201), ARP_PATTERN_ACCENT(21065, 0x0201), ARP_PATTERN_ACCENT(18761, 0x0101), ARP_PATTERN_ACCENT(54553, 0x4101),
+  ARP_PATTERN_ACCENT(27499, 0x0841), ARP_PATTERN_ACCENT(23387, 0x1111), ARP_PATTERN_ACCENT(30583, 0x1111), ARP_PATTERN_ACCENT(28087, 0x2111),
+  ARP_PATTERN_ACCENT(22359, 0x0441), ARP_PATTERN_ACCENT(28527, 0x2449), ARP_PATTERN_ACCENT(30431, 0x2449), ARP_PATTERN_ACCENT(43281, 0x0801),
+  ARP_PATTERN_ACCENT(28609, 0x0901), ARP_PATTERN_ACCENT(53505, 0x4001)
+};
+
+const uint16_t lut_res_arpeggiator_ties[ ARPEGGIATOR_PRESET_PATTERN_COUNT ] = {
+  0x0041, 0x0001, 0x0001, 0x0101,
+  0x0041, 0x0041, 0x1001, 0x0001,
+  0x0001, 0x0001, 0x0001, 0x0101,
+  0x0840, 0x1010, 0x0444, 0x0100,
+  0x0440, 0x0048, 0x0400, 0x0001,
+  0x0801, 0x0001
 };
 
 uint16_t Timbre::getArpeggiatorPattern() const
@@ -100,6 +109,56 @@ uint16_t Timbre::getArpeggiatorPattern() const
     return ARP_PATTERN_GETMASK(lut_res_arpeggiator_patterns[ pattern ]);
   else
     return ARP_PATTERN_GETMASK( params_.engineArpUserPatterns.patterns[ pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT ] );
+}
+
+uint16_t Timbre::getArpeggiatorAccentMask() const
+{
+  const int pattern = (int)params_.engineArp2.pattern;
+  if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+    uint16_t acc = 0, tie = 0;
+    computeArpPresetMasks(
+        ARP_PATTERN_GETMASK(lut_res_arpeggiator_patterns[pattern]),
+        ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[pattern]),
+        lut_res_arpeggiator_ties[pattern],
+        getArpEuclideanSeed(&params_),
+        &acc, &tie);
+    return acc;
+  }
+  return ARP_PATTERN_GETACCENT(params_.engineArpUserPatterns.patterns[pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT]);
+}
+
+int Timbre::getArpeggiatorPatternLength() const
+{
+  const int pattern = (int)params_.engineArp2.pattern;
+  if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+    return 16;
+  }
+  return getArpUserPatternLength(&params_, pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT);
+}
+
+int Timbre::getArpeggiatorStepMode() const
+{
+  const int pattern = (int)params_.engineArp2.pattern;
+  if (bitmask_ == 0) {
+    return ARP_STEP_MODE_NORM;
+  }
+  if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+    uint16_t acc = 0, tie = 0;
+    computeArpPresetMasks(
+        ARP_PATTERN_GETMASK(lut_res_arpeggiator_patterns[pattern]),
+        ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[pattern]),
+        lut_res_arpeggiator_ties[pattern],
+        getArpEuclideanSeed(&params_),
+        &acc, &tie);
+    return ((bitmask_ & tie) != 0) ? ARP_STEP_MODE_TIE : ARP_STEP_MODE_NORM;
+  }
+  int step = 0;
+  uint16_t m = bitmask_;
+  while ((m & 1u) == 0 && step < 15) {
+    m >>= 1;
+    step++;
+  }
+  return getArpUserStepMode(&params_, pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT, step);
 }
 
 const uint8_t midi_clock_tick_per_step[17]  = {
@@ -153,6 +212,20 @@ Timbre::Timbre() {
     running_ = 0;
     ignore_note_off_messages_ = 0;
     recording_ = 0;
+    extClockCounter_ = 0;
+    extBlocksPerTick_ = 31.25f;
+    arpRatchetSubBlocks_ = 0.0f;
+    arpRatchetGateBlocks_ = 0.0f;
+    arpRatchetTotalBlocks_ = 0.0f;
+    arpRatchetElapsedBlocks_ = 0.0f;
+    arpRatchetSubElapsed_ = 0.0f;
+    arpRatchetCount_ = 0;
+    arpRatchetVelocity_ = 0;
+    arpRatchetHitIndex_ = 0;
+    arpRatchetSubDiv_ = 1;
+    arpRatchetSign_ = 1;
+    arpRatchetGateOpen_ = false;
+    arpRatchetActive_ = false;
     note_stack_.Init();
     held_note_stack_.Init();
     voice_allocator_.Init(0, VOICE_PRIORITY_LAST_KEY, voice_allocator_pool_, voice_allocator_lru_);
@@ -544,6 +617,13 @@ void Timbre::updateArpegiatorInternalClock() {
             arpegiatorStep_ -= ticksEveyNCallsInteger_;
             Tick();
         }
+    } else if (params_.engineArp1.clock == CLOCK_EXTERNAL) {
+        if (extClockCounter_ < 2000) {
+            extClockCounter_++;
+        }
+    }
+    if (unlikely(arpRatchetActive_)) {
+        updateArpRatchet();
     }
 }
 
@@ -934,8 +1014,74 @@ void Timbre::OnMidiStop() {
 }
 
 void Timbre::OnMidiClock() {
-    if (params_.engineArp1.clock == CLOCK_EXTERNAL && running_) {
-        Tick();
+    if (params_.engineArp1.clock == CLOCK_EXTERNAL) {
+        if (extClockCounter_ > 2 && extClockCounter_ < 2000) {
+            extBlocksPerTick_ = (float) extClockCounter_;
+        }
+        extClockCounter_ = 0;
+        if (running_) {
+            Tick();
+        }
+    }
+}
+
+void Timbre::stopArpRatchet() {
+    if (arpRatchetActive_) {
+        if (arpRatchetGateOpen_) {
+            for (uint8_t i = 0; i < arpRatchetCount_; i++) {
+                preenNoteOff(arpRatchetNotes_[i]);
+            }
+            arpRatchetGateOpen_ = false;
+        }
+        arpRatchetActive_ = false;
+        arpRatchetCount_ = 0;
+    }
+}
+
+void Timbre::updateArpRatchet() {
+    arpRatchetElapsedBlocks_ += 1.0f;
+    arpRatchetSubElapsed_ += 1.0f;
+
+    if (arpRatchetGateOpen_ && arpRatchetSubElapsed_ >= arpRatchetGateBlocks_) {
+        for (uint8_t i = 0; i < arpRatchetCount_; i++) {
+            preenNoteOff(arpRatchetNotes_[i]);
+        }
+        arpRatchetGateOpen_ = false;
+    }
+
+    if (arpRatchetElapsedBlocks_ >= (arpRatchetTotalBlocks_ - 0.5f)) {
+        stopArpRatchet();
+        return;
+    }
+
+    if (arpRatchetSubElapsed_ >= arpRatchetSubBlocks_) {
+        arpRatchetSubElapsed_ -= arpRatchetSubBlocks_;
+        if ((arpRatchetTotalBlocks_ - arpRatchetElapsedBlocks_) >= (arpRatchetSubBlocks_ * 0.4f)) {
+            arpRatchetHitIndex_++;
+            float progress = (arpRatchetSubDiv_ > 1) ? ((float) arpRatchetHitIndex_ / (float) (arpRatchetSubDiv_ - 1)) : 1.0f;
+            if (progress > 1.0f) {
+                progress = 1.0f;
+            }
+            float rampScale = (arpRatchetSign_ >= 0) ? (0.25f + 0.75f * progress) : (1.0f - 0.75f * progress);
+
+            int effVel = (int) arpRatchetVelocity_;
+            if (voiceNumber_[0] >= 0) {
+                effVel += (int) roundf(voices_[voiceNumber_[0]]->matrix.getDestination(MTX_DEST_ARP_VEL) * 64.0f);
+            }
+            effVel = (int) roundf((float) effVel * rampScale);
+            if (effVel < 1) {
+                effVel = 1;
+            } else if (effVel > 127) {
+                effVel = 127;
+            }
+            uint8_t hitVelocity = (uint8_t) effVel;
+            for (uint8_t i = 0; i < arpRatchetCount_; i++) {
+                preenNoteOn(arpRatchetNotes_[i], hitVelocity);
+            }
+            arpRatchetGateOpen_ = true;
+        } else {
+            stopArpRatchet();
+        }
     }
 }
 
@@ -954,6 +1100,9 @@ int Timbre::getArpStepTicks() const {
 
 void Timbre::SendNote(uint8_t note, uint8_t velocity) {
     Matrix *arpMatrix = (voiceNumber_[0] >= 0) ? &voices_[voiceNumber_[0]]->matrix : NULL;
+    uint8_t baseVelocity = velocity;
+    int ratchetMode = 0;
+    int8_t ratchetSign = 1;
     if (arpMatrix != NULL) {
         int effNote = (int) note + (int) roundf(arpMatrix->getDestination(MTX_DEST_ARP_NOTE) * 12.0f);
         if (effNote < 0) {
@@ -970,6 +1119,19 @@ void Timbre::SendNote(uint8_t note, uint8_t velocity) {
             effVel = 127;
         }
         velocity = (uint8_t) effVel;
+
+        float ratchetVal = arpMatrix->getDestination(MTX_DEST_ARP_RATCHET);
+        ratchetSign = (ratchetVal < 0.0f) ? -1 : 1;
+        float absRatchet = fabsf(ratchetVal);
+        if (absRatchet >= 0.04f) {
+            float curved = 0.25f * absRatchet + 0.75f * absRatchet * absRatchet * absRatchet;
+            ratchetMode = (int) roundf(curved * 15.0f);
+            if (ratchetMode < 1) {
+                ratchetMode = 1;
+            } else if (ratchetMode > 31) {
+                ratchetMode = 31;
+            }
+        }
     }
 
     // If there are some Note Off messages for the note about to be triggeered
@@ -979,13 +1141,64 @@ void Timbre::SendNote(uint8_t note, uint8_t velocity) {
     }
 
     // Send a note on and schedule a note off later.
-    preenNoteOn(note, velocity);
-
-    int durTicks = (int) midi_clock_tick_per_step[(int) params_.engineArp2.duration] - 1;
-    if (arpMatrix != NULL) {
-        int stepTicks = getArpStepTicks();
-        durTicks += (int) roundf(arpMatrix->getDestination(MTX_DEST_ARP_GATE) * (float) stepTicks);
+    int stepMode = getArpeggiatorStepMode();
+    if (stepMode == ARP_STEP_MODE_RATCHET2 && ratchetMode == 0) {
+        ratchetMode = 1;
     }
+
+    uint8_t firstHitVel = velocity;
+    if (ratchetMode > 0 && ratchetSign > 0) {
+        int scaled = (int) roundf((float) velocity * 0.25f);
+        firstHitVel = (uint8_t) ((scaled < 1) ? 1 : scaled);
+    }
+    preenNoteOn(note, firstHitVel);
+
+    int rawDurTicks = (int) midi_clock_tick_per_step[(int) params_.engineArp2.duration];
+    int stepTicks = getArpStepTicks();
+    if (arpMatrix != NULL) {
+        rawDurTicks += (int) roundf(arpMatrix->getDestination(MTX_DEST_ARP_GATE) * (float) stepTicks);
+    }
+    if (stepMode == ARP_STEP_MODE_TIE && rawDurTicks < (stepTicks + 1)) {
+        rawDurTicks = stepTicks + 1;
+    }
+
+    if (ratchetMode > 0) {
+        // Ratchet subdivisions of the current arpeggiator step (stepTicks):
+        // 1..15 -> x2..x16 subdivisions (and up to x32 when Mult > 1.0).
+        int subDiv = ratchetMode + 1;
+        float blocksPerTick = (params_.engineArp1.clock == CLOCK_EXTERNAL)
+            ? extBlocksPerTick_
+            : ((ticksEveryNCalls_ > 2.0f) ? ticksEveryNCalls_ : 31.25f);
+        arpRatchetTotalBlocks_ = (float) stepTicks * blocksPerTick;
+        arpRatchetSubBlocks_ = arpRatchetTotalBlocks_ / (float) subDiv;
+        if (arpRatchetSubBlocks_ < 2.0f) {
+            arpRatchetSubBlocks_ = 2.0f;
+        }
+        float gateRatio = (stepTicks > 0) ? ((float) rawDurTicks / (float) stepTicks) : 0.75f;
+        if (gateRatio < 0.15f) {
+            gateRatio = 0.15f;
+        } else if (gateRatio > 0.88f) {
+            gateRatio = 0.88f;
+        }
+        arpRatchetGateBlocks_ = arpRatchetSubBlocks_ * gateRatio;
+        if (arpRatchetGateBlocks_ < 1.0f) {
+            arpRatchetGateBlocks_ = 1.0f;
+        }
+        arpRatchetElapsedBlocks_ = 0.0f;
+        arpRatchetSubElapsed_ = 0.0f;
+        if (arpRatchetCount_ < 8) {
+            arpRatchetNotes_[arpRatchetCount_++] = note;
+        }
+        arpRatchetVelocity_ = baseVelocity;
+        arpRatchetHitIndex_ = 0;
+        arpRatchetSubDiv_ = (uint8_t) subDiv;
+        arpRatchetSign_ = ratchetSign;
+        arpRatchetGateOpen_ = true;
+        arpRatchetActive_ = true;
+        return;
+    }
+
+    int durTicks = rawDurTicks - 1;
     if (durTicks < 1) {
         durTicks = 1;
     } else if (durTicks > 192) {
@@ -1018,6 +1231,7 @@ void Timbre::SendScheduledNotes() {
 }
 
 void Timbre::FlushQueue() {
+    stopArpRatchet();
     while (event_scheduler_.size()) {
         SendScheduledNotes();
     }
@@ -1042,8 +1256,17 @@ void Timbre::Tick() {
 
     if (tick_ >= getArpStepTicks()) {
         tick_ = 0;
+        stopArpRatchet();
         uint16_t pattern = getArpeggiatorPattern();
+        uint16_t accentMask = getArpeggiatorAccentMask();
+        int patternLen = getArpeggiatorPatternLength();
+        uint16_t endMask = (uint16_t) (1u << (patternLen - 1));
+        if (bitmask_ == 0 || bitmask_ > endMask) {
+            bitmask_ = 1;
+        }
         uint8_t has_arpeggiator_note = (bitmask_ & pattern) ? 255 : 0;
+        bool has_accent = (bitmask_ & accentMask) != 0;
+        int stepMode = getArpeggiatorStepMode();
         const int num_notes = note_stack_.size();
         const int direction = params_.engineArp1.direction;
 
@@ -1070,10 +1293,17 @@ void Timbre::Tick() {
                 const NoteEntry &noteEntry = ARPEGGIO_DIRECTION_PLAYED == direction ? note_stack_.played_note(step) : note_stack_.sorted_note(step);
 
                 uint8_t note = noteEntry.note;
-                uint8_t velocity = noteEntry.velocity;
+                int effVel = (int) noteEntry.velocity + (has_accent ? 32 : 0);
+                if (effVel > 127) {
+                    effVel = 127;
+                }
+                uint8_t velocity = (uint8_t) effVel;
                 note += 12 * current_octave_;
                 if (__canTranspose(direction))
                     note += transpose;
+                if (stepMode == ARP_STEP_MODE_OCT_UP) {
+                    note += 12;
+                }
 
                 while (note > 127) {
                     note -= 12;
@@ -1083,13 +1313,22 @@ void Timbre::Tick() {
             } else {
                 for (int i = 0; i < note_stack_.size(); ++i) {
                     const NoteEntry &noteEntry = note_stack_.sorted_note(i);
-                    SendNote(noteEntry.note, noteEntry.velocity);
+                    int effVel = (int) noteEntry.velocity + (has_accent ? 32 : 0);
+                    if (effVel > 127) {
+                        effVel = 127;
+                    }
+                    uint8_t chordNote = noteEntry.note;
+                    if (stepMode == ARP_STEP_MODE_OCT_UP && chordNote <= 115) {
+                        chordNote += 12;
+                    }
+                    SendNote(chordNote, (uint8_t) effVel);
                 }
             }
         }
-        bitmask_ <<= 1;
-        if (!bitmask_) {
+        if (bitmask_ >= endMask) {
             bitmask_ = 1;
+        } else {
+            bitmask_ <<= 1;
         }
     }
 }

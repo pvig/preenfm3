@@ -34,6 +34,7 @@ extern const char* lfoOscMidiClock[];
 
 extern struct ModulationIndex modulationIndex[ALGO_END][6];
 extern arp_pattern_t lut_res_arpeggiator_patterns[ARPEGGIATOR_PRESET_PATTERN_COUNT];
+extern const uint16_t lut_res_arpeggiator_ties[ARPEGGIATOR_PRESET_PATTERN_COUNT];
 
 extern int getLength(const char *str);
 

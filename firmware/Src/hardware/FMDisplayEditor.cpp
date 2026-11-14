@@ -555,8 +555,8 @@ struct ParameterRowDisplay engineArpPatternRow = {
     {
         "    ",
         "    ",
-        "    ",
-        "    " },
+        "Mode",
+        "Len " },
     {
         {
             0,
@@ -1758,7 +1758,7 @@ const char *matrixDestNames[DESTINATION_MAX] = { "None ", "Gate ", "IM 1 ", "IM 
     /*osc warp*/   "o1 Wr", "o2 Wr", "o3 Wr", "o4 Wr", "o5 Wr", "o6 Wr",
     /*note add*/   "Note+",
     /*stepseq len*/ "stp1L", "stp2L",
-    /*arp*/        "Arp+ ", "ArpVl", "ArpGt", "ArpDv"
+    /*arp*/        "Arp+ ", "ArpVl", "ArpGt", "ArpDv", "ArpRt"
     };
 const unsigned char matrixTargetOrder[DESTINATION_MAX] = {
     0, 1, 2, 3, 4, 5, 48, 6,
@@ -1769,7 +1769,7 @@ const unsigned char matrixTargetOrder[DESTINATION_MAX] = {
     24, 25, 26, 27, 28, 29,
     30, 45, 44, 46, 31, 47,
     32, 33, 34, 35,
-    36, 37, 38, 39, 40, 41, 67, 68, 69, 70, 71, 72,
+    36, 37, 38, 39, 40, 41, 67, 68, 69, 70, 71, 72, 73,
     42, 49, 50, 51, 52, 53
 };
 
@@ -2433,8 +2433,8 @@ const struct Pfm3OneButtonState pfm3ButtonArpeggiator2State = {
             ROW_ARPEGGIATOR2,
             ENCODER_ARPEGGIATOR_LATCH },
         {
-            ROW_NONE,
-            ENCODER_NONE },
+            ROW_ARPEGGIATOR3,
+            3 },
         {
             ROW_ARPEGGIATOR3,
             0 },
@@ -3471,8 +3471,8 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
             return;
         case ROW_ARPEGGIATOR2:
             if (encoder == ENCODER_ARPEGGIATOR_PATTERN) {
-                // Refresh pattern
-                refreshStatus = 3;
+                // Refresh Eucl/Len name + pattern
+                refreshStatus = 10;
             }
             break;
         case ROW_EFFECT1:
@@ -3856,6 +3856,13 @@ void FMDisplayEditor::refreshEditorByStep(int &refreshStatus, int &endRefreshSta
                         goto displayDefault;
                     }
                 break;
+                case ROW_ARPEGGIATOR3:
+                    if (rowEncoder.encoder == 3 && synthState_->params->engineArp2.pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+                        tft_->print("Eucl");
+                    } else {
+                        goto displayDefault;
+                    }
+                break;
                 default:
                     displayDefault:
                     tft_->print(paramRow->paramName[rowEncoder.encoder]);
@@ -3975,35 +3982,7 @@ void FMDisplayEditor::setPresetModified(int timbre, bool state) {
     presetModifed_[timbre] = state;
 }
 
-void FMDisplayEditor::updateArpPattern(int currentRow, int encoder, int oldValue, int newValue) {
-
-    const int index = (int) synthState_->params->engineArp2.pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT;
-    const arp_pattern_t user_pattern = synthState_->params->engineArpUserPatterns.patterns[index];
-
-    if (synthState_->params->engineArp2.pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
-        return;
-    }
-
-    if (encoder == 1) {
-        // new value to display
-        tft_->setCharColor(COLOR_YELLOW);
-        tft_->setCursor(synthState_->patternSelect, 6);
-        tft_->print((char) (127 + ((newValue >> (synthState_->patternSelect)) & 0x1) * 15));
-    } else if (encoder == 0) {
-        if ((oldValue % 4) == 0) {
-            tft_->setCharColor(COLOR_WHITE);
-        } else {
-            tft_->setCharColor(COLOR_GRAY);
-        }
-        tft_->setCursor(oldValue, 6);
-        tft_->print((char) (127 + ((user_pattern >> (oldValue)) & 0x1) * 15));
-        tft_->setCharColor(COLOR_YELLOW);
-        tft_->setCursor(newValue, 6);
-        tft_->print((char) (127 + ((user_pattern >> (newValue)) & 0x1) * 15));
-    }
-}
-
-static void drawStepSeqLoopArrow(TftDisplay *tft, int loopLen) {
+static void drawStepGridLoopArrow(TftDisplay *tft, int loopLen) {
     if (loopLen < 1 || loopLen > 16) {
         loopLen = 16;
     }
@@ -4021,9 +4000,97 @@ static void drawStepSeqLoopArrow(TftDisplay *tft, int loopLen) {
     tft->fillArea(endX - 2, yBase + 1, 2, 7, COLOR_RED);
 }
 
-static void drawStepSeqSelectedDot(TftDisplay *tft, int step, TFT_COLOR color) {
+static void drawStepGridSelectedDot(TftDisplay *tft, int step, TFT_COLOR color) {
     if (step >= 0 && step < 16) {
         tft->fillArea(step * TFT_BIG_CHAR_WIDTH + 3, 6 * TFT_BIG_CHAR_HEIGHT - 4, 5, 4, color);
+    }
+}
+
+static void drawStepGridCell(TftDisplay *tft, int step, uint8_t level, TFT_COLOR color) {
+    if (step >= 0 && step < 16) {
+        tft->setCharColor(color);
+        tft->setCursor(step, 6);
+        tft->print((char) (127 + (level & 0x0F)));
+    }
+}
+
+static void drawStepGrid(TftDisplay *tft, const uint8_t levels[16], const TFT_COLOR colors[16],
+        int selectedStep, bool showSelected, int loopLen) {
+    tft->setCharBackgroundColor(COLOR_BLACK);
+    for (int k = 0; k < 16; k++) {
+        tft->setCharColor(colors[k]);
+        tft->print((char) (127 + (levels[k] & 0x0F)));
+    }
+    tft->fillArea(0, 6 * TFT_BIG_CHAR_HEIGHT - 4, 16 * TFT_BIG_CHAR_WIDTH, 4, COLOR_BLACK);
+    if (showSelected) {
+        drawStepGridSelectedDot(tft, selectedStep, COLOR_YELLOW);
+    }
+    drawStepGridLoopArrow(tft, loopLen);
+}
+
+static const char * const arpStepModeNames[ARP_STEP_MODE_COUNT] = {
+    "Norm", "Tie ", "Oct+", "Rt*2"
+};
+
+static uint8_t getArpStepLevel(arp_pattern_t pattern, int step) {
+    bool stepOn = ((ARP_PATTERN_GETMASK(pattern) >> step) & 0x1) != 0;
+    if (!stepOn) {
+        return 0;
+    }
+    bool accentOn = ((ARP_PATTERN_GETACCENT(pattern) >> step) & 0x1) != 0;
+    return accentOn ? 15 : 7;
+}
+
+static TFT_COLOR getArpStepColor(arp_pattern_t pattern, int step, int stepMode) {
+    switch (stepMode) {
+    case ARP_STEP_MODE_TIE:
+        return COLOR_CYAN;
+    case ARP_STEP_MODE_OCT_UP:
+        return COLOR_BLUE;
+    case ARP_STEP_MODE_RATCHET2:
+        return COLOR_GREEN;
+    default: {
+        bool accentOn = ((ARP_PATTERN_GETACCENT(pattern) >> step) & 0x1) != 0;
+        if (accentOn) {
+            return COLOR_RED;
+        }
+        return ((step % 4) == 0) ? COLOR_WHITE : COLOR_GRAY;
+    }
+    }
+}
+
+void FMDisplayEditor::updateArpPattern(int currentRow, int encoder, int oldValue, int newValue) {
+    const int ptrn = (int) synthState_->params->engineArp2.pattern;
+    if (ptrn < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+        if (encoder == 3) {
+            valueChangedCounter_[2] = 4;
+            displayParamValue(2, COLOR_YELLOW);
+            displayParamValue(3, COLOR_WHITE);
+        }
+        return;
+    }
+
+    const int index = ptrn - ARPEGGIATOR_PRESET_PATTERN_COUNT;
+    const arp_pattern_t user_pattern = synthState_->params->engineArpUserPatterns.patterns[index];
+    tft_->setCharBackgroundColor(COLOR_BLACK);
+
+    if (encoder == 1) {
+        int sel = synthState_->patternSelect;
+        int mode = getArpUserStepMode(synthState_->params, index, sel);
+        drawStepGridCell(tft_, sel, getArpStepLevel(user_pattern, sel), getArpStepColor(user_pattern, sel, mode));
+    } else if (encoder == 2) {
+        int sel = synthState_->patternSelect;
+        drawStepGridCell(tft_, sel, getArpStepLevel(user_pattern, sel), getArpStepColor(user_pattern, sel, newValue));
+        valueChangedCounter_[5] = 4;
+        displayParamValue(5, COLOR_YELLOW);
+    } else if (encoder == 0) {
+        drawStepGridSelectedDot(tft_, oldValue, COLOR_BLACK);
+        drawStepGridSelectedDot(tft_, newValue, COLOR_YELLOW);
+        displayParamValue(5, COLOR_WHITE);
+    } else if (encoder == 3) {
+        valueChangedCounter_[2] = 4;
+        displayParamValue(2, COLOR_YELLOW);
+        drawStepGridLoopArrow(tft_, newValue);
     }
 }
 
@@ -4037,24 +4104,20 @@ void FMDisplayEditor::updateStepSequencer(int currentRow, int encoder, int oldVa
     if (encoder == 3) {
         // new value to display
         int sel = synthState_->stepSelect[whichStepSeq];
-        tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[sel], sel));
-        tft_->setCursor(sel, 6);
-        tft_->print((char) (127 + (newValue & 0x0F)));
+        drawStepGridCell(tft_, sel, (uint8_t) newValue, getStepSeqStepColor((uint8_t) seqSteps->steps[sel], sel));
     } else if (encoder == 2) {
-        drawStepSeqSelectedDot(tft_, oldValue, COLOR_BLACK);
-        drawStepSeqSelectedDot(tft_, newValue, COLOR_YELLOW);
+        drawStepGridSelectedDot(tft_, oldValue, COLOR_BLACK);
+        drawStepGridSelectedDot(tft_, newValue, COLOR_YELLOW);
         displayParamValue(5, COLOR_WHITE);
     } else if (encoder == ENCODER_STEPSEQ_MODE) {
         int sel = synthState_->stepSelect[whichStepSeq];
-        tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[sel], sel));
-        tft_->setCursor(sel, 6);
-        tft_->print((char) (127 + (seqSteps->steps[sel] & 0x0F)));
+        drawStepGridCell(tft_, sel, (uint8_t) seqSteps->steps[sel], getStepSeqStepColor((uint8_t) seqSteps->steps[sel], sel));
         valueChangedCounter_[5] = 4;
         displayParamValue(5, COLOR_YELLOW);
     } else if (encoder == ENCODER_STEPSEQ_LEN) {
         valueChangedCounter_[0] = 4;
         displayParamValue(0, COLOR_YELLOW);
-        drawStepSeqLoopArrow(tft_, newValue);
+        drawStepGridLoopArrow(tft_, newValue);
     }
 }
 
@@ -4190,48 +4253,58 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
         if (encoder == 2) {
             int whichStepSeq = row - ROW_LFOSEQ1;
             StepSequencerSteps *seqSteps = &((StepSequencerSteps*) (&synthState_->params->lfoSteps1))[whichStepSeq];
-
-            tft_->setCharBackgroundColor(COLOR_BLACK);
+            uint8_t levels[16];
+            TFT_COLOR colors[16];
             for (int k = 0; k < 16; k++) {
-                tft_->setCharColor(getStepSeqStepColor((uint8_t) seqSteps->steps[k], k));
-                tft_->print((char) (127 + (seqSteps->steps[k] & 0x0F)));
+                levels[k] = (uint8_t) (seqSteps->steps[k] & 0x0F);
+                colors[k] = getStepSeqStepColor((uint8_t) seqSteps->steps[k], k);
             }
-            tft_->fillArea(0, 6 * TFT_BIG_CHAR_HEIGHT - 4, 16 * TFT_BIG_CHAR_WIDTH, 4, COLOR_BLACK);
-            drawStepSeqSelectedDot(tft_, synthState_->stepSelect[whichStepSeq], COLOR_YELLOW);
             const StepSequencerParams *seqParams = &((StepSequencerParams*) (&synthState_->params->lfoSeq1))[whichStepSeq];
-            drawStepSeqLoopArrow(tft_, (int) seqParams->loopLength);
+            drawStepGrid(tft_, levels, colors, synthState_->stepSelect[whichStepSeq], true, (int) seqParams->loopLength);
         }
     }
         break;
     case DISPLAY_TYPE_ARP_PATTERN: {
-        // Display the steps only once
+        const int index = (int) synthState_->params->engineArp2.pattern;
+        bool editable = (index >= ARPEGGIATOR_PRESET_PATTERN_COUNT);
+        int userIdx = index - ARPEGGIATOR_PRESET_PATTERN_COUNT;
+        int len = editable ? getArpUserPatternLength(synthState_->params, userIdx) : 16;
+
         if (encoder == 0) {
-
-            const int index = (int) synthState_->params->engineArp2.pattern;
             arp_pattern_t user_pattern;
-            bool editable = false;
-
-            if (synthState_->params->engineArp2.pattern >= ARPEGGIATOR_PRESET_PATTERN_COUNT) {
-                user_pattern = synthState_->params->engineArpUserPatterns.patterns[index
-                    - ARPEGGIATOR_PRESET_PATTERN_COUNT];
-                editable = true;
+            uint16_t presetTieMask = 0;
+            if (editable) {
+                user_pattern = synthState_->params->engineArpUserPatterns.patterns[userIdx];
             } else {
-                user_pattern = lut_res_arpeggiator_patterns[index];
+                uint16_t baseMask = ARP_PATTERN_GETMASK(lut_res_arpeggiator_patterns[index]);
+                uint16_t acc = 0;
+                computeArpPresetMasks(
+                    baseMask,
+                    ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[index]),
+                    lut_res_arpeggiator_ties[index],
+                    getArpEuclideanSeed(synthState_->params),
+                    &acc, &presetTieMask);
+                user_pattern = ARP_PATTERN_ACCENT(baseMask, acc);
             }
-
-            tft_->setCharBackgroundColor(COLOR_BLACK);
+            uint8_t levels[16];
+            TFT_COLOR colors[16];
             for (int k = 0; k < 16; k++) {
-                bool stepOn = ((user_pattern >> (k)) & 0x1) > 0;
-                if (synthState_->patternSelect == k && editable) {
-                    tft_->setCharColor(COLOR_YELLOW);
-                } else if ((k % 4) == 0) {
-                    tft_->setCharColor(COLOR_WHITE);
-                } else {
-                    tft_->setCharColor(COLOR_GRAY);
-                }
-                tft_->print((char) (127 + (stepOn ? 15 : 0)));
+                levels[k] = getArpStepLevel(user_pattern, k);
+                int mode = editable
+                    ? getArpUserStepMode(synthState_->params, userIdx, k)
+                    : (((presetTieMask >> k) & 0x1u) ? ARP_STEP_MODE_TIE : ARP_STEP_MODE_NORM);
+                colors[k] = getArpStepColor(user_pattern, k, mode);
             }
-
+            drawStepGrid(tft_, levels, colors, synthState_->patternSelect, editable, len);
+        } else if (encoder == 2) {
+            int mode = editable ? getArpUserStepMode(synthState_->params, userIdx, synthState_->patternSelect) : ARP_STEP_MODE_NORM;
+            tft_->setCharBackgroundColor(COLOR_BLACK);
+            tft_->setCharColor(editable ? COLOR_WHITE : COLOR_GRAY);
+            tft_->print(arpStepModeNames[mode]);
+        } else if (encoder == 3) {
+            tft_->setCharBackgroundColor(COLOR_BLACK);
+            tft_->setCharColor(COLOR_WHITE);
+            tft_->printValueWithSpace(editable ? len : getArpEuclideanSeed(synthState_->params));
         }
     }
         break;

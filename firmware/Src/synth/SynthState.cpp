@@ -190,36 +190,88 @@ void SynthState::encoderTurnedForArpPattern(int row, int encoder, int ticks) {
         }
 
     } else if (encoder == 1) {
-        // Change value(s)
+        // Change step state: 0 = Off, 1 = On (half bar), 2 = Accent (full bar)
         if (params->engineArp2.pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
             return;
         }
-        arp_pattern_t pattern = params->engineArpUserPatterns.patterns[(int) params->engineArp2.pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT];
-        const uint16_t oldMask = ARP_PATTERN_GETMASK(pattern);
-        uint16_t newMask = oldMask;
+        int userIdx = (int) params->engineArp2.pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT;
+        arp_pattern_t pattern = params->engineArpUserPatterns.patterns[userIdx];
+        uint16_t mask = ARP_PATTERN_GETMASK(pattern);
+        uint16_t accent = ARP_PATTERN_GETACCENT(pattern);
+        uint16_t bit = (uint16_t) (0x1u << patternSelect);
 
-        uint16_t bitsToModify = 0;
-        switch (encoder) {
-        case 1:
-            bitsToModify = 0x1 << patternSelect;
-            break;       // modify single note
-        case 2:
-            bitsToModify = 0x1111 << (patternSelect & 3);
-            break; // modify all
-        case 3:
-            bitsToModify = 0xf << ((patternSelect >> 2) << 2);
-            break; // modify entire bar
-        }
-        if (ticks > 0) {
-            newMask |= bitsToModify;
-        } else {
-            newMask &= ~bitsToModify;
+        int oldState = ((mask & bit) == 0) ? 0 : (((accent & bit) != 0) ? 2 : 1);
+        int dir = (ticks > 0) ? 1 : ((ticks < 0) ? -1 : 0);
+        int newState = oldState + dir;
+        if (newState < 0) {
+            newState = 0;
+        } else if (newState > 2) {
+            newState = 2;
         }
 
-        if (oldMask != newMask) {
-            ARP_PATTERN_SETMASK(pattern, newMask);
-            params->engineArpUserPatterns.patterns[(int) params->engineArp2.pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT] = pattern;
-            propagateNewParamValue(currentTimbre, row, encoder, (ParameterDisplay*) NULL, oldMask, newMask);
+        if (oldState != newState) {
+            if (newState == 0) {
+                mask &= ~bit;
+                accent &= ~bit;
+            } else if (newState == 1) {
+                mask |= bit;
+                accent &= ~bit;
+            } else {
+                mask |= bit;
+                accent |= bit;
+            }
+            ARP_PATTERN_SETMASK(pattern, mask);
+            ARP_PATTERN_SETACCENT(pattern, accent);
+            params->engineArpUserPatterns.patterns[userIdx] = pattern;
+            propagateNewParamValue(currentTimbre, row, encoder, (ParameterDisplay*) NULL, oldState, newState);
+        }
+    } else if (encoder == 2) {
+        // Change step mode: Norm / Tie / Oct+ / Rt*2
+        if (params->engineArp2.pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+            return;
+        }
+        int userIdx = (int) params->engineArp2.pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT;
+        int oldMode = getArpUserStepMode(params, userIdx, patternSelect);
+        int dir = (ticks > 0) ? 1 : ((ticks < 0) ? -1 : 0);
+        int newMode = oldMode + dir;
+        if (newMode < 0) {
+            newMode = 0;
+        } else if (newMode >= ARP_STEP_MODE_COUNT) {
+            newMode = ARP_STEP_MODE_COUNT - 1;
+        }
+        if (oldMode != newMode) {
+            setArpUserStepMode(params, userIdx, patternSelect, newMode);
+            propagateNewParamValue(currentTimbre, row, encoder, (ParameterDisplay*) NULL, oldMode, newMode);
+        }
+    } else if (encoder == 3) {
+        int dir = (ticks > 0) ? 1 : ((ticks < 0) ? -1 : 0);
+        if (params->engineArp2.pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+            // Change Euclidean seed (0..15) for factory presets
+            int oldSeed = getArpEuclideanSeed(params);
+            int newSeed = oldSeed + dir;
+            if (newSeed < 0) {
+                newSeed = 0;
+            } else if (newSeed > 15) {
+                newSeed = 15;
+            }
+            if (oldSeed != newSeed) {
+                setArpEuclideanSeed(params, newSeed);
+                propagateNewParamValue(currentTimbre, row, encoder, (ParameterDisplay*) NULL, oldSeed, newSeed);
+            }
+            return;
+        }
+        // Change user pattern length (1..16)
+        int userIdx = (int) params->engineArp2.pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT;
+        int oldLen = getArpUserPatternLength(params, userIdx);
+        int newLen = oldLen + dir;
+        if (newLen < 1) {
+            newLen = 1;
+        } else if (newLen > 16) {
+            newLen = 16;
+        }
+        if (oldLen != newLen) {
+            setArpUserPatternLength(params, userIdx, newLen);
+            propagateNewParamValue(currentTimbre, row, encoder, (ParameterDisplay*) NULL, oldLen, newLen);
         }
     }
 }
