@@ -2044,7 +2044,7 @@ struct ParameterRowDisplay midiNote1ParameterRow = {
         "Befo",
         "Brk ",
         "Afte",
-        "    " },
+        "Swng" },
     {
         {
             MIDI_NOTE_CURVE_FLAT,
@@ -2072,9 +2072,9 @@ struct ParameterRowDisplay midiNote1ParameterRow = {
             nullNamesOrder },
         {
             0,
-            0,
-            0,
-            DISPLAY_TYPE_NONE,
+            50,
+            51,
+            DISPLAY_TYPE_INT,
             nullNames,
             nullNamesOrder,
             nullNamesOrder } } };
@@ -2445,13 +2445,36 @@ const struct Pfm3OneButtonState pfm3ButtonArpeggiator2State = {
             ROW_ARPEGGIATOR3,
             2 } } };
 
+const struct Pfm3OneButtonState pfm3ButtonArpeggiator3State = {
+    "Arpeggiator",
+    {
+        {
+            ROW_MIDINOTE1CURVE,
+            3 },
+        {
+            ROW_NONE,
+            0 },
+        {
+            ROW_NONE,
+            0 },
+        {
+            ROW_NONE,
+            0 },
+        {
+            ROW_NONE,
+            0 },
+        {
+            ROW_NONE,
+            0 } } };
+
 const struct Pfm3OneButton pfm3ButtonArpeggiator = {
     "Arp",
     BUTTONID_EDIT_ARPEGIATOR,
-    2,
+    3,
     {
         &pfm3ButtonArpeggiator1State,
-        &pfm3ButtonArpeggiator2State } };
+        &pfm3ButtonArpeggiator2State,
+        &pfm3ButtonArpeggiator3State } };
 
 const struct Pfm3OneButtonState pfm3ButtonFx1State = {
     "Voice FX",
@@ -4029,7 +4052,7 @@ static void drawStepGrid(TftDisplay *tft, const uint8_t levels[16], const TFT_CO
 }
 
 static const char * const arpStepModeNames[ARP_STEP_MODE_COUNT] = {
-    "Norm", "Tie ", "Oct+", "Rt*2"
+    "Norm", "Tie ", "Oct+", "Rt*2", "Chrd", "Slap"
 };
 
 static uint8_t getArpStepLevel(arp_pattern_t pattern, int step) {
@@ -4049,6 +4072,10 @@ static TFT_COLOR getArpStepColor(arp_pattern_t pattern, int step, int stepMode) 
         return COLOR_BLUE;
     case ARP_STEP_MODE_RATCHET2:
         return COLOR_GREEN;
+    case ARP_STEP_MODE_CHORD:
+        return COLOR_YELLOW;
+    case ARP_STEP_MODE_SLAP:
+        return COLOR_RED;
     default: {
         bool accentOn = ((ARP_PATTERN_GETACCENT(pattern) >> step) & 0x1) != 0;
         if (accentOn) {
@@ -4268,11 +4295,13 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
         const int index = (int) synthState_->params->engineArp2.pattern;
         bool editable = (index >= ARPEGGIATOR_PRESET_PATTERN_COUNT);
         int userIdx = index - ARPEGGIATOR_PRESET_PATTERN_COUNT;
-        int len = editable ? getArpUserPatternLength(synthState_->params, userIdx) : 16;
+        int len = editable
+            ? getArpUserPatternLength(synthState_->params, userIdx)
+            : getArpPresetLength(getArpEuclideanSeed(synthState_->params));
 
         if (encoder == 0) {
             arp_pattern_t user_pattern;
-            uint16_t presetTieMask = 0;
+            uint16_t presetTieMask = 0, presetOctMask = 0, presetRtMask = 0;
             if (editable) {
                 user_pattern = synthState_->params->engineArpUserPatterns.patterns[userIdx];
             } else {
@@ -4283,16 +4312,26 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
                     ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[index]),
                     lut_res_arpeggiator_ties[index],
                     getArpEuclideanSeed(synthState_->params),
-                    &acc, &presetTieMask);
+                    &acc, &presetTieMask, &presetOctMask, &presetRtMask);
                 user_pattern = ARP_PATTERN_ACCENT(baseMask, acc);
             }
             uint8_t levels[16];
             TFT_COLOR colors[16];
             for (int k = 0; k < 16; k++) {
                 levels[k] = getArpStepLevel(user_pattern, k);
-                int mode = editable
-                    ? getArpUserStepMode(synthState_->params, userIdx, k)
-                    : (((presetTieMask >> k) & 0x1u) ? ARP_STEP_MODE_TIE : ARP_STEP_MODE_NORM);
+                int mode = ARP_STEP_MODE_NORM;
+                if (editable) {
+                    mode = getArpUserStepMode(synthState_->params, userIdx, k);
+                } else {
+                    uint16_t bit = (uint16_t) (1u << k);
+                    if (presetTieMask & bit) {
+                        mode = ARP_STEP_MODE_TIE;
+                    } else if (presetOctMask & bit) {
+                        mode = ARP_STEP_MODE_OCT_UP;
+                    } else if (presetRtMask & bit) {
+                        mode = ARP_STEP_MODE_RATCHET2;
+                    }
+                }
                 colors[k] = getArpStepColor(user_pattern, k, mode);
             }
             drawStepGrid(tft_, levels, colors, synthState_->patternSelect, editable, len);

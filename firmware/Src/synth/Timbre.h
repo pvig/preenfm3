@@ -213,9 +213,10 @@ private:
     void OnMidiStart();
     void OnMidiStop();
     void OnMidiClock();
-    void SendNote(uint8_t note, uint8_t velocity);
+    void SendNote(uint8_t note, uint8_t velocity, int stepMode = -1);
     void updateArpRatchet();
     void stopArpRatchet();
+    void updateArpStrum();
 
     /** --------------FX conf--------------  */
     void fxAfterBlock();
@@ -408,6 +409,7 @@ private:
     int8_t start_step_;
     uint8_t ignore_note_off_messages_;
     uint8_t recording_;
+    uint8_t chord_cycle_;
 
     uint16_t extClockCounter_;
     float extBlocksPerTick_;
@@ -424,6 +426,14 @@ private:
     int8_t arpRatchetSign_;
     bool arpRatchetGateOpen_;
     bool arpRatchetActive_;
+
+    uint8_t arpStrumNotes_[8];
+    uint8_t arpStrumVelocities_[8];
+    uint16_t arpStrumDelay_[8];
+    uint8_t arpStrumCount_;
+    uint8_t arpPendingStepMode_;
+    bool arpSwingOddStep_;
+    float arpSwingStepScale_;
 
     // lfoUsed
     uint8_t lfoUSed_[NUMBER_OF_LFO];

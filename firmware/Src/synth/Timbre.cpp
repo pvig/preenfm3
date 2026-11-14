@@ -115,13 +115,13 @@ uint16_t Timbre::getArpeggiatorAccentMask() const
 {
   const int pattern = (int)params_.engineArp2.pattern;
   if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
-    uint16_t acc = 0, tie = 0;
+    uint16_t acc = 0, tie = 0, oct = 0, rt = 0;
     computeArpPresetMasks(
         ARP_PATTERN_GETMASK(lut_res_arpeggiator_patterns[pattern]),
         ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[pattern]),
         lut_res_arpeggiator_ties[pattern],
         getArpEuclideanSeed(&params_),
-        &acc, &tie);
+        &acc, &tie, &oct, &rt);
     return acc;
   }
   return ARP_PATTERN_GETACCENT(params_.engineArpUserPatterns.patterns[pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT]);
@@ -131,7 +131,7 @@ int Timbre::getArpeggiatorPatternLength() const
 {
   const int pattern = (int)params_.engineArp2.pattern;
   if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
-    return 16;
+    return getArpPresetLength(getArpEuclideanSeed(&params_));
   }
   return getArpUserPatternLength(&params_, pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT);
 }
@@ -143,14 +143,23 @@ int Timbre::getArpeggiatorStepMode() const
     return ARP_STEP_MODE_NORM;
   }
   if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
-    uint16_t acc = 0, tie = 0;
+    uint16_t acc = 0, tie = 0, oct = 0, rt = 0;
     computeArpPresetMasks(
         ARP_PATTERN_GETMASK(lut_res_arpeggiator_patterns[pattern]),
         ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[pattern]),
         lut_res_arpeggiator_ties[pattern],
         getArpEuclideanSeed(&params_),
-        &acc, &tie);
-    return ((bitmask_ & tie) != 0) ? ARP_STEP_MODE_TIE : ARP_STEP_MODE_NORM;
+        &acc, &tie, &oct, &rt);
+    if ((bitmask_ & tie) != 0) {
+      return ARP_STEP_MODE_TIE;
+    }
+    if ((bitmask_ & oct) != 0) {
+      return ARP_STEP_MODE_OCT_UP;
+    }
+    if ((bitmask_ & rt) != 0) {
+      return ARP_STEP_MODE_RATCHET2;
+    }
+    return ARP_STEP_MODE_NORM;
   }
   int step = 0;
   uint16_t m = bitmask_;
@@ -226,6 +235,10 @@ Timbre::Timbre() {
     arpRatchetSign_ = 1;
     arpRatchetGateOpen_ = false;
     arpRatchetActive_ = false;
+    arpStrumCount_ = 0;
+    arpPendingStepMode_ = ARP_STEP_MODE_NORM;
+    arpSwingOddStep_ = false;
+    arpSwingStepScale_ = 1.0f;
     note_stack_.Init();
     held_note_stack_.Init();
     voice_allocator_.Init(0, VOICE_PRIORITY_LAST_KEY, voice_allocator_pool_, voice_allocator_lru_);
@@ -624,6 +637,9 @@ void Timbre::updateArpegiatorInternalClock() {
     }
     if (unlikely(arpRatchetActive_)) {
         updateArpRatchet();
+    }
+    if (unlikely(arpStrumCount_ > 0)) {
+        updateArpStrum();
     }
 }
 
@@ -1025,6 +1041,31 @@ void Timbre::OnMidiClock() {
     }
 }
 
+void Timbre::updateArpStrum() {
+    uint8_t remaining = 0;
+    bool stoppedPrevRatchet = false;
+    for (uint8_t i = 0; i < arpStrumCount_; i++) {
+        if (arpStrumDelay_[i] > 0) {
+            arpStrumDelay_[i]--;
+        }
+        if (arpStrumDelay_[i] == 0) {
+            if (!stoppedPrevRatchet) {
+                stopArpRatchet();
+                stoppedPrevRatchet = true;
+            }
+            SendNote(arpStrumNotes_[i], arpStrumVelocities_[i], (int) arpPendingStepMode_);
+        } else {
+            if (remaining != i) {
+                arpStrumNotes_[remaining] = arpStrumNotes_[i];
+                arpStrumVelocities_[remaining] = arpStrumVelocities_[i];
+                arpStrumDelay_[remaining] = arpStrumDelay_[i];
+            }
+            remaining++;
+        }
+    }
+    arpStrumCount_ = remaining;
+}
+
 void Timbre::stopArpRatchet() {
     if (arpRatchetActive_) {
         if (arpRatchetGateOpen_) {
@@ -1036,6 +1077,14 @@ void Timbre::stopArpRatchet() {
         arpRatchetActive_ = false;
         arpRatchetCount_ = 0;
     }
+}
+
+static inline float getRatchetDensityScale(float subBlocks) {
+    if (subBlocks >= 90.0f) {
+        return 1.0f;
+    }
+    float scale = 0.70f + 0.30f * ((subBlocks - 42.0f) / 48.0f);
+    return (scale < 0.70f) ? 0.70f : scale;
 }
 
 void Timbre::updateArpRatchet() {
@@ -1063,12 +1112,13 @@ void Timbre::updateArpRatchet() {
                 progress = 1.0f;
             }
             float rampScale = (arpRatchetSign_ >= 0) ? (0.25f + 0.75f * progress) : (1.0f - 0.75f * progress);
+            float densityScale = getRatchetDensityScale(arpRatchetSubBlocks_);
 
             int effVel = (int) arpRatchetVelocity_;
             if (voiceNumber_[0] >= 0) {
                 effVel += (int) roundf(voices_[voiceNumber_[0]]->matrix.getDestination(MTX_DEST_ARP_VEL) * 64.0f);
             }
-            effVel = (int) roundf((float) effVel * rampScale);
+            effVel = (int) roundf((float) effVel * rampScale * densityScale);
             if (effVel < 1) {
                 effVel = 1;
             } else if (effVel > 127) {
@@ -1098,7 +1148,7 @@ int Timbre::getArpStepTicks() const {
     return midi_clock_tick_per_step[divIdx];
 }
 
-void Timbre::SendNote(uint8_t note, uint8_t velocity) {
+void Timbre::SendNote(uint8_t note, uint8_t velocity, int stepMode) {
     Matrix *arpMatrix = (voiceNumber_[0] >= 0) ? &voices_[voiceNumber_[0]]->matrix : NULL;
     uint8_t baseVelocity = velocity;
     int ratchetMode = 0;
@@ -1125,11 +1175,11 @@ void Timbre::SendNote(uint8_t note, uint8_t velocity) {
         float absRatchet = fabsf(ratchetVal);
         if (absRatchet >= 0.04f) {
             float curved = 0.25f * absRatchet + 0.75f * absRatchet * absRatchet * absRatchet;
-            ratchetMode = (int) roundf(curved * 15.0f);
+            ratchetMode = (int) roundf(curved * 7.0f);
             if (ratchetMode < 1) {
                 ratchetMode = 1;
-            } else if (ratchetMode > 31) {
-                ratchetMode = 31;
+            } else if (ratchetMode > 11) {
+                ratchetMode = 11;
             }
         }
     }
@@ -1141,17 +1191,15 @@ void Timbre::SendNote(uint8_t note, uint8_t velocity) {
     }
 
     // Send a note on and schedule a note off later.
-    int stepMode = getArpeggiatorStepMode();
+    if (stepMode < 0) {
+        stepMode = getArpeggiatorStepMode();
+    }
     if (stepMode == ARP_STEP_MODE_RATCHET2 && ratchetMode == 0) {
         ratchetMode = 1;
+    } else if (stepMode == ARP_STEP_MODE_SLAP) {
+        int slapVel = (int) velocity + ((int) velocity >> 2);
+        velocity = (uint8_t) ((slapVel > 127) ? 127 : slapVel);
     }
-
-    uint8_t firstHitVel = velocity;
-    if (ratchetMode > 0 && ratchetSign > 0) {
-        int scaled = (int) roundf((float) velocity * 0.25f);
-        firstHitVel = (uint8_t) ((scaled < 1) ? 1 : scaled);
-    }
-    preenNoteOn(note, firstHitVel);
 
     int rawDurTicks = (int) midi_clock_tick_per_step[(int) params_.engineArp2.duration];
     int stepTicks = getArpStepTicks();
@@ -1160,29 +1208,65 @@ void Timbre::SendNote(uint8_t note, uint8_t velocity) {
     }
     if (stepMode == ARP_STEP_MODE_TIE && rawDurTicks < (stepTicks + 1)) {
         rawDurTicks = stepTicks + 1;
+    } else if (stepMode == ARP_STEP_MODE_SLAP) {
+        rawDurTicks = (int) roundf((float) rawDurTicks * 0.25f);
+        if (rawDurTicks < 2) {
+            rawDurTicks = 2;
+        } else if (rawDurTicks > 7) {
+            rawDurTicks = 7;
+        }
     }
 
+    int subDiv = 1;
+    float totalBlocks = 0.0f;
+    float subBlocks = 0.0f;
+    float densityScale = 1.0f;
     if (ratchetMode > 0) {
-        // Ratchet subdivisions of the current arpeggiator step (stepTicks):
-        // 1..15 -> x2..x16 subdivisions (and up to x32 when Mult > 1.0).
-        int subDiv = ratchetMode + 1;
+        // Keep ratchet spacing >= 42 audio blocks (~28 ms at 1500 Hz) so transients
+        // do not stack into audio-rate buzz.
+        const float minSubBlocks = 42.0f;
         float blocksPerTick = (params_.engineArp1.clock == CLOCK_EXTERNAL)
             ? extBlocksPerTick_
             : ((ticksEveryNCalls_ > 2.0f) ? ticksEveryNCalls_ : 31.25f);
-        arpRatchetTotalBlocks_ = (float) stepTicks * blocksPerTick;
-        arpRatchetSubBlocks_ = arpRatchetTotalBlocks_ / (float) subDiv;
-        if (arpRatchetSubBlocks_ < 2.0f) {
-            arpRatchetSubBlocks_ = 2.0f;
+        totalBlocks = (float) stepTicks * blocksPerTick * arpSwingStepScale_;
+        int maxSubDiv = (int) floorf(totalBlocks / minSubBlocks);
+        subDiv = ratchetMode + 1;
+        if (subDiv > maxSubDiv) {
+            subDiv = maxSubDiv;
         }
+        if (subDiv < 2) {
+            ratchetMode = 0;
+        } else {
+            subBlocks = totalBlocks / (float) subDiv;
+            densityScale = getRatchetDensityScale(subBlocks);
+        }
+    }
+
+    uint8_t firstHitVel = velocity;
+    if (ratchetMode > 0) {
+        float firstScale = (ratchetSign > 0) ? (0.25f * densityScale) : densityScale;
+        int scaled = (int) roundf((float) velocity * firstScale);
+        firstHitVel = (uint8_t) ((scaled < 1) ? 1 : scaled);
+    }
+    preenNoteOn(note, firstHitVel);
+
+    if (ratchetMode > 0) {
+        // Ratchet subdivisions of the current arpeggiator step (stepTicks):
+        // 1..7 -> x2..x8 subdivisions (and up to x12 when Mult > 1.0), bounded by minSubBlocks.
+        arpRatchetTotalBlocks_ = totalBlocks;
+        arpRatchetSubBlocks_ = subBlocks;
         float gateRatio = (stepTicks > 0) ? ((float) rawDurTicks / (float) stepTicks) : 0.75f;
-        if (gateRatio < 0.15f) {
-            gateRatio = 0.15f;
-        } else if (gateRatio > 0.88f) {
-            gateRatio = 0.88f;
+        if (gateRatio < 0.35f) {
+            gateRatio = 0.35f;
+        } else if (gateRatio > 0.85f) {
+            gateRatio = 0.85f;
         }
         arpRatchetGateBlocks_ = arpRatchetSubBlocks_ * gateRatio;
-        if (arpRatchetGateBlocks_ < 1.0f) {
-            arpRatchetGateBlocks_ = 1.0f;
+        if (arpRatchetGateBlocks_ < 10.0f) {
+            arpRatchetGateBlocks_ = 10.0f;
+        }
+        if (arpRatchetGateBlocks_ > (arpRatchetSubBlocks_ - 4.0f)) {
+            arpRatchetGateBlocks_ = arpRatchetSubBlocks_ - 4.0f;
         }
         arpRatchetElapsedBlocks_ = 0.0f;
         arpRatchetSubElapsed_ = 0.0f;
@@ -1199,6 +1283,9 @@ void Timbre::SendNote(uint8_t note, uint8_t velocity) {
     }
 
     int durTicks = rawDurTicks - 1;
+    if (arpSwingStepScale_ < 1.0f && durTicks > 1) {
+        durTicks = (int) roundf((float) durTicks * arpSwingStepScale_);
+    }
     if (durTicks < 1) {
         durTicks = 1;
     } else if (durTicks > 192) {
@@ -1232,6 +1319,10 @@ void Timbre::SendScheduledNotes() {
 
 void Timbre::FlushQueue() {
     stopArpRatchet();
+    arpStrumCount_ = 0;
+    arpPendingStepMode_ = ARP_STEP_MODE_NORM;
+    arpSwingOddStep_ = false;
+    arpSwingStepScale_ = 1.0f;
     while (event_scheduler_.size()) {
         SendScheduledNotes();
     }
@@ -1254,9 +1345,28 @@ void Timbre::Tick() {
 
     SendScheduledNotes();
 
-    if (tick_ >= getArpStepTicks()) {
+    int stepTicks = getArpStepTicks();
+    if (tick_ >= stepTicks) {
         tick_ = 0;
-        stopArpRatchet();
+        arpStrumCount_ = 0;
+
+        bool isOddStep = arpSwingOddStep_;
+        arpSwingOddStep_ = !arpSwingOddStep_;
+        float swingNorm = params_.midiNote1Curve.unused1 * 0.01f;
+        if (swingNorm < 0.0f) {
+            swingNorm = 0.0f;
+        } else if (swingNorm > 0.50f) {
+            swingNorm = 0.50f;
+        }
+        arpSwingStepScale_ = (swingNorm > 0.0f) ? (isOddStep ? (1.0f - swingNorm) : (1.0f + swingNorm)) : 1.0f;
+        uint16_t swingDelay = 0;
+        if (isOddStep && swingNorm > 0.0f) {
+            float blocksPerTick = (params_.engineArp1.clock == CLOCK_EXTERNAL)
+                ? extBlocksPerTick_
+                : ((ticksEveryNCalls_ > 2.0f) ? ticksEveryNCalls_ : 31.25f);
+            int d = (int) roundf(swingNorm * (float) stepTicks * blocksPerTick);
+            swingDelay = (uint16_t) ((d < 1) ? 1 : d);
+        }
         uint16_t pattern = getArpeggiatorPattern();
         uint16_t accentMask = getArpeggiatorAccentMask();
         int patternLen = getArpeggiatorPatternLength();
@@ -1270,11 +1380,18 @@ void Timbre::Tick() {
         const int num_notes = note_stack_.size();
         const int direction = params_.engineArp1.direction;
 
+        if (num_notes == 0) {
+            stopArpRatchet();
+        }
         if (num_notes && has_arpeggiator_note) {
+            if (swingDelay == 0) {
+                stopArpRatchet();
+            }
+            arpPendingStepMode_ = (uint8_t) stepMode;
             if (voiceNumber_[0] >= 0) {
                 voices_[voiceNumber_[0]]->arpStepSeqNoteOn();
             }
-            if (ARPEGGIO_DIRECTION_CHORD != direction) {
+            if (ARPEGGIO_DIRECTION_CHORD != direction && stepMode != ARP_STEP_MODE_CHORD) {
                 StepArpeggio();
                 int step, transpose = 0;
                 if (current_direction_ > 0) {
@@ -1309,19 +1426,67 @@ void Timbre::Tick() {
                     note -= 12;
                 }
 
-                SendNote(note, velocity);
+                if (swingDelay == 0) {
+                    SendNote(note, velocity, stepMode);
+                } else {
+                    arpStrumNotes_[0] = note;
+                    arpStrumVelocities_[0] = velocity;
+                    arpStrumDelay_[0] = swingDelay;
+                    arpStrumCount_ = 1;
+                }
             } else {
-                for (int i = 0; i < note_stack_.size(); ++i) {
+                uint32_t seed = (uint32_t) chord_cycle_ * 2654435761u;
+                bool strumDown = has_accent
+                    ? (((seed >> 8) % 5u) == 0u)
+                    : (((seed >> 8) & 1u) != 0u);
+                chord_cycle_++;
+                bool hasRatchet = (stepMode == ARP_STEP_MODE_RATCHET2)
+                    || (voiceNumber_[0] >= 0 && fabsf(voices_[voiceNumber_[0]]->matrix.getDestination(MTX_DEST_ARP_RATCHET)) >= 0.04f);
+                // Tight, organic strum spacing: ~2-5 ms per note (3-7 blocks at 1500 Hz).
+                int baseStrum = has_accent
+                    ? (3 + (int) ((seed >> 2) % 3u))
+                    : (4 + (int) ((seed >> 2) % 4u));
+                int accumDelay = 0;
+
+                for (int idx = 0; idx < num_notes; ++idx) {
+                    int i = strumDown ? (num_notes - 1 - idx) : idx;
                     const NoteEntry &noteEntry = note_stack_.sorted_note(i);
-                    int effVel = (int) noteEntry.velocity + (has_accent ? 32 : 0);
-                    if (effVel > 127) {
+                    int effVel = (int) noteEntry.velocity + (has_accent ? 24 : 0);
+                    if (num_notes > 1) {
+                        int velJitter = ((int) ((seed >> (12 + (idx & 3) * 3)) & 7u) - 3) * 2;
+                        effVel += (-4 * idx) + velJitter;
+                    }
+                    if (effVel < 32) {
+                        effVel = 32;
+                    } else if (effVel > 127) {
                         effVel = 127;
                     }
                     uint8_t chordNote = noteEntry.note;
                     if (stepMode == ARP_STEP_MODE_OCT_UP && chordNote <= 115) {
                         chordNote += 12;
                     }
-                    SendNote(chordNote, (uint8_t) effVel);
+
+                    if ((swingDelay == 0 && (idx == 0 || hasRatchet)) || arpStrumCount_ >= 8) {
+                        SendNote(chordNote, (uint8_t) effVel, stepMode);
+                    } else {
+                        uint16_t noteDelay = swingDelay;
+                        if (idx > 0 && !hasRatchet) {
+                            int jitter = (int) ((seed >> (4 + (idx & 3) * 2)) & 3u) - 1;
+                            int stepDelay = baseStrum + jitter;
+                            if (stepDelay < 2) {
+                                stepDelay = 2;
+                            }
+                            accumDelay += stepDelay;
+                            if (accumDelay > 48) {
+                                accumDelay = 48;
+                            }
+                            noteDelay = (uint16_t) (swingDelay + accumDelay);
+                        }
+                        arpStrumNotes_[arpStrumCount_] = chordNote;
+                        arpStrumVelocities_[arpStrumCount_] = (uint8_t) effVel;
+                        arpStrumDelay_[arpStrumCount_] = noteDelay;
+                        arpStrumCount_++;
+                    }
                 }
             }
         }
@@ -1400,6 +1565,11 @@ void Timbre::StartArpeggio() {
 void Timbre::Start() {
     bitmask_ = 1;
     recording_ = 0;
+    chord_cycle_ = 0;
+    arpStrumCount_ = 0;
+    arpPendingStepMode_ = ARP_STEP_MODE_NORM;
+    arpSwingOddStep_ = false;
+    arpSwingStepScale_ = 1.0f;
     running_ = 1;
     for (int k = 0; k < numberOfVoices_; k++) {
         if (voiceNumber_[k] >= 0) {

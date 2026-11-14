@@ -809,7 +809,9 @@ static inline void setArpEuclideanSeed(struct OneSynthParams *params, int seed) 
 }
 
 static inline void computeArpPresetMasks(uint16_t stepMask, uint16_t baseAccent, uint16_t baseTie,
-        int seed, uint16_t *outAccent, uint16_t *outTie) {
+        int seed, uint16_t *outAccent, uint16_t *outTie, uint16_t *outOctUp, uint16_t *outRatchet2) {
+    *outOctUp = 0;
+    *outRatchet2 = 0;
     if (seed <= 0) {
         *outAccent = 0;
         *outTie = 0;
@@ -820,6 +822,7 @@ static inline void computeArpPresetMasks(uint16_t stepMask, uint16_t baseAccent,
         *outTie = baseTie;
         return;
     }
+    int rawSeed = seed;
     seed -= 1;
 
     uint8_t active[16];
@@ -900,6 +903,66 @@ static inline void computeArpPresetMasks(uint16_t stepMask, uint16_t baseAccent,
 
     *outAccent = accMask;
     *outTie = tieMask;
+
+    uint16_t octMask = 0;
+    uint16_t rtMask = 0;
+    if (rawSeed >= 8 && n > 2) {
+        // Place 1..2 Oct+ steps on non-tie active steps
+        int octTarget = (rawSeed >= 10 && n >= 6) ? 2 : 1;
+        uint8_t octCand[16];
+        int oCount = 0;
+        for (int i = 0; i < n; i++) {
+            int s = active[(i + rot + 1) % n];
+            uint16_t bit = (uint16_t) (1u << s);
+            if (!(tieMask & bit)) {
+                octCand[oCount++] = (uint8_t) s;
+            }
+        }
+        if (oCount > 0) {
+            int stepPick = (oCount >= octTarget * 2) ? (oCount / octTarget) : 1;
+            int picked = 0;
+            for (int i = 0; i < oCount && picked < octTarget; i += stepPick) {
+                octMask |= (uint16_t) (1u << octCand[i]);
+                picked++;
+            }
+        }
+    }
+    if (rawSeed >= 12 && n > 3) {
+        // Place 1..2 Rt*2 steps on remaining non-tie, non-Oct+ active steps
+        int rtTarget = (rawSeed >= 14 && n >= 8) ? 2 : 1;
+        uint8_t rtCand[16];
+        int rCount = 0;
+        for (int i = 0; i < n; i++) {
+            int s = active[(i + rot * 2 + n - 1) % n];
+            uint16_t bit = (uint16_t) (1u << s);
+            if (!(tieMask & bit) && !(octMask & bit)) {
+                rtCand[rCount++] = (uint8_t) s;
+            }
+        }
+        if (rCount > 0) {
+            int stepPick = (rCount >= rtTarget * 2) ? (rCount / rtTarget) : 1;
+            int picked = 0;
+            for (int i = 0; i < rCount && picked < rtTarget; i += stepPick) {
+                rtMask |= (uint16_t) (1u << rtCand[i]);
+                picked++;
+            }
+        }
+    }
+    *outOctUp = octMask;
+    *outRatchet2 = rtMask;
+}
+
+static inline int getArpPresetLength(int seed) {
+    static const uint8_t presetLengths[16] = {
+        16, 16, 16, 16, 16, 12, 14, 15,
+        16, 13, 11, 15, 16, 12, 10, 7
+    };
+    if (seed < 0) {
+        seed = 0;
+    } else if (seed > 15) {
+        seed = 15;
+    }
+    return (int) presetLengths[seed];
 }
 
 enum ArpStepMode {
@@ -907,6 +970,8 @@ enum ArpStepMode {
     ARP_STEP_MODE_TIE,
     ARP_STEP_MODE_OCT_UP,
     ARP_STEP_MODE_RATCHET2,
+    ARP_STEP_MODE_CHORD,
+    ARP_STEP_MODE_SLAP,
     ARP_STEP_MODE_COUNT
 };
 
@@ -919,6 +984,10 @@ static inline int getArpUserStepMode(const struct OneSynthParams *params, int us
     conv.f = (step < 8) ? phaseRow->unused1 : phaseRow->unused2;
     int shift = (step & 7) * 2;
     int mode = (int) ((conv.u >> shift) & 0x3u);
+    conv.f = phaseRow->unused3;
+    if ((conv.u >> step) & 0x1u) {
+        mode |= 0x4;
+    }
     return (mode < ARP_STEP_MODE_COUNT) ? mode : ARP_STEP_MODE_NORM;
 }
 
@@ -936,9 +1005,19 @@ static inline void setArpUserStepMode(struct OneSynthParams *params, int userIdx
     uint32_t packed = conv.u & 0xFFFFu;
     uint32_t shift = (uint32_t) ((step & 7) * 2);
     packed &= ~(0x3u << shift);
-    packed |= ((uint32_t) mode << shift);
+    packed |= ((uint32_t) (mode & 0x3) << shift);
     conv.u = (packed == 0u) ? 0u : (0x3F800000u | packed);
     *slot = conv.f;
+
+    conv.f = phaseRow->unused3;
+    uint32_t highBits = conv.u & 0xFFFFu;
+    if (mode & 0x4) {
+        highBits |= (1u << step);
+    } else {
+        highBits &= ~(1u << step);
+    }
+    conv.u = (highBits == 0u) ? 0u : (0x3F800000u | highBits);
+    phaseRow->unused3 = conv.f;
 }
 
 enum SourceEnum {
