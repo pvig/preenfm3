@@ -29,7 +29,9 @@
 
 #if defined(__GNUC__) && !defined(DEBUG)
 #pragma GCC push_options
-#pragma GCC optimize("Ofast", "fast-math")
+// Use O2 + fast-math (instead of Ofast/O3) to avoid massive inlining/unrolling of Osc/Env
+// inside all 28 FM algorithms in runAlgoBlock (~239 KB -> keeps code within Cortex-M7 I-Cache)
+#pragma GCC optimize("O2", "fast-math")
 #endif
 
 float Voice::glidePhaseInc[13];
