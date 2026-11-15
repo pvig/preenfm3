@@ -859,16 +859,10 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             break;
         }
         case SATURATION_WARM: {
-            // Analog console bus: smooth C1 cubic saturation
+            // Analog console bus glue: subtle, transparent soft-knee warmth without hard clipping
             while (samples < end) {
-                float x_in = 4.5f * *samples;
-                if (x_in > 1.5f) {
-                    *samples++ = 0.21f;
-                } else if (x_in < -1.5f) {
-                    *samples++ = -0.21f;
-                } else {
-                    *samples++ = 0.21f * (x_in - (4.0f / 27.0f) * x_in * x_in * x_in);
-                }
+                float x_in = 2.2f * *samples;
+                *samples++ = 0.45f * (x_in / sqrtf(1.0f + 0.15f * x_in * x_in));
             }
             break;
         }
