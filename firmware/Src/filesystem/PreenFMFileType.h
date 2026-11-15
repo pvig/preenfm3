@@ -79,6 +79,17 @@ struct PFM3File {
     uint8_t version;
 };
 
+struct FlashOperatorPhaseParams {
+    float phase;
+    float warp;
+};
+
+struct FlashLfoSyncModes {
+    float lfo1;
+    float lfo2;
+    float lfo3;
+};
+
 // Storage maping of the parameters
 struct FlashSynthParams {
     struct Engine1Params engine1;
@@ -140,15 +151,10 @@ struct FlashSynthParams {
     struct EnvelopeCurveFlashMemory1 envCurves1To4;
     struct EnvelopeCurveFlashMemory2 envCurves5To6;
     struct EffectRowParams effect2;
-    // Keep operator phase offsets contiguous for block copy and migration logic.
-    struct OperatorPhaseRowParams phaseOp1;
-    struct OperatorPhaseRowParams phaseOp2;
-    struct OperatorPhaseRowParams phaseOp3;
-    struct OperatorPhaseRowParams phaseOp4;
-    struct OperatorPhaseRowParams phaseOp5;
-    struct OperatorPhaseRowParams phaseOp6;
-    struct EngineDecimationParams engineDecimation;
-    struct LfoSyncModes lfoSyncModes;
+    // Compacted tail so FlashSynthParams fits within ALIGNED_PATCH_SIZE - 5 (version trailer).
+    struct FlashOperatorPhaseParams phaseOp[6];
+    float engineDecimation;
+    struct FlashLfoSyncModes lfoSyncModes;
 };
 
 #define PFM3_PATCH_FLASH_SIZE sizeof(struct FlashSynthParams)
@@ -156,6 +162,9 @@ struct FlashSynthParams {
 
 #define ALIGNED_PATCH_SIZE 1024
 #define ALIGNED_PATCH_ZERO ALIGNED_PATCH_SIZE-PFM3_PATCH_FLASH_SIZE
+
+static_assert(sizeof(struct FlashSynthParams) <= ALIGNED_PATCH_SIZE - 5,
+              "FlashSynthParams must fit before PatchBank version trailer");
 
 #define MIXER_SIZE sizeof(struct MixerState)
 #define ALIGNED_MIXER_SIZE 1024

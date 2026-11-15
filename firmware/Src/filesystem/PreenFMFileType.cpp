@@ -390,14 +390,20 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     fsu_->copyFloat((float*) &params->lfoEnv1, (float*) &flashMemory->lfoEnv1, 4);
     fsu_->copyFloat((float*) &params->lfoEnv2, (float*) &flashMemory->lfoEnv2, 4);
     fsu_->copyFloat((float*) &params->lfoSeq1, (float*) &flashMemory->lfoSeq1, 4 * 2);
-    fsu_->copyFloat((float*) &params->lfoSyncModes, (float*) &flashMemory->lfoSyncModes, 4);
+    flashMemory->lfoSyncModes.lfo1 = params->lfoSyncModes.lfo1;
+    flashMemory->lfoSyncModes.lfo2 = params->lfoSyncModes.lfo2;
+    flashMemory->lfoSyncModes.lfo3 = params->lfoSyncModes.lfo3;
 
     fsu_->copyFloat((float*) &params->midiNote1Curve, (float*) &flashMemory->midiNote1Curve, 4);
     fsu_->copyFloat((float*) &params->midiNote2Curve, (float*) &flashMemory->midiNote2Curve, 4);
     fsu_->copyFloat((float*) &params->lfoPhases, (float*) &flashMemory->lfoPhases, 4);
-    // Persist all 6 operator phase rows as one contiguous block.
-    fsu_->copyFloat((float*) &params->phaseOp1, (float*) &flashMemory->phaseOp1, 4 * 6);
-    fsu_->copyFloat((float*) &params->engineDecimation, (float*) &flashMemory->engineDecimation, 4);
+    const OperatorPhaseRowParams* phaseParams = &params->phaseOp1;
+    for (int i = 0; i < 6; i++) {
+        flashMemory->phaseOp[i].phase = phaseParams[i].phase;
+        flashMemory->phaseOp[i].warp = phaseParams[i].unused1;
+    }
+    // Store (decimation + 1) so 0-filled slots default to FM_DECIMATION_FULL instead of 1-bit.
+    flashMemory->engineDecimation = params->engineDecimation.decimation + 1.0f;
 
 
     for (int s = 0; s < 16; s++) {
@@ -516,14 +522,53 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
     fsu_->copyFloat((float*) &flashMemory->lfoEnv1, (float*) &params->lfoEnv1, 4);
     fsu_->copyFloat((float*) &flashMemory->lfoEnv2, (float*) &params->lfoEnv2, 4);
     fsu_->copyFloat((float*) &flashMemory->lfoSeq1, (float*) &params->lfoSeq1, 4 * 2);
-    fsu_->copyFloat((float*) &flashMemory->lfoSyncModes, (float*) &params->lfoSyncModes, 4);
+    float patchVersion = flashMemory->engine2.pfm3Version;
+
+    if (patchVersion < 1.7f) {
+        // Legacy (< 1.7) patches stored 16-byte OperatorPhaseRowParams at phaseOp;
+        // phaseOp6 overlapped the version trailer and engineDecimation/lfoSyncModes exceeded 1024 bytes.
+        const OperatorPhaseRowParams* legacyPhase = (const OperatorPhaseRowParams*) flashMemory->phaseOp;
+        OperatorPhaseRowParams* phaseParamsToRestore = &params->phaseOp1;
+        for (int i = 0; i < 5; i++) {
+            phaseParamsToRestore[i].phase = legacyPhase[i].phase;
+            phaseParamsToRestore[i].unused1 = legacyPhase[i].unused1;
+            phaseParamsToRestore[i].unused2 = 0.0f;
+            phaseParamsToRestore[i].unused3 = 0.0f;
+        }
+        phaseParamsToRestore[5].phase = 0.0f;
+        phaseParamsToRestore[5].unused1 = 0.0f;
+        phaseParamsToRestore[5].unused2 = 0.0f;
+        phaseParamsToRestore[5].unused3 = 0.0f;
+
+        params->engineDecimation.decimation = FM_DECIMATION_FULL;
+        LfoParams* lfoParams = &params->lfoOsc1;
+        params->lfoSyncModes.lfo1 = lfoParams[0].freq < 100.0f ? (float)LFO_SYNC_INTERNAL : (float)LFO_SYNC_EXTERNAL;
+        params->lfoSyncModes.lfo2 = lfoParams[1].freq < 100.0f ? (float)LFO_SYNC_INTERNAL : (float)LFO_SYNC_EXTERNAL;
+        params->lfoSyncModes.lfo3 = lfoParams[2].freq < 100.0f ? (float)LFO_SYNC_INTERNAL : (float)LFO_SYNC_EXTERNAL;
+        params->lfoSyncModes.unused1 = 0.0f;
+    } else {
+        params->lfoSyncModes.lfo1 = flashMemory->lfoSyncModes.lfo1;
+        params->lfoSyncModes.lfo2 = flashMemory->lfoSyncModes.lfo2;
+        params->lfoSyncModes.lfo3 = flashMemory->lfoSyncModes.lfo3;
+        params->lfoSyncModes.unused1 = 0.0f;
+
+        OperatorPhaseRowParams* phaseParamsToRestore = &params->phaseOp1;
+        for (int i = 0; i < 6; i++) {
+            phaseParamsToRestore[i].phase = flashMemory->phaseOp[i].phase;
+            phaseParamsToRestore[i].unused1 = flashMemory->phaseOp[i].warp;
+            phaseParamsToRestore[i].unused2 = 0.0f;
+            phaseParamsToRestore[i].unused3 = 0.0f;
+        }
+        float rawDecim = flashMemory->engineDecimation;
+        params->engineDecimation.decimation = (rawDecim == 0.0f) ? (float) FM_DECIMATION_FULL : (rawDecim - 1.0f);
+    }
 
     fsu_->copyFloat((float*) &flashMemory->lfoPhases, (float*) &params->lfoPhases, 4);
     fsu_->copyFloat((float*) &flashMemory->midiNote1Curve, (float*) &params->midiNote1Curve, 4);
     fsu_->copyFloat((float*) &flashMemory->midiNote2Curve, (float*) &params->midiNote2Curve, 4);
-    // Restore all 6 operator phase rows from flash payload.
-    fsu_->copyFloat((float*) &flashMemory->phaseOp1, (float*) &params->phaseOp1, 4 * 6);
-    fsu_->copyFloat((float*) &flashMemory->engineDecimation, (float*) &params->engineDecimation, 4);
+    params->engineDecimation.unused1 = 0.0f;
+    params->engineDecimation.unused2 = 0.0f;
+    params->engineDecimation.unused3 = 0.0f;
 
     for (int s = 0; s < 16; s++) {
         params->lfoSteps1.steps[s] = flashMemory->lfoSteps1.steps[s];
@@ -585,8 +630,6 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
         params->midiNote2Curve.curveAfter = 1;
         params->midiNote2Curve.breakNote = 60;
     }
-
-    float patchVersion = params->engine2.pfm3Version;
 
     // For presets saved before dedicated sync-mode storage existed,
     // initialize sync mode from internal/external LFO frequency only.
