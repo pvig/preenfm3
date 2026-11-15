@@ -874,13 +874,13 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             break;
         }
         case SATURATION_DRIVE: {
-            // Transparent 2-Stage Brickwall Peak Limiter / Maximizer (Pro-L / M8 style):
-            // Clean +1.2 dB maximizer gain below threshold (0% THD); smooth C1 asymptotic ceiling at 0.34
-            // that catches fast 1-3 ms attack transients transparently.
-            const float thresh = 0.24f;
-            const float margin = 0.10f;
+            // Transparent 2nd-Stage Safety Peak Limiter:
+            // Bit-transparent below 0.72 (-2.85 dBFS, 0% THD on normal polyphonic chords);
+            // smooth C1 asymptotic ceiling at 0.95 (-0.45 dBFS) to catch only genuine over-peaks.
+            const float thresh = 0.72f;
+            const float margin = 0.23f;
             while (samples < end) {
-                float x = 1.15f * *samples;
+                float x = *samples;
                 float ax = fabsf(x);
                 if (unlikely(ax > thresh)) {
                     float diff = ax - thresh;

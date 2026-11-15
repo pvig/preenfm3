@@ -815,14 +815,14 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setAttack(12.0f);
                     instrumentCompressor_[timbre].setRelease(140.0f);
                     break;
-                // 4: Limit (Clean Maximizer + 2-Stage Brickwall Peak Limiter)
+                // 4: Limit (Transparent Maximizer + Soft-Knee Safety Limiter)
                 case 4:
-                    instrumentCompressor_[timbre].setRatio(0.08f);
-                    instrumentCompressor_[timbre].setThresh(-19.0f);
-                    instrumentCompressor_[timbre].setKnee(4.0f);
-                    instrumentCompressor_[timbre].setMakeup(8.5f);
-                    instrumentCompressor_[timbre].setAttack(3.0f);
-                    instrumentCompressor_[timbre].setRelease(75.0f);
+                    instrumentCompressor_[timbre].setRatio(0.10f);
+                    instrumentCompressor_[timbre].setThresh(-14.0f);
+                    instrumentCompressor_[timbre].setKnee(6.0f);
+                    instrumentCompressor_[timbre].setMakeup(3.5f);
+                    instrumentCompressor_[timbre].setAttack(0.5f);
+                    instrumentCompressor_[timbre].setRelease(180.0f);
                     break;
                 // 5: Drive (Dynamic Preamp / Tape Overdrive + Open Leveler)
                 case 5:
