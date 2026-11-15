@@ -112,21 +112,19 @@ inline float tanh4(float x)
 }
 inline float tanh4ADAA1_F(float x)
 {
-    return sqrtf(x * x + 1.0f);
+    const float u = x * x + 1.0f;
+#if defined(__ARM_FP)
+    float res;
+    __asm__ ("vsqrt.f32 %0, %1" : "=t"(res) : "t"(u));
+    return res;
+#else
+    return sqrtf(u);
+#endif
 }
 inline float tanh4ADAA(float x, float &prevX, float &prevF)
 {
     const float f = tanh4ADAA1_F(x);
-    const float diff = x - prevX;
-    float out;
-    if (likely(fabsf(diff) > 1e-5f))
-    {
-        out = (f - prevF) / diff;
-    }
-    else
-    {
-        out = softLimitVoice(0.5f * (x + prevX));
-    }
+    const float out = (x + prevX) / (f + prevF);
     prevX = x;
     prevF = f;
     return out;

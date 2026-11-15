@@ -837,12 +837,31 @@ static inline float fastInvSqrt(float u) {
     return y * (1.5f - 0.5f * u * y * y);
 }
 
-void FxBus::applyWarmSaturation(float *samples, int mode) {
+static inline float hwSqrtf(float x) {
+#if defined(__ARM_FP)
+    float res;
+    __asm__ ("vsqrt.f32 %0, %1" : "=t"(res) : "t"(x));
+    return res;
+#else
+    return sqrtf(x);
+#endif
+}
+
+static float satAdaaState[NUMBER_OF_TIMBRES][2][2] __attribute__((section(".ram_d1")));
+static uint8_t satLastMode[NUMBER_OF_TIMBRES] __attribute__((section(".ram_d1")));
+
+void FxBus::applyWarmSaturation(float *samples, int mode, int timbre) {
     // Note on gain-staging:
     // PreenFM3 voices are attenuated by x0.2 (voicesToTimbre) to prevent polyphonic clipping.
     // To reach the actual non-linear sweet-spot, we scale up into the saturation curve,
     // then scale back down to the timbre bus nominal level (~0.18-0.20 max).
+    if (timbre < 0 || timbre >= NUMBER_OF_TIMBRES) {
+        timbre = 0;
+    }
     const float *end = samples + (BLOCK_SIZE * 2);
+    if (mode != SATURATION_WARM && mode != SATURATION_FUZZ) {
+        satLastMode[timbre] = (uint8_t) mode;
+    }
     switch (mode) {
         case SATURATION_PUNCH: {
             // Punch / VCA Transistor model (Distressor / 1176 style):
@@ -866,11 +885,35 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             break;
         }
         case SATURATION_WARM: {
-            // Analog console bus glue: subtle, transparent soft-knee warmth without hard clipping
-            while (samples < end) {
-                float x_in = 2.2f * *samples;
-                *samples++ = 0.45f * x_in * fastInvSqrt(1.0f + 0.15f * x_in * x_in);
+            // Analog console bus glue with branchless 1st-order ADAA:
+            // (G(u) - G(uPrev)) / (u - uPrev) == (u + uPrev) / (sqrt(1 + k*u^2) + sqrt(1 + k*uPrev^2))
+            const float k = 0.15f;
+            float *stL = satAdaaState[timbre][0];
+            float *stR = satAdaaState[timbre][1];
+            if (satLastMode[timbre] != SATURATION_WARM) {
+                float uL = 2.2f * samples[0];
+                float uR = 2.2f * samples[1];
+                stL[0] = uL; stL[1] = hwSqrtf(1.0f + k * uL * uL);
+                stR[0] = uR; stR[1] = hwSqrtf(1.0f + k * uR * uR);
+                satLastMode[timbre] = SATURATION_WARM;
             }
+            float uPrevL = stL[0], gPrevL = stL[1];
+            float uPrevR = stR[0], gPrevR = stR[1];
+            while (samples < end) {
+                float uL = 2.2f * samples[0];
+                float gL = hwSqrtf(1.0f + k * uL * uL);
+                samples[0] = 0.45f * (uL + uPrevL) / (gL + gPrevL);
+                uPrevL = uL; gPrevL = gL;
+
+                float uR = 2.2f * samples[1];
+                float gR = hwSqrtf(1.0f + k * uR * uR);
+                samples[1] = 0.45f * (uR + uPrevR) / (gR + gPrevR);
+                uPrevR = uR; gPrevR = gR;
+
+                samples += 2;
+            }
+            stL[0] = uPrevL; stL[1] = gPrevL;
+            stR[0] = uPrevR; stR[1] = gPrevR;
             break;
         }
         case SATURATION_DRIVE: {
@@ -892,16 +935,42 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             break;
         }
         case SATURATION_FUZZ: {
-            // Parallel Studio Fuzz / Pentode Grit (~45% dry / ~55% rich C-infinity biased fuzz):
-            // Preserves polyphonic chord definition and attack while adding dense harmonic sustain underneath.
+            // Parallel Studio Fuzz / Pentode Grit with branchless 1st-order ADAA:
+            // (G(u) - G(uPrev)) / (u - uPrev) == (u + uPrev) / (sqrt(1 + u^2) + sqrt(1 + uPrev^2))
             const float bias = 0.22f;
             const float dc = 0.21486f; // bias / sqrtf(1.0f + bias * bias)
-            while (samples < end) {
-                float s = *samples;
-                float xb = 7.5f * s + bias;
-                float wet = xb * fastInvSqrt(1.0f + xb * xb) - dc;
-                *samples++ = 0.45f * s + 0.11f * wet;
+            float *stL = satAdaaState[timbre][0];
+            float *stR = satAdaaState[timbre][1];
+            if (satLastMode[timbre] != SATURATION_FUZZ) {
+                float uL = 7.5f * samples[0] + bias;
+                float uR = 7.5f * samples[1] + bias;
+                stL[0] = uL; stL[1] = hwSqrtf(1.0f + uL * uL);
+                stR[0] = uR; stR[1] = hwSqrtf(1.0f + uR * uR);
+                satLastMode[timbre] = SATURATION_FUZZ;
             }
+            float uPrevL = stL[0], gPrevL = stL[1];
+            float uPrevR = stR[0], gPrevR = stR[1];
+            while (samples < end) {
+                float sL = samples[0];
+                float uL = 7.5f * sL + bias;
+                float gL = hwSqrtf(1.0f + uL * uL);
+                float wetL = (uL + uPrevL) / (gL + gPrevL) - dc;
+                float dryL = 0.5f * (sL + (uPrevL - bias) * (1.0f / 7.5f));
+                uPrevL = uL; gPrevL = gL;
+                samples[0] = 0.45f * dryL + 0.11f * wetL;
+
+                float sR = samples[1];
+                float uR = 7.5f * sR + bias;
+                float gR = hwSqrtf(1.0f + uR * uR);
+                float wetR = (uR + uPrevR) / (gR + gPrevR) - dc;
+                float dryR = 0.5f * (sR + (uPrevR - bias) * (1.0f / 7.5f));
+                uPrevR = uR; gPrevR = gR;
+                samples[1] = 0.45f * dryR + 0.11f * wetR;
+
+                samples += 2;
+            }
+            stL[0] = uPrevL; stL[1] = gPrevL;
+            stR[0] = uPrevR; stR[1] = gPrevR;
             break;
         }
         case SATURATION_OVERDRIVE: {
@@ -918,6 +987,7 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             break;
         }
         default:
+            satLastMode[timbre] = (uint8_t) mode;
             break;
     }
 }

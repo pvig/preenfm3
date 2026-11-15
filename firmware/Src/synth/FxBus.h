@@ -71,7 +71,7 @@ public:
     void slowParamChange();
     void mixAdd(float *inStereo, float send, float reverbLevel);
     void processBlock(int32_t *outBuff);
-    static void applyWarmSaturation(float *samples, int mode);
+    static void applyWarmSaturation(float *samples, int mode, int timbre = 0);
     float delayInterpolation(float readPos, float buffer[], int bufferLenM1);
     void lfoProcess(float *lfo, float *lfotri, float *lfoInc);
     float delayAllpassInterpolation(float readPos, float buffer[], int bufferLenM1, float prevVal);

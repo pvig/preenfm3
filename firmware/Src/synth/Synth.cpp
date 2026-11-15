@@ -357,12 +357,12 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
         // Dynamics processing: Compressor + Matched Saturation
         int dynMode = this->synthState_->mixerState.instrumentState_[timbre].compressorType;
         switch (dynMode) {
-            case 1: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_WARM); break;
-            case 2: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_PUNCH); break;
-            case 3: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_TUBE); break;
-            case 4: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_DRIVE); break;
-            case 5: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_OVERDRIVE); break;
-            case 6: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_FUZZ); break;
+            case 1: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_WARM, timbre); break;
+            case 2: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_PUNCH, timbre); break;
+            case 3: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_TUBE, timbre); break;
+            case 4: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_DRIVE, timbre); break;
+            case 5: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_OVERDRIVE, timbre); break;
+            case 6: FxBus::applyWarmSaturation(sampleFromTimbre, SATURATION_FUZZ, timbre); break;
             default: break;
         }
 
