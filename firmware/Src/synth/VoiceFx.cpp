@@ -2722,15 +2722,15 @@ void Voice::fxAfterBlock() {
             const float bipolarf = (fxParam1 - 0.5f);
 
             float f1 = rootf + sigmoidPos((fxParam1 > 0.5f) ? (1.0f - fxParam1) : fxParam1) * frange;
-            const float fb = 0.08f + fxParam1 * 0.01f + noise[0] * 0.002f;
-            const float scale = sqrt3(fb);
+            const float fb = 0.105f + fxParam1 * 0.015f + noise[0] * 0.002f;
+            const float scale = 0.62f * fb + 0.38f * sqrt3(fb);
 
             const float spread = 1.0f + (fxParam2 * 0.13f);
 
             const float fold2 = fold(0.125f + sigmoid(bipolarf * 21.0f * fxParam2) * frange) + 0.25f;
             const float f2 = rootf + frange * 1.15f + sigmoidPos(1.0f - fxParam1 + fold2 * 0.25f) * spread * frange * 1.25f;
-            const float fb2 = 0.21f - fold2 * 0.08f - noise[1] * 0.0015f;
-            const float scale2 = sqrt3(fb2);
+            const float fb2 = clamp(0.22f - fold2 * 0.07f - noise[1] * 0.0015f, 0.11f, 0.35f);
+            const float scale2 = 0.62f * fb2 + 0.38f * sqrt3(fb2);
 
             float *sp = this->sampleBlock;
             float lowL = v0L, bandL = v1L;
@@ -2739,45 +2739,52 @@ void Voice::fxAfterBlock() {
             float lowL2 = v2L, bandL2 = v3L;
             float lowR2 = v2R, bandR2 = v3R;
 
-            const float svfGain = (1.0f + SVFGAINOFFSET) * mixerGain;
+            const float svfGain = (1.15f + SVFGAINOFFSET) * mixerGain;
 
             float out;
-            const float r = 0.985f;
+            const float r = 0.990f;
             float nz;
             float drift = v6L;
-            float nexDrift = noise[7] * 0.02f;
+            float nexDrift = noise[7] * 0.012f;
             float deltaD = (nexDrift - drift) * 0.03125f;
 
-            const float sat = 1.25f;
+            const float sat = 1.20f;
+            const float dampK = 0.065f;
 
             for (int k = BLOCK_SIZE; k--;) {
-                nz = noise[k] * 0.005f;
+                nz = noise[k] * 0.004f;
+                float fb1L = clamp(fb + nz - drift, 0.09f, 0.35f);
+                float fb1R = clamp(fb - nz + drift, 0.09f, 0.35f);
 
                 // ----------- Left voice
                 float inL = lowL + ((-lowL + *sp) * (r + nz));
-                // bandpass 1
+                // bandpass 1 with self-limiting resonant damping
                 lowL += f1 * bandL;
-                bandL += f1 * (scale * sat66(inL * sat) - lowL - (fb + nz - drift) * bandL);
+                bandL += f1 * (scale * sat66(inL * sat) - lowL - fb1L * bandL);
+                bandL -= dampK * bandL * (bandL * bandL) * fastInvSqrtVoice(1.0f + bandL * bandL);
 
-                // bandpass 2
+                // bandpass 2 with self-limiting resonant damping
                 lowL2 += f2 * bandL2;
                 bandL2 += f2 * (scale2 * inL - lowL2 - fb2 * bandL2);
+                bandL2 -= dampK * bandL2 * (bandL2 * bandL2) * fastInvSqrtVoice(1.0f + bandL2 * bandL2);
 
-                out = bandL + bandL2;
+                out = softLimitVoice(bandL + bandL2);
 
                 *sp++ = clamp(out * svfGain, -ratioTimbres, ratioTimbres);
 
                 // ----------- Right voice
                 float inR = lowR + ((-lowR + *sp) * (r - nz));
-                // bandpass 1
+                // bandpass 1 with self-limiting resonant damping
                 lowR += f1 * bandR;
-                bandR += f1 * (scale * sat66(inR * sat) - lowR - (fb - nz + drift) * bandR);
+                bandR += f1 * (scale * sat66(inR * sat) - lowR - fb1R * bandR);
+                bandR -= dampK * bandR * (bandR * bandR) * fastInvSqrtVoice(1.0f + bandR * bandR);
 
-                // bandpass 2
+                // bandpass 2 with self-limiting resonant damping
                 lowR2 += f2 * bandR2;
                 bandR2 += f2 * (scale2 * inR - lowR2 - fb2 * bandR2);
+                bandR2 -= dampK * bandR2 * (bandR2 * bandR2) * fastInvSqrtVoice(1.0f + bandR2 * bandR2);
 
-                out = bandR + bandR2;
+                out = softLimitVoice(bandR + bandR2);
 
                 *sp++ = clamp(out * svfGain, -ratioTimbres, ratioTimbres);
 
@@ -2812,20 +2819,20 @@ void Voice::fxAfterBlock() {
             const float bipolarf = sigmoid(fxParam1 - 0.5f);
 
             const float f1 = rootf + sigmoidPos((fxParam1 > 0.55f) ? (0.7f - (fxParam1 * 0.7f)) : (fxParam1 * fxParam1)) * frange;
-            const float fb = 0.074f + fxParam1 * 0.01f + noise[0] * 0.002f;
-            const float scale = sqrt3(fb);
+            const float fb = 0.095f + fxParam1 * 0.015f + noise[0] * 0.002f;
+            const float scale = 0.62f * fb + 0.38f * sqrt3(fb);
 
             const float spread = 1.0f + (fxParam2 * 0.13f);
 
             const float fold2 = fold(0.125f + sigmoid(bipolarf * 21.0f * fxParam2) * frange) + 0.25f;
             const float f2 = rootf + frange * 1.1f - (sigmoidPos(fxParam1 + fold2 * 0.25f) - 0.5f) * spread * frange * 0.5f;
-            const float fb2 = 0.11f - f1 * fold2 * 0.4f - noise[1] * 0.0015f;
-            const float scale2 = sqrt3(fb2);
+            const float fb2 = clamp(0.13f - f1 * fold2 * 0.32f - noise[1] * 0.0015f, 0.095f, 0.35f);
+            const float scale2 = 0.62f * fb2 + 0.38f * sqrt3(fb2);
 
             const float fold3 = fold(sigmoid(bipolarf * 17.0f * fxParam2) * frange);
             const float f3 = rootf + frange * 1.35f - tanh3(((1.0f - fxParam1) * 2.0f - fold3 * 0.2f)) * spread * frange * 0.25f;
-            const float fb3 = 0.13f - f1 * fold3 * 0.5f - noise[2] * 0.001f;
-            const float scale3 = sqrt3(fb3);
+            const float fb3 = clamp(0.15f - f1 * fold3 * 0.38f - noise[2] * 0.001f, 0.10f, 0.35f);
+            const float scale3 = 0.62f * fb3 + 0.38f * sqrt3(fb3);
 
             float *sp = this->sampleBlock;
             float lowL = v0L, bandL = v1L;
@@ -2837,51 +2844,61 @@ void Voice::fxAfterBlock() {
             float lowL3 = v4L, bandL3 = v5L;
             float lowR3 = v4R, bandR3 = v5R;
 
-            const float svfGain = (1.0f + SVFGAINOFFSET) * mixerGain;
+            const float svfGain = (1.10f + SVFGAINOFFSET) * mixerGain;
 
             float out;
-            const float r = 0.985f;
+            const float r = 0.990f;
             float nz;
             float drift = v6L;
-            float nexDrift = noise[7] * 0.02f;
+            float nexDrift = noise[7] * 0.012f;
             float deltaD = (nexDrift - drift) * 0.03125f;
+            const float dampK = 0.065f;
 
             for (int k = BLOCK_SIZE; k--;) {
-                nz = noise[k] * 0.016f;
+                nz = noise[k] * 0.008f;
+                float fb1L = clamp(fb + nz - drift, 0.09f, 0.35f);
+                float fb1R = clamp(fb - nz + drift, 0.09f, 0.35f);
+                float f2d = clamp(f2 + drift, 0.01f, 0.48f);
 
                 // ----------- Left voice
-                *sp = lowL + ((-lowL + *sp) * (r + nz));
+                float inL = lowL + ((-lowL + *sp) * (r + nz));
                 // bandpass 1
                 lowL += f1 * bandL;
-                bandL += f1 * (scale * *sp - lowL - (fb + nz - drift) * bandL);
+                bandL += f1 * (scale * inL - lowL - fb1L * bandL);
+                bandL -= dampK * bandL * (bandL * bandL) * fastInvSqrtVoice(1.0f + bandL * bandL);
 
                 // bandpass 2
-                lowL2 += (f2 + drift) * bandL2;
-                bandL2 += f2 * (scale2 * *sp - lowL2 - fb2 * bandL2);
+                lowL2 += f2d * bandL2;
+                bandL2 += f2d * (scale2 * inL - lowL2 - fb2 * bandL2);
+                bandL2 -= dampK * bandL2 * (bandL2 * bandL2) * fastInvSqrtVoice(1.0f + bandL2 * bandL2);
 
                 // bandpass 3
                 lowL3 += f3 * bandL3;
-                bandL3 += f3 * (scale3 * *sp - lowL3 - fb3 * bandL3);
+                bandL3 += f3 * (scale3 * inL - lowL3 - fb3 * bandL3);
+                bandL3 -= dampK * bandL3 * (bandL3 * bandL3) * fastInvSqrtVoice(1.0f + bandL3 * bandL3);
 
-                out = (bandL) + (bandL2 + bandL3);
+                out = softLimitVoice(bandL + bandL2 + bandL3);
 
                 *sp++ = clamp(out * svfGain, -ratioTimbres, ratioTimbres);
 
                 // ----------- Right voice
-                *sp = lowR + ((-lowR + *sp) * (r - nz));
+                float inR = lowR + ((-lowR + *sp) * (r - nz));
                 // bandpass 1
                 lowR += f1 * bandR;
-                bandR += f1 * (scale * *sp - lowR - (fb - nz + drift) * bandR);
+                bandR += f1 * (scale * inR - lowR - fb1R * bandR);
+                bandR -= dampK * bandR * (bandR * bandR) * fastInvSqrtVoice(1.0f + bandR * bandR);
 
                 // bandpass 2
-                lowR2 += (f2 + drift) * bandR2;
-                bandR2 += f2 * (scale2 * *sp - lowR2 - fb2 * bandR2);
+                lowR2 += f2d * bandR2;
+                bandR2 += f2d * (scale2 * inR - lowR2 - fb2 * bandR2);
+                bandR2 -= dampK * bandR2 * (bandR2 * bandR2) * fastInvSqrtVoice(1.0f + bandR2 * bandR2);
 
                 // bandpass 3
                 lowR3 += f3 * bandR3;
-                bandR3 += f3 * (scale3 * *sp - lowR3 - fb3 * bandR3);
+                bandR3 += f3 * (scale3 * inR - lowR3 - fb3 * bandR3);
+                bandR3 -= dampK * bandR3 * (bandR3 * bandR3) * fastInvSqrtVoice(1.0f + bandR3 * bandR3);
 
-                out = (bandR) + (bandR2 + bandR3);
+                out = softLimitVoice(bandR + bandR2 + bandR3);
 
                 *sp++ = clamp(out * svfGain, -ratioTimbres, ratioTimbres);
 
@@ -2907,34 +2924,43 @@ void Voice::fxAfterBlock() {
         }
             break;
         case FILTER_ORYX3: {
-            //https://www.musicdsp.org/en/latest/Filters/23-state-variable.html
+            // Throat / Growl Binaural Talking Formant Filter:
+            // 3 formants with audio-rateF1->F2/F3 laryngeal cross-modulation, anti-formant phaser notches & binaural stereo spread
             float fxParamTmp = clamp(currentTimbre->params_.effect1.param1 + matrixFilterFrequency, 0.0f, 1.0f);
             fxParamTmp *= fxParamTmp;
-            // Low pass... on the Frequency
-            fxParamTmp = (fold((fxParamTmp - 0.5f) * 0.25f) + 0.25f) * 2.0f;
+            // Multi-vowel contour across param1 sweep
+            fxParamTmp = (fold((fxParamTmp - 0.5f) * 0.32f) + 0.25f) * 2.0f;
             fxParam1 = clamp((fxParamTmp + 9.0f * fxParam1) * 0.1f, 0.0f, 1.0f);
 
             float filterParam2 = clamp(matrixFilterParam2 + currentTimbre->params_.effect1.param2, 0.0f, 1.0f);
             fxParam2 = (filterParam2 + 19.0f * fxParam2) * 0.05f;
-            const float rootf = 0.011f + ((fxParam2 * fxParam2) - 0.005f) * 0.08f;
-            const float frange = 0.14f;
+
+            // Distinct throat-to-nasal formant trajectory (wider and more aggressive than ORYX1/2)
+            const float rootf = 0.014f + (fxParam2 * fxParam2) * 0.065f;
+            const float frange = 0.165f;
             const float bipolarf = (fxParam1 - 0.5f);
 
-            const float f1 = rootf + sigmoidPos((fxParam1 > 0.5f) ? (1.0f - fxParam1) : fxParam1) * frange;
-            const float fb = 0.082f + fxParam1 * 0.01f + noise[0] * 0.002f;
-            const float scale = sqrt3(fb);
+            // F1: Pharynx / throat resonance
+            const float f1 = clamp(rootf + sigmoidPos(0.5f - fabsf(bipolarf)) * frange * 1.15f, 0.012f, 0.32f);
+            const float fb = 0.105f + fxParam1 * 0.015f + noise[0] * 0.002f;
+            const float scale = 0.62f * fb + 0.38f * sqrt3(fb);
 
-            const float spread = 1.0f + (fxParam2 * 0.13f);
+            const float spread = 1.0f + (fxParam2 * 0.22f);
 
-            const float fold2 = fold(0.125f + sigmoid(bipolarf * 21.0f * fxParam2) * frange) + 0.25f;
-            const float f2 = rootf + frange * 1.15f + sigmoidPos(1.0f - fxParam1 + fold2 * 0.25f) * spread * frange * 1.25f;
-            const float fb2 = 0.11f - fold2 * 0.04f - noise[1] * 0.0015f;
-            const float scale2 = sqrt3(fb2);
+            // F2: Tongue / oral cavity contrapuntal sweep
+            const float fold2 = fold(0.15f + sigmoid(bipolarf * 25.0f * (0.25f + 0.75f * fxParam2)) * frange) + 0.25f;
+            const float f2 = clamp(rootf + frange * 0.95f + sigmoidPos(1.0f - fxParam1 + fold2 * 0.35f) * spread * frange * 1.45f, 0.035f, 0.44f);
+            const float fb2 = clamp(0.125f - fold2 * 0.035f - noise[1] * 0.0015f, 0.095f, 0.35f);
+            const float scale2 = 0.62f * fb2 + 0.38f * sqrt3(fb2);
 
-            const float fold3 = fold(sigmoid(bipolarf * 17.0f * fxParam2) * frange);
-            const float f3 = rootf + frange * 2.25f + tanh3(1.0f - (fxParam1 * 2.0f - fold3 * 0.2f)) * spread * frange * 0.5f;
-            const float fb3 = 0.13f - fold3 * 0.05f - noise[2] * 0.001f;
-            const float scale3 = sqrt3(fb3);
+            // F3: High nasal / vocal-tract edge resonance
+            const float fold3 = fold(sigmoid(bipolarf * 19.0f * (0.25f + 0.75f * fxParam2)) * frange);
+            const float f3 = clamp(rootf + frange * 2.10f + tanh3(1.0f - (fxParam1 * 2.0f - fold3 * 0.3f)) * spread * frange * 0.65f, 0.08f, 0.48f);
+            const float fb3 = clamp(0.135f - fold3 * 0.04f - noise[2] * 0.001f, 0.10f, 0.35f);
+            const float scale3 = 0.62f * fb3 + 0.38f * sqrt3(fb3);
+
+            // Audio-rate F1 -> F2/F3 cross-modulation depth (vocal cord growl / talkbox character)
+            const float xmodDepth = 0.022f + 0.055f * fxParam2;
 
             float *sp = this->sampleBlock;
             float low = v0L, band = v1L;
@@ -2948,59 +2974,77 @@ void Voice::fxAfterBlock() {
             float _ly2L = v4R, _lx2L = v5R;
             float _ly2R = v6R, _lx2R = v7R;
 
-            const float svfGain = (1.0f + SVFGAINOFFSET) * mixerGain;
+            const float svfGain = (1.08f + SVFGAINOFFSET) * mixerGain;
 
-            float in, out;
-            const float r = 0.985f;
+            float inL, inR, in, outCore;
+            const float r = 0.990f;
             float nz;
-            float nexDrift = noise[7] * 0.02f;
+            float nexDrift = noise[7] * 0.014f;
             float deltaD = (nexDrift - drift) * 0.03125f;
 
-            const float apf1 = clamp(0.26f + fxParam2 * fxParam2 * 0.38f, filterWindowMin, filterWindowMax);
-            float coef1 = (1.0f - apf1) / (1.0f + apf1);
-            const float apf2 = clamp(0.42f - fxParam2 * fxParam2 * 0.28f, filterWindowMin, filterWindowMax);
-            float coef2 = (1.0f - apf2) / (1.0f + apf2);
+            // Asymmetric binaural allpass poles creating distinct L/R anti-formant notches
+            const float apf1 = clamp(0.18f + fxParam1 * 0.32f + fxParam2 * 0.18f, filterWindowMin, filterWindowMax);
+            const float coef1 = (1.0f - apf1) / (1.0f + apf1);
+            const float apf2 = clamp(0.52f - fxParam1 * 0.28f - fxParam2 * 0.14f, filterWindowMin, filterWindowMax);
+            const float coef2 = (1.0f - apf2) / (1.0f + apf2);
 
-            float sat = 1.45f;
-            float sat2 = 1.65f;
+            const float sat = 1.45f + 0.45f * fxParam2;
+            const float sat2 = 1.55f + 0.45f * fxParam2;
+            const float dampK = 0.075f;
             float prevSatX = v7L, prevTanhX = v8R;
             float prevSatF = sat25ADAA1_F(prevSatX), prevTanhF = tanh4ADAA1_F(prevTanhX);
 
             for (int k = BLOCK_SIZE; k--;) {
-                nz = noise[k] * 0.013f;
+                nz = noise[k] * 0.009f;
+                float fb1 = clamp(fb + nz - drift, 0.095f, 0.35f);
 
-                in = (*sp + *(sp + 1)) * 0.5f;
+                inL = *sp;
+                inR = *(sp + 1);
+                in = (inL + inR) * 0.5f;
 
                 in = low + ((-low + in) * (r + nz));
-                // bandpass 1
+                // Formant 1 (Throat / Chest)
                 low += f1 * band;
-                band += f1 * (scale * in - low - (fb + nz - drift) * band);
+                band += f1 * (scale * in - low - fb1 * band);
+                band -= dampK * band * (band * band) * fastInvSqrtVoice(1.0f + band * band);
 
-                // bandpass 2
-                low2 += f2 * band2;
-                band2 += f2 * (scale2 * in - low2 - fb2 * band2);
+                // Audio-rate laryngeal cross-modulation from F1 into F2 & F3
+                float f2m = clamp(f2 + band * xmodDepth, 0.025f, 0.47f);
+                float f3m = clamp(f3 - band * (xmodDepth * 1.25f), 0.05f, 0.49f);
 
-                // bandpass 3
-                low3 += f3 * band3;
-                band3 += f3 * (scale3 * in - low3 - fb3 * band3);
+                // Formant 2 (Oral cavity, fed with subtle L/R difference)
+                low2 += f2m * band2;
+                band2 += f2m * (scale2 * (in + 0.20f * (inL - inR)) - low2 - fb2 * band2);
+                band2 -= dampK * band2 * (band2 * band2) * fastInvSqrtVoice(1.0f + band2 * band2);
 
-                out = sat25ADAA(band * sat, prevSatX, prevSatF) + tanh4ADAA((band2 * sat2) + band3 * 0.75f, prevTanhX, prevTanhF) * 0.5f;
+                // Formant 3 (Nasal / Sibilant edge)
+                low3 += f3m * band3;
+                band3 += f3m * (scale3 * (in - 0.20f * (inL - inR) + 0.18f * band) - low3 - fb3 * band3);
+                band3 -= dampK * band3 * (band3 * band3) * fastInvSqrtVoice(1.0f + band3 * band3);
 
-                // ----------- Left voice (2-stage allpass dispersion)
-                _ly1L = coef1 * (_ly1L + out) - _lx1L;
-                _lx1L = out;
-                _ly2L = coef2 * (_ly2L + _ly1L) - _lx2L;
+                float throat = sat25ADAA(band * sat + low * 0.22f, prevSatX, prevSatF);
+                float mouth = tanh4ADAA(band2 * sat2 + band3 * 0.85f, prevTanhX, prevTanhF);
+                outCore = throat * 0.72f + mouth * 0.58f;
+
+                // ----------- Left voice (binaural anti-formant notch + F2 emphasis)
+                float inApL = outCore + 0.25f * band2;
+                _ly1L = coef1 * (_ly1L + inApL) - _lx1L;
+                _lx1L = inApL;
+                _ly2L = coef1 * (_ly2L + _ly1L) - _lx2L;
                 _lx2L = _ly1L;
+                float outL = softLimitVoice(0.65f * _ly2L + 0.35f * (throat + band3 * 0.6f));
 
-                *sp++ = clamp(_ly2L * svfGain, -ratioTimbres, ratioTimbres);
+                *sp++ = clamp(outL * svfGain, -ratioTimbres, ratioTimbres);
 
-                // ----------- Right voice (complementary allpass dispersion)
-                _ly1R = coef2 * (_ly1R + out) - _lx1R;
-                _lx1R = out;
-                _ly2R = coef1 * (_ly2R + _ly1R) - _lx2R;
+                // ----------- Right voice (complementary binaural anti-formant notch + F3 emphasis)
+                float inApR = outCore + 0.25f * band3;
+                _ly1R = coef2 * (_ly1R + inApR) - _lx1R;
+                _lx1R = inApR;
+                _ly2R = coef2 * (_ly2R + _ly1R) - _lx2R;
                 _lx2R = _ly1R;
+                float outR = softLimitVoice(0.65f * _ly2R + 0.35f * (throat + band2 * 0.6f));
 
-                *sp++ = clamp(_ly2R * svfGain, -ratioTimbres, ratioTimbres);
+                *sp++ = clamp(outR * svfGain, -ratioTimbres, ratioTimbres);
 
                 drift += deltaD;
             }
