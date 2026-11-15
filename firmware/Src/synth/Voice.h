@@ -504,8 +504,6 @@ public:
     }
 
 private:
-    // private function for BP filter
-    void recomputeBPValues(float q, float fSquare);
     // Reinitialize all operator oscillators with per-operator phase offsets.
     void applyOperatorStartPhases(float mainFrequency);
 
@@ -637,8 +635,6 @@ private:
     float v0L, v1L, v2L, v3L, v4L, v5L, v6L, v7L, v8L;
     float v0R, v1R, v2R, v3R, v4R, v5R, v6R, v7R, v8R;
     float fxPhase;
-    // save float fxParam1 to detect modification
-    float fxParam1PlusMatrix;
 
     static float mpeBitchBend[6];
 
