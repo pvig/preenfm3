@@ -48,12 +48,19 @@ namespace chunkware_simple
 	{
 	    float *startBuffer = inStereo;
 	    float maxAbsSample = 0.0f;
+	    float sumAbsSample = 0.0f;
 	    for (int s = 0; s < 32; s++) {
             float rect1 = fabsf( *inStereo++ );	// rectify input (VABS.F32 hardware instruction)
             float rect2 = fabsf( *inStereo++ );
-            maxAbsSample = std::max( maxAbsSample, std::max( rect1, rect2 )); // find the max
+            float pairMax = std::max( rect1, rect2 );
+            maxAbsSample = std::max( maxAbsSample, pairMax ); // find the max
+            sumAbsSample += pairMax;
 	    }
-	    float gain = getGain(maxAbsSample);
+	    float meanAbsSample = sumAbsSample * INV32;
+	    float detSample = (ratio_ > 0.35f)
+	        ? (0.55f * maxAbsSample + 0.45f * meanAbsSample)
+	        : (0.85f * maxAbsSample + 0.15f * meanAbsSample);
+	    float gain = getGain(detSample);
 
         if (threshdB_ <= 100.0f) {
             // Linearly interpolate gain across the block in FPU register
@@ -126,21 +133,12 @@ namespace chunkware_simple
             }
         }
 
-        // Program-dependent / adaptive envelope detection
-        if (overdB > envdB_) {
-            // Attack phase
-            AttRelEnvelope::run( overdB, envdB_ );
-        } else {
-            // Adaptive release phase:
-            // Fast recovery on short transients, smoother release on deep/sustained compression
-            float adaptFactor = 1.0f + 0.06f * (envdB_ - 4.0f);
-            if (adaptFactor < 0.65f) adaptFactor = 0.65f;
-            if (adaptFactor > 1.5f) adaptFactor = 1.5f;
-
-            float relMs = getRelease();
-            float srInv = 1.0f / (relMs * getSampleRate() * 0.001f);
-            float relCoef = expf(-srInv / adaptFactor);
-            envdB_ = overdB + relCoef * (envdB_ - overdB);
+        // Program-dependent / adaptive envelope detection (no per-block expf or release speedup)
+        float prevEnv = envdB_;
+        AttRelEnvelope::run( overdB, envdB_ );
+        if (overdB <= prevEnv && prevEnv > 4.0f) {
+            // Smoother release on deep/sustained compression without speeding up small modulations
+            envdB_ += 0.25f * (prevEnv - envdB_);
         }
 
         // transfer function

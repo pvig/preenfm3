@@ -830,6 +830,13 @@ void FxBus::processBlock(int32_t *outBuff) {
 
 }
 
+static inline float fastInvSqrt(float u) {
+    union { float f; uint32_t i; } conv = { u };
+    conv.i = 0x5f3759dfu - (conv.i >> 1);
+    float y = conv.f;
+    return y * (1.5f - 0.5f * u * y * y);
+}
+
 void FxBus::applyWarmSaturation(float *samples, int mode) {
     // Note on gain-staging:
     // PreenFM3 voices are attenuated by x0.2 (voicesToTimbre) to prevent polyphonic clipping.
@@ -843,7 +850,7 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             while (samples < end) {
                 float x_in = 3.6f * *samples;
                 float x_d = x_in + 0.12f * x_in * fabsf(x_in);
-                *samples++ = 0.25f * (x_d / sqrtf(1.0f + 0.28f * x_d * x_d));
+                *samples++ = 0.25f * x_d * fastInvSqrt(1.0f + 0.28f * x_d * x_d);
             }
             break;
         }
@@ -854,7 +861,7 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
                 float x_in = 3.8f * *samples;
                 float x2 = x_in * x_in;
                 float x_d = x_in + 0.05f * x2 + 0.11f * x_in * fabsf(x_in);
-                *samples++ = 0.28f * (x_d / sqrtf(1.0f + 0.38f * x_d * x_d));
+                *samples++ = 0.28f * x_d * fastInvSqrt(1.0f + 0.38f * x_d * x_d);
             }
             break;
         }
@@ -862,50 +869,51 @@ void FxBus::applyWarmSaturation(float *samples, int mode) {
             // Analog console bus glue: subtle, transparent soft-knee warmth without hard clipping
             while (samples < end) {
                 float x_in = 2.2f * *samples;
-                *samples++ = 0.45f * (x_in / sqrtf(1.0f + 0.15f * x_in * x_in));
+                *samples++ = 0.45f * x_in * fastInvSqrt(1.0f + 0.15f * x_in * x_in);
             }
             break;
         }
         case SATURATION_DRIVE: {
-            // Transparent Clean Brickwall Peak Limiter / Maximizer (M8 style)
-            // Strictly linear (0% THD) below threshold; smooth C1 asymptotic ceiling on extreme peaks
-            const float thresh = 0.28f;
-            const float margin = 0.12f;
+            // Transparent 2-Stage Brickwall Peak Limiter / Maximizer (Pro-L / M8 style):
+            // Clean +1.2 dB maximizer gain below threshold (0% THD); smooth C1 asymptotic ceiling at 0.34
+            // that catches fast 1-3 ms attack transients transparently.
+            const float thresh = 0.24f;
+            const float margin = 0.10f;
             while (samples < end) {
-                float x = *samples;
+                float x = 1.15f * *samples;
                 float ax = fabsf(x);
                 if (unlikely(ax > thresh)) {
                     float diff = ax - thresh;
                     float y = thresh + margin * (diff / (margin + diff));
-                    *samples = (x > 0.0f) ? y : -y;
+                    x = (x > 0.0f) ? y : -y;
                 }
-                samples++;
+                *samples++ = x;
             }
             break;
         }
         case SATURATION_FUZZ: {
-            // Bright Airy Silicon/Octave Fuzz: smooth zero-crossing (no sputter),
-            // asymmetric diode saturation + octave-up shimmer + subtle parallel air.
+            // Parallel Studio Fuzz / Pentode Grit (~45% dry / ~55% rich C-infinity biased fuzz):
+            // Preserves polyphonic chord definition and attack while adding dense harmonic sustain underneath.
+            const float bias = 0.22f;
+            const float dc = 0.21486f; // bias / sqrtf(1.0f + bias * bias)
             while (samples < end) {
                 float s = *samples;
-                float x = 14.0f * s;
-                float ax = fabsf(x);
-                float norm = (x >= 0.0f) ? (1.0f + 1.15f * ax) : (1.0f + 0.85f * ax);
-                float clip = x / norm;
-                *samples++ = 0.095f * (clip + 0.28f * fabsf(clip)) + 0.06f * s;
+                float xb = 7.5f * s + bias;
+                float wet = xb * fastInvSqrt(1.0f + xb * xb) - dc;
+                *samples++ = 0.45f * s + 0.11f * wet;
             }
             break;
         }
         case SATURATION_OVERDRIVE: {
-            // Balanced Asymmetric Amp Overdrive with parallel clean blend (~30% dry / ~70% drive):
-            // Smooth Class-A biased sigmoid (C-infinity) with moderate gain so chords stay open and dynamic.
-            const float bias = 0.16f;
-            const float dc = 0.15799f; // bias / sqrtf(1.0f + bias * bias)
+            // Dynamic Preamp / Tape Overdrive (Neve / Studer style):
+            // Zero-centered H2 + H3 harmonic drive (no DC shift on attacks) + C-infinity ceiling + 12% transient blend.
             while (samples < end) {
                 float s = *samples;
-                float xb = 6.0f * s + bias;
-                float clip = (xb / sqrtf(1.0f + xb * xb)) - dc;
-                *samples++ = 0.26f * s + 0.13f * clip;
+                float x_in = 4.8f * s;
+                float x2 = x_in * x_in;
+                float x_d = x_in + 0.08f * x2 + 0.18f * x_in * fabsf(x_in);
+                float wet = x_d * fastInvSqrt(1.0f + 0.55f * x_d * x_d);
+                *samples++ = 0.12f * s + 0.21f * wet;
             }
             break;
         }

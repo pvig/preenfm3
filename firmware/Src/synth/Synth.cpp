@@ -790,12 +790,12 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     break;
                 // 1: Glue (SSL-style VCA Bus Glue + Warm console saturation)
                 case 1:
-                    instrumentCompressor_[timbre].setRatio(0.45f);
-                    instrumentCompressor_[timbre].setThresh(-22.0f);
-                    instrumentCompressor_[timbre].setKnee(8.0f);
-                    instrumentCompressor_[timbre].setMakeup(4.0f);
-                    instrumentCompressor_[timbre].setAttack(25.0f);
-                    instrumentCompressor_[timbre].setRelease(320.0f);
+                    instrumentCompressor_[timbre].setRatio(0.58f);
+                    instrumentCompressor_[timbre].setThresh(-17.5f);
+                    instrumentCompressor_[timbre].setKnee(10.0f);
+                    instrumentCompressor_[timbre].setMakeup(2.5f);
+                    instrumentCompressor_[timbre].setAttack(30.0f);
+                    instrumentCompressor_[timbre].setRelease(550.0f);
                     break;
                 // 2: Punch (Percussive VCA comp + Punch / Distressor saturation)
                 case 2:
@@ -815,32 +815,32 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                     instrumentCompressor_[timbre].setAttack(12.0f);
                     instrumentCompressor_[timbre].setRelease(140.0f);
                     break;
-                // 4: Limit (Dirtywave M8-style Clean Brickwall Limiter & Maximizer)
+                // 4: Limit (Clean Maximizer + 2-Stage Brickwall Peak Limiter)
                 case 4:
-                    instrumentCompressor_[timbre].setRatio(0.04f);
-                    instrumentCompressor_[timbre].setThresh(-20.0f);
-                    instrumentCompressor_[timbre].setKnee(3.0f);
-                    instrumentCompressor_[timbre].setMakeup(7.0f);
-                    instrumentCompressor_[timbre].setAttack(0.4f);
-                    instrumentCompressor_[timbre].setRelease(50.0f);
+                    instrumentCompressor_[timbre].setRatio(0.08f);
+                    instrumentCompressor_[timbre].setThresh(-19.0f);
+                    instrumentCompressor_[timbre].setKnee(4.0f);
+                    instrumentCompressor_[timbre].setMakeup(8.5f);
+                    instrumentCompressor_[timbre].setAttack(3.0f);
+                    instrumentCompressor_[timbre].setRelease(75.0f);
                     break;
-                // 5: Drive (Balanced Asymmetric Amp Overdrive + Leveling Comp)
+                // 5: Drive (Dynamic Preamp / Tape Overdrive + Open Leveler)
                 case 5:
-                    instrumentCompressor_[timbre].setRatio(0.16f);
-                    instrumentCompressor_[timbre].setThresh(-24.0f);
-                    instrumentCompressor_[timbre].setKnee(5.0f);
-                    instrumentCompressor_[timbre].setMakeup(7.0f);
-                    instrumentCompressor_[timbre].setAttack(6.0f);
-                    instrumentCompressor_[timbre].setRelease(100.0f);
+                    instrumentCompressor_[timbre].setRatio(0.28f);
+                    instrumentCompressor_[timbre].setThresh(-20.0f);
+                    instrumentCompressor_[timbre].setKnee(6.0f);
+                    instrumentCompressor_[timbre].setMakeup(5.5f);
+                    instrumentCompressor_[timbre].setAttack(16.0f);
+                    instrumentCompressor_[timbre].setRelease(110.0f);
                     break;
-                // 6: Fuzz (High-gain Brickwall Limiter + Fuzz saturation)
+                // 6: Fuzz (Parallel Studio Fuzz / Pentode Grit + Punchy Comp)
                 case 6:
-                    instrumentCompressor_[timbre].setRatio(0.04f);
-                    instrumentCompressor_[timbre].setThresh(-28.0f);
-                    instrumentCompressor_[timbre].setKnee(2.0f);
-                    instrumentCompressor_[timbre].setMakeup(12.0f);
-                    instrumentCompressor_[timbre].setAttack(0.2f);
-                    instrumentCompressor_[timbre].setRelease(35.0f);
+                    instrumentCompressor_[timbre].setRatio(0.12f);
+                    instrumentCompressor_[timbre].setThresh(-22.0f);
+                    instrumentCompressor_[timbre].setKnee(4.0f);
+                    instrumentCompressor_[timbre].setMakeup(6.5f);
+                    instrumentCompressor_[timbre].setAttack(10.0f);
+                    instrumentCompressor_[timbre].setRelease(80.0f);
                     break;
             }
             break;
