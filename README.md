@@ -1,104 +1,88 @@
 # preenfm3
 
-Here are the sources for the preenfm3 bootloader and firmware.
+Bootloader and firmware sources for the **preenfm3** FM synthesizer (STM32H7).
 
-Binaries can be found in the [Release section](https://github.com/gresade/preenfm3/releases).
+- Binaries: [Release section](https://github.com/pvig/preenfm3/releases)
+- General documentation: [Official Wiki](https://github.com/Ixox/preenfm3/wiki)
 
-For the documentation, go to [the Wiki](https://github.com/Ixox/preenfm3/wiki).
+---
 
-## Branch Notes (`fixes` vs fork base)
+## Features & Enhancements Developed in This Repository
 
-Baseline used for comparison: merge-base with `origin/master` (`65cb963`).
+This fork integrates the developments from [gresade/preenfm3](https://github.com/gresade/preenfm3) and adds a considerable amount of refactoring, bug fixes, and optimizations across almost every aspect of the preenfm3 (audio engine, filters, FX bus, sequencer, arpeggiator, modulation system, and web-editor integration).
 
-Functional additions and fixes in this branch include:
+### 1. FM Engine, Oscillators & Anti-Aliasing
 
-- Per-operator start phase offset support in the synth engine, with UI visualization of the phase marker in the oscilloscope view and encoder/editor wiring.
-- Per-operator **Warp** parameter: asymmetrically stretches the first and second halves of the wavetable cycle so the waveform leans towards attack or decay. Range ±4 (values beyond ±1 invert one half of the waveform). Warp is applied in all oscillator render paths (`getNextSample`, `getNextBlock`, `getNextBlockHQ`) including the decimated sub-paths. A deadband near zero preserves the fast no-warp render path under small modulation.
-- Both `Phase` and `Warp` for operators 1–6 are exposed as modulation-matrix destinations (`o1Ph`–`o6Ph`, `o1Wr`–`o6Wr`), wired through the matrix update loop in `Voice::prepareMatrixForNewBlock`. Warp updates are applied every block; Phase is applied at note-on.
-- `Warp` is mapped to MIDI CC per operator and accessible via the encoder row in the editor UI.
-- Patch format bumped to **v1.5**: Warp defaults to 0 on load of older patches; out-of-range Warp values are clamped on load.
-- DX7 SysEx import hardening and mapping fixes (bank validation, vibrato/AMS handling, fixed-frequency preservation).
-- FM decimation control added to engine parameters with preset/file persistence support.
-- Added a new `HQ` mode for oscillator wavetable lookup: linear interpolation enabled, decimation disabled.
-- HQ warped paths now use continuous warped-phase interpolation (warp before lookup interpolation), reducing residual stair-step artifacts from integer warp remapping.
-- `Full` mode remains non-interpolated and non-decimated.
-- FM decimation modes are capped at 19-bit precision plus `Full` and `HQ`, with legacy preset values above the supported range clamped on load for compatibility.
-- Compatibility defaults now force `Full` when loading older presets without decimation settings and when importing DX7 patches.
-- FM decimation path is simplified for CPU efficiency: output sample quantization is retained, phase-accumulator quantization removed, and temporal decimation (`D=2` sample-and-hold) is applied in safe oscillator render paths.
-- Feedback oscillator rendering remains full-rate for stability while still using decimation output quantization.
-- High-quality wavetable interpolation is bypassed when decimation is enabled.
-- LFO Sync selector expanded with one-shot to eight-shot modes for both internal and external sync clocks: `1Si..8Si` and `1Se..8Se`, in addition to `Int` and `Ext`.
-- LFO one-shot mode and KSyn are now independent so KSyn can be combined with shot modes.
-- LFO shape list expanded in the editor/oscilloscope: `SawD`, `DExp`, `DLog`, `RExp`, `RLog`, `AD`, `AHD`, `SDec`, `Plng`, `Plg2`, `SnSq`, `Sn0`, `Sn+`, and `Usr1..Usr6`.
-- LFO Phase encoder now doubles as a startup delay: negative values set a delay of 0–4000 ms (displayed as integer ms); positive values set a phase offset of 0–1. Encoder stepping uses adaptive resolution — 1 ms steps below 50 ms, up to 50 ms steps near 4 s — with a float32 forward-progress guard that prevents the encoder from getting stuck at quantisation boundaries (notably the 100 ms transition between step sizes).
-- Build and release workflow improvements for VS Code/CLI headless builds (`scripts/build_cli.sh`), including automatic release artifact refresh and checksum regeneration.
-- New subrelease packaging updated to firmware `v1.06g` with `bl1.09` bundle naming.
-- Oscillator CPU hot-path optimised: `quantizeOscOutputBeforeEnvelope` is now skipped when wave-decimation is disabled (the common case), removing a branch and two multiplies per sample across all 32-sample block-render loops in `getNextBlock`, `getNextBlockHQ`, and `getNextSample`. Decimation-enabled state is now cached once per block call rather than read per sample. Hot DSP translation units (`Osc.cpp`, `Voice.cpp`, `FxBus.cpp`, `TimbreFx.cpp`, `SimpleComp.cpp`, `SimpleEnvelope.cpp`) use selective `#pragma GCC optimize("Ofast","fast-math")` in Release builds to enable aggressive floating-point and speed optimisations without changing Debug behaviour.
-- Additional oscillator warp-path micro-optimisations in `Osc.h`: unified warped index mapping through `getWarpedIndexFast`, reused cached wavetable fields (`max` and table pointer) in hot render paths, and removed now-unused helper routines after refactoring.
-- Feedback oscillator path (`getNextBlockWithFeedbackAndEnveloppe`) was reorganised to hoist interpolation-mode branching out of per-sample loops, reducing branch pressure in the inner loop while preserving default DSP behaviour.
-- Added compile-time switch `PFM3_FAST_FEEDBACK_INTERP` (default `0`) in `Osc.h` to allow a speed-first feedback mode that disables feedback-path interpolation (`1`), intentionally trading timbral accuracy for CPU headroom.
-- Preset randomizer (`SynthState::randomizePreset`) overhauled with coherent cross-parameter behaviour and a wider musical range:
-  - **Cross-parameter coherence**: the four randomizer controls (`Oper`, `EnvT`, `IM`, `Modl`) now influence each other — `EnvT` biases the algorithm selection (percussive patches favour feedback/carrier-heavy algos; pad patches favour complex modulator trees), oscillator mix is scaled by the `IM` level so modulator activity feels consistent, percussive mode can inject user waveforms (`USER1..USER6`) with low probability (10%), and pad mode uses the full waveform palette with a strong sine bias (85% sine / 15% non-sine).
-  - **Coherent effect randomization**: `effect1` (filter) and `effect2` (modulation) are now both randomized with mode-appropriate pools. Percussive patches draw from HP/BP/saturation/fold/LP filters with drum-appropriate open cutoffs; pad patches draw from LP/shelving/tilt/stereo filters with low resonance; random/`--` mode uses the full `FILTER_TYPE` and `FILTER2_TYPE` ranges.
-  - **Percussive LP filters**: LP, LP2, and LP3 are included in the percussive filter pool with a higher minimum cutoff (`p1Min = 0.55`) so bass-drum bodies are preserved while high-frequency content is still trimmed.
-  - **Modulation effect pool**: `effect2` is randomized per mode — pads get chorus/dimension/wide/diffuser/doubler at high probability when `Modl > 0`; percussive patches get a low-probability flange or grain hit; random mode draws from the full `FILTER2_TYPE` range.
-  - **LFO coherence**: percussive patches assign one-shot LFO shapes (exponential/log decay, attack-decay, Buchla) at faster transient rates (`3..(10+3*Modl)` Hz) with phase stagger; pad patches use slow smooth continuous shapes with long keyboard ramps and can also run in slow internal multi-shot modes (2–8 cycles) for evolving modulation that settles.
-  - **Matrix destination intelligence**: safe and advanced destination pools are filtered at selection time — oscillator-specific destinations are skipped when the oscillator is silent (mix + weighted IM contribution < 0.03 threshold); `FILTER1_PARAM1/2/AMP` and `FILTER2_PARAM1/2/AMP` are skipped unless the corresponding effect slot is active.
-  - **Unique destination selection**: a `destinationUsed` tracker prevents duplicate matrix destination assignments; a `rowUsed` tracker prevents reuse of the same modulation source-row across randomizer passes.
-  - **Destination-aware modulation depth**: matrix multiply values are scaled by destination type — pitch/phase/warp destinations get narrower ranges; pan/mix wider; catch-all destinations wider still; negative modulation is allowed at high `Modl` except for percussive patches.
-  - **Anti-clipping output normalization**: `effect1.param3` (the mixer gain applied to every voice sample) is now divided by the algorithm's carrier count (`algoInformation[algo].mix`), keeping the summed output at roughly the same peak level regardless of whether the algorithm has 1 or 6 carrier operators.
-  - **Envelope tail control / infinite-sustain prevention**: pad envelope times are capped (decay 0.5–3 s, sustain ramp 0.5–2 s, release 1–5 s, down from 5/5/8 s ceilings), percussive sustain/release were tightened (`0.02–0.5 s` / `0.1–2.5 s`) to avoid overly long drum tails, and `releaseLevel` is fixed at `0.0` for all envelope modes so voices always decay fully to silence. This also closes the modulator-loop edge case where `releaseLevel == 1.0` combined with `releaseTime == 0.0` could cause an envelope to loop indefinitely.
-  - **LFO DC-offset safety**: percussive and random modes keep `osc->bias = 0.0`. Pad mode can use non-zero bias for asymmetric movement, but only when that LFO is not routed to amplitude-like destinations (`MIX_OSC*`, `ALL_MIX`, `FILTER*_AMP`); unsafe pad routings are rerouted to safe destinations before enabling offset.
-  - **Expanded LFO shape pools** (curated per mode): percussive mode now draws from 7 shapes (`DECAY_EXP`, `DECAY_LOG`, `DECAY_S`, `ATTACK_DECAY`, `ATTACK_HOLD_DECAY`, `BUCHLA_PLONG`, `BUCHLA_PLONG2`) — all with `oneShotTerminalShapeValue = −1` so they freeze cleanly at zero; pad mode draws from 7 smooth zero-mean shapes (`SIN`, `TRIANGLE`, `SAW`, `SAW_DOWN`, `BROWNIAN`, `WANDERING`, `FLOW`); random/`--` mode draws from 9 shapes adding `SAW_DOWN`, `BROWNIAN`, `WANDERING`, and `FLOW` to the previous set. Always-positive shapes (`SIN_POS`, `SIN_ZERO`, `SIN_SQUARE`) and positive-terminal one-shots (`RISE_EXP`, `RISE_LOG`) are excluded from all pools.
-  - Hardware RNG (`HAL_RNG_GenerateRandomNumber`) with LCG fallback (`HAL_GetTick()`-seeded) for all random draws throughout the randomizer.
+- **Per-operator start phase (`o1Ph`–`o6Ph`)**: configurable phase offset at note-on, with visual marker display in the oscilloscope view and modulation-matrix routing (Gresade).
+- **Per-operator `Warp` (`o1Wr`–`o6Wr`)**: asymmetrical stretching of the two half-cycles of the wavetable (range ±4), mapped to MIDI CC, exposed in the modulation matrix, and applied across all render paths (`getNextSample`, `getNextBlock`, `getNextBlockHQ`) (Gresade).
+- **`FULL` and `HQx2` quality modes** (`HQ` is now legacy):
+  - `FULL`: non-decimated rendering (classic behaviour; legacy `HQ` presets map accordingly).
+  - `HQx2`: 2× oversampling to significantly reduce aliasing on rich FM modulations.
+- **Windowed Sync**: lower-aliasing windowed oscillator sync.
+- **FM Decimation**: output quantization control up to 19-bit precision (with backward-compatible defaults for legacy presets and DX7 imports) (Gresade).
+- **DSP & memory optimizations**: selective `#pragma GCC optimize("Ofast", "fast-math")` on hot DSP translation units in Release builds, fast-path bypass when decimation is off, freed `DTCMRAM`, and compile-time `PFM3_FAST_FEEDBACK_INTERP` switch in `Osc.h`.
 
-Notes:
+### 2. Per-Voice Filters (`VoiceFx`)
 
-- Branch content includes both committed changes and additional in-branch FM decimation updates currently present in the workspace.
-- For reproducible release output, run a clean release build with `CLEAN_BUILD=1 BUILD_CONFIG=Release ./scripts/build_cli.sh`.
+- **ZDF SVF topology & modulation anti-aliasing**: Zero-Delay Feedback state-variable filters with **per-sample coefficient interpolation** across the entire audio block (`BLOCK_SIZE = 32`), eliminating stepping and modulation aliasing.
+- **Transition safety**: synchronous filter-type change detection inside the audio loop, strict parameter clamping, and non-recursive `a1` interpolation to prevent numerical blow-ups (`NaN`/`Inf`) when switching between heterogeneous effects (e.g. `Crsh` → `BP`).
+- **ADAA saturators & wavefolders**: analytical Antiderivative Anti-Aliasing (ADAA) used across `Sat`, `Sigm`, `Fold`, `Wrap`, `LpWs`, `Oryx`, `Lad+`, and `SvfLH`.
+- **Centered & calibrated `Wrap`**: symmetric phase wrapping centered at zero (with exact ADAA antiderivative), progressive convex drive curve around the `±1` threshold, and RMS level compensation.
+- **`Ap4D` (True Dual Nested Allpass Phaser)**: genuine 4-pole cascaded dual nested allpass topology with soft-saturated resonant feedback, stereo cross-feedback, and per-sample interpolation without startup sweep artifacts.
+- **TB-303 emulation (`TeeB`)**: high-accuracy Padé approximation for frequency-to-pole mapping and dynamic Accent circuit modelling (C13 "gummy capacitor" + MIDI velocity).
+- **`Oryx` series (`Oryx`, `Oryx2`, `Oryx3`)**: tamed resonance peaks and distinct sonic personalities across variants.
 
-## Build in VS Code (STM32CubeIDE Headless CLI)
+### 3. Timbre Effects, FX Bus & Compressor
 
-This repository can be compiled from the VS Code terminal by using STM32CubeIDE in headless mode.
+- **Timbre effects (`TimbreFx`)**: engine cleanup and Hermite delay-line interpolation.
+- **FX Bus (`FxBus`)**: reworked warm soft-knee saturation, overdrive, and fuzz algorithms for improved clarity and musicality.
+- **Compressor**: dedicated presets (`Punch`, `Glue`, `Drive`, etc.) with refined dynamic response.
+
+### 4. Envelopes, LFOs, Modulation & Web Editor
+
+- **Envelopes**: adjustable Attack and Release curves (`Attack & Release Curves`).
+- **Expanded LFOs**:
+  - Multi-shot sync modes `1Si..8Si` (internal) and `1Se..8Se` (external), independent from `KSyn`.
+  - Additional shapes: `SawD`, `DExp`, `DLog`, `RExp`, `RLog`, `AD`, `AHD`, `SDec`, `Plng`, `Plg2`, `SnSq`, `Sn0`, `Sn+`, and `Usr1..Usr6`.
+  - Startup delay (0–4000 ms) on negative `Phase` encoder values with adaptive step resolution.
+- **Matrix & MIDI**: new destinations (`note+`, `o1Ph..o6Ph`, `o1Wr..o6Wr`, etc.) and refactored **MIDI CC / NRPN** mapping for web-editor adaptation.
+
+### 5. Arpeggiator, Step Sequencer & Voice Management
+
+- **Enhanced arpeggiator**: `Oct+` mode, **Ratchet**, **Strumming**, accent masks, Euclidean patterns, `Arp+`, `ArpVl`, `ArpGt`, `ArpDv` parameters, and preset caching.
+- **Step sequencer**: configurable loop length, `Alt2` / `Alt3` step actions, LFO modes, and per-step ratchet.
+- **Voice allocation**: **Bass-protect voice stealing** and configurable per-timbre voice priority.
+
+### 6. Preset Randomizer & Patch Compatibility
+
+- **Coherent randomizer (`SynthState::randomizePreset`)**: cross-parameter coupling across `Oper`, `EnvT`, `IM`, and `Modl`, mode-appropriate effect and LFO pools (percussive / pad / random), carrier-count output normalization, LFO DC-offset safety, infinite-sustain prevention, and STM32 hardware RNG (`HAL_RNG`).
+- **Patch format `v1.6f`** (updated from `v1.5`): backward-compatible loading of older patches and hardened DX7 SysEx import.
+
+---
+
+## Building the Firmware
 
 ### Prerequisites
 
-- STM32CubeIDE installed (default macOS path: `/Applications/STM32CubeIDE.app/Contents/MacOS/STM32CubeIDE`)
-- ARM toolchain in PATH (`arm-none-eabi-gcc`, `arm-none-eabi-objcopy`)
+- **STM32CubeIDE 1.5.1** with its bundled **GNU Tools for STM32 (`7-2018-q2-update`)** toolchain (`arm-none-eabi-gcc` / `arm-none-eabi-g++` **7.3.1**, `arm-none-eabi-objcopy`) in `PATH`
 
-### Clean Release Build
+### Build Order
 
-From the repository root, run:
+Projects must be built in the following order so the firmware links against the freshly built static library:
 
-```bash
-CLEAN_BUILD=1 BUILD_CONFIG=Release ./scripts/build_cli.sh
-```
+1. `preenfm3lib` (`lib/`)
+2. `preenfm3` (`firmware/`)
+3. `preenfm3 bootloader` (`bootloader/`, optional)
 
-The script builds in this order:
+You can build directly from **STM32CubeIDE** or by running `make` inside `lib/Release`, `firmware/Release`, and `bootloader/Release`.
 
-1. `preenfm3lib`
-2. `preenfm3` (firmware)
-3. `preenfm3 bootloader`
-
-This order is required so firmware links against the freshly built library.
+*(An optional headless CLI script `CLEAN_BUILD=1 BUILD_CONFIG=Release ./scripts/build_cli.sh` is also available in `scripts/`.)*
 
 ### Build Artifacts
 
-- Firmware ELF: `firmware/Release/preenfm3.elf`
-- Firmware BIN: `firmware/Release/preenfm3.bin`
-- Bootloader ELF: `bootloader/Release/preenfm3 bootloader.elf`
-- Bootloader BIN: `bootloader/Release/preenfm3 bootloader.bin`
+- Firmware ELF / BIN: `firmware/Release/preenfm3.elf`, `firmware/Release/preenfm3.bin`
+- Bootloader ELF / BIN: `bootloader/Release/preenfm3 bootloader.elf`, `bootloader/Release/preenfm3 bootloader.bin`
 - Static library: `lib/Release/libpreenfm3lib.a`
-
-### Logs
-
-Build logs are written to `build-logs/` with a timestamp prefix, for example:
-
-- `<timestamp>-import.log`
-- `<timestamp>-lib-clean.log`, `<timestamp>-lib-build.log`
-- `<timestamp>-firmware-clean.log`, `<timestamp>-firmware-build.log`
-- `<timestamp>-bootloader-clean.log`, `<timestamp>-bootloader-build.log`
-- `<timestamp>-firmware-bin.log`, `<timestamp>-bootloader-bin.log`
 
 ### Notes
 
@@ -106,8 +90,4 @@ Build logs are written to `build-logs/` with a timestamp prefix, for example:
 - The firmware image is linked for the application flash offset configured in the linker script (`0x08020000`).
 - The bootloader build flow compiles cleanly in CLI/VS Code, but the bootloader binary has not been tested on hardware yet.
 
-Xavier
-
 ---
-
-Recent VS Code/CLI build workflow and warning-cleanup related changes were done by Hans-Henning Klos.
