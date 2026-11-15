@@ -2995,108 +2995,116 @@ void Voice::fxAfterBlock()
     break;
     case FILTER_AP4D:
     {
+        // True Dual Nested Allpass Phaser ("Ap4D": Freq = param1, Depth/Spread = param2)
         float fxParamTmp = clamp(currentTimbre->params_.effect1.param1 + matrixFilterFrequency, 0.0f, 1.0f);
         fxParamTmp *= fxParamTmp;
-        fxParam1 = clamp((fxParamTmp + 9.0f * fxParam1) * 0.1f, 0.0f, 1.0f);
+        fxParam1 = clamp((fxParamTmp + 9.0f * clamp(fxParam1, 0.0f, 1.0f)) * 0.1f, 0.0f, 1.0f);
 
         float filterParam2 = clamp(matrixFilterParam2 + currentTimbre->params_.effect1.param2, 0.0f, 1.0f);
-        float OffsetTmp = fabsf(filterParam2);
-        fxParam2 = (OffsetTmp + 9.0f * fxParam2) * 0.1f;
+        fxParam2 = clamp((filterParam2 + 9.0f * clamp(fxParam2, 0.0f, 1.0f)) * 0.1f, 0.0f, 1.0f);
 
-        const float offset = fxParam2 * fxParam2 * 0.17f;
+        const float offset = fxParam2 * fxParam2 * 0.18f;
 
-        const float range1 = 0.33f;
-        const float range2 = 0.14f;
-        const float range3 = 0.05f;
+        const float f1 = clamp(0.025f + (fxParam1 * 0.85f + offset) * 0.85f, filterWindowMin, filterWindowMax);
+        const float f2 = clamp(0.015f + (fxParam1 * 0.65f - offset * 0.7f) * 0.55f, filterWindowMin, filterWindowMax);
+        const float f3 = clamp(0.020f + (fxParam1 * 0.90f - offset * 1.2f) * 0.78f, filterWindowMin, filterWindowMax);
+        const float f4 = clamp(0.012f + (fxParam1 * 0.55f + offset * 1.1f) * 0.48f, filterWindowMin, filterWindowMax);
 
-        const float lowlimit = 0.027f;
-
-        const float f1 = clamp(((lowlimit + fxParam1 + offset) * range1), filterWindowMin, filterWindowMax);
-        const float f2 = clamp(((lowlimit + fxParam1 - offset) * range2), filterWindowMin, filterWindowMax);
-        const float f3 = clamp(((lowlimit + fxParam1 + offset) * range3), filterWindowMin, filterWindowMax);
         const float c1Target = (1.0f - f1) / (1.0f + f1);
         const float c2Target = (1.0f - f2) / (1.0f + f2);
-        float coef3 = (1.0f - f3) / (1.0f + f3);
+        const float c3Target = (1.0f - f3) / (1.0f + f3);
+        const float c4Target = (1.0f - f4) / (1.0f + f4);
 
-        float coef1 = (v8L != 0.0f) ? v8L : c1Target;
-        float coef2 = (v8R != 0.0f) ? v8R : c2Target;
+        const bool initCoefs = (v7L == 0.0f && v8L == 0.0f && v7R == 0.0f && v8R == 0.0f);
+        float coef1 = initCoefs ? c1Target : v7L;
+        float coef2 = initCoefs ? c2Target : v7R;
+        float coef3 = initCoefs ? c3Target : v8L;
+        float coef4 = initCoefs ? c4Target : v8R;
         const float dCoef1 = (c1Target - coef1) * 0.03125f;
         const float dCoef2 = (c2Target - coef2) * 0.03125f;
+        const float dCoef3 = (c3Target - coef3) * 0.03125f;
+        const float dCoef4 = (c4Target - coef4) * 0.03125f;
 
         float *sp = this->sampleBlock;
 
-        float _ly1L = v0L, _ly1R = v0R;
-        float _ly2L = v1L, _ly2R = v1R;
-        float _ly3L = v2L, _ly3R = v2R;
-        float _ly4L = v3L, _ly4R = v3R;
-        float _lx1L = v4L, _lx1R = v4R;
-        float _lx2L = v5L, _lx2R = v5R;
-        float _lx3L = v6L, _lx3R = v6R;
-        float _lx4L = clamp(v7L, -0.96f, 0.96f), _lx4R = clamp(v7R, -0.96f, 0.96f);
+        float d1_prevL = v0L, w1_prevL = v1L, d1_2_prevL = v2L;
+        float d2_prevL = v3L, w2_prevL = v4L, d2_2_prevL = v5L;
+        float lpL = v6L;
 
-        const float _feedback = 0.15f;
-        float inmix;
-        float finalGain = mixerGain * 0.5f;
+        float d1_prevR = v0R, w1_prevR = v1R, d1_2_prevR = v2R;
+        float d2_prevR = v3R, w2_prevR = v4R, d2_2_prevR = v5R;
+        float lpR = v6R;
 
-        const float a = 0.85f;
-        const float b = 1.f - a;
+        const float _feedback = 0.20f + 0.52f * fxParam2;
+        const float _crossFeedback = 0.16f * fxParam2;
+        const float finalGain = mixerGain * 0.52f;
 
         for (int k = BLOCK_SIZE; k--;)
         {
             coef1 += dCoef1;
             coef2 += dCoef2;
+            coef3 += dCoef3;
+            coef4 += dCoef4;
 
-            // Left voice
-            float coef3L = clamp(coef3 + (*sp * 0.0075f), -0.96f, 0.96f); // nested f audio-rate xmod
-            inmix = (*sp) + _feedback * _ly4L;
-            _ly1L = coef1 * (_ly1L + inmix) - _lx1L; // do 1st filter
-            _lx1L = inmix;
-            _ly2L = coef2 * (_ly3L + _ly1L) - _lx2L; // do 2nd filter
-            _lx2L = _ly1L;
-            _ly3L = _lx4L * (_ly3L + _ly2L) - _lx3L; // nested filter
-            _lx3L = _ly2L;
+            // Left voice: 2 cascaded 2-level Nested Allpasses
+            float inL = *sp;
+            float inmixL = inL + softLimitVoice(lpL * _feedback - lpR * _crossFeedback);
 
-            _lx4L = (_lx4L * 31.0f + coef3L) * 0.03125f; // xmod damp
+            float w1L = coef2 * (w1_prevL + d1_prevL) - d1_2_prevL;
+            d1_2_prevL = d1_prevL;
+            w1_prevL = w1L;
+            float y1L = coef1 * inmixL + w1L;
+            d1_prevL = inmixL - coef1 * y1L;
 
-            _ly4L = (_ly3L * b) + (_ly4L * a); // lowpass
+            float w2L = coef4 * (w2_prevL + d2_prevL) - d2_2_prevL;
+            d2_2_prevL = d2_prevL;
+            w2_prevL = w2L;
+            float y2L = coef3 * y1L + w2L;
+            d2_prevL = y1L - coef3 * y2L;
 
-            *sp++ = clamp((_ly1L + _ly2L - *sp) * finalGain, -ratioTimbres, ratioTimbres);
+            lpL = lpL * 0.72f + y2L * 0.28f;
+            *sp++ = clamp((inL + y2L) * finalGain, -ratioTimbres, ratioTimbres);
 
             // Right voice
-            float coef3R = clamp(coef3 - (*sp * 0.0075f), -0.96f, 0.96f); // stereo nested f audio-rate xmod
-            inmix = (*sp) + _feedback * _ly4R;
-            _ly1R = coef1 * (_ly1R + inmix) - _lx1R; // do 1st filter
-            _lx1R = inmix;
-            _ly2R = coef2 * (_ly3R + _ly1R) - _lx2R; // do 2nd filter
-            _lx2R = _ly1R;
-            _ly3R = _lx4R * (_ly3R + _ly2R) - _lx3R; // nested filter
-            _lx3R = _ly2R;
+            float inR = *sp;
+            float inmixR = inR + softLimitVoice(lpR * _feedback - lpL * _crossFeedback);
 
-            _lx4R = (_lx4R * 31.0f + coef3R) * 0.03125f; // xmod damp
+            float w1R = coef2 * (w1_prevR + d1_prevR) - d1_2_prevR;
+            d1_2_prevR = d1_prevR;
+            w1_prevR = w1R;
+            float y1R = coef1 * inmixR + w1R;
+            d1_prevR = inmixR - coef1 * y1R;
 
-            _ly4R = (_ly3R * b) + (_ly4R * a); // lowpass
+            float w2R = coef4 * (w2_prevR + d2_prevR) - d2_2_prevR;
+            d2_2_prevR = d2_prevR;
+            w2_prevR = w2R;
+            float y2R = coef3 * y1R + w2R;
+            d2_prevR = y1R - coef3 * y2R;
 
-            *sp++ = clamp((_ly1R + _ly2R - *sp) * finalGain, -ratioTimbres, ratioTimbres);
+            lpR = lpR * 0.72f + y2R * 0.28f;
+            *sp++ = clamp((inR + y2R) * finalGain, -ratioTimbres, ratioTimbres);
         }
 
-        v0L = _ly1L;
-        v0R = _ly1R;
-        v1L = _ly2L;
-        v1R = _ly2R;
-        v2L = _ly3L;
-        v2R = _ly3R;
-        v3L = _ly4L;
-        v3R = _ly4R;
-        v4L = _lx1L;
-        v4R = _lx1R;
-        v5L = _lx2L;
-        v5R = _lx2R;
-        v6L = _lx3L;
-        v6R = _lx3R;
-        v7L = _lx4L;
-        v7R = _lx4R;
-        v8L = c1Target;
-        v8R = c2Target;
+        v0L = d1_prevL;
+        v1L = w1_prevL;
+        v2L = d1_2_prevL;
+        v3L = d2_prevL;
+        v4L = w2_prevL;
+        v5L = d2_2_prevL;
+        v6L = lpL;
+
+        v0R = d1_prevR;
+        v1R = w1_prevR;
+        v2R = d1_2_prevR;
+        v3R = d2_prevR;
+        v4R = w2_prevR;
+        v5R = d2_2_prevR;
+        v6R = lpR;
+
+        v7L = c1Target;
+        v7R = c2Target;
+        v8L = c3Target;
+        v8R = c4Target;
     }
     break;
     case FILTER_ORYX:
