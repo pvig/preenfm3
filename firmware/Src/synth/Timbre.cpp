@@ -111,18 +111,27 @@ uint16_t Timbre::getArpeggiatorPattern() const
     return ARP_PATTERN_GETMASK( params_.engineArpUserPatterns.patterns[ pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT ] );
 }
 
-uint16_t Timbre::getArpeggiatorAccentMask() const
+void Timbre::updateArpPresetCache(int pattern) const
 {
-  const int pattern = (int)params_.engineArp2.pattern;
-  if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
-    uint16_t acc = 0, tie = 0, oct = 0, rt = 0;
+  int seed = getArpEuclideanSeed(&params_);
+  if (arpPresetCachePattern_ != (uint8_t)pattern || arpPresetCacheSeed_ != (uint8_t)seed) {
     computeArpPresetMasks(
         ARP_PATTERN_GETMASK(lut_res_arpeggiator_patterns[pattern]),
         ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[pattern]),
         lut_res_arpeggiator_ties[pattern],
-        getArpEuclideanSeed(&params_),
-        &acc, &tie, &oct, &rt);
-    return acc;
+        seed,
+        &arpPresetCacheAcc_, &arpPresetCacheTie_, &arpPresetCacheOct_, &arpPresetCacheRt_);
+    arpPresetCachePattern_ = (uint8_t)pattern;
+    arpPresetCacheSeed_ = (uint8_t)seed;
+  }
+}
+
+uint16_t Timbre::getArpeggiatorAccentMask() const
+{
+  const int pattern = (int)params_.engineArp2.pattern;
+  if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+    updateArpPresetCache(pattern);
+    return arpPresetCacheAcc_;
   }
   return ARP_PATTERN_GETACCENT(params_.engineArpUserPatterns.patterns[pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT]);
 }
@@ -143,20 +152,14 @@ int Timbre::getArpeggiatorStepMode() const
     return ARP_STEP_MODE_NORM;
   }
   if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
-    uint16_t acc = 0, tie = 0, oct = 0, rt = 0;
-    computeArpPresetMasks(
-        ARP_PATTERN_GETMASK(lut_res_arpeggiator_patterns[pattern]),
-        ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[pattern]),
-        lut_res_arpeggiator_ties[pattern],
-        getArpEuclideanSeed(&params_),
-        &acc, &tie, &oct, &rt);
-    if ((bitmask_ & tie) != 0) {
+    updateArpPresetCache(pattern);
+    if ((bitmask_ & arpPresetCacheTie_) != 0) {
       return ARP_STEP_MODE_TIE;
     }
-    if ((bitmask_ & oct) != 0) {
+    if ((bitmask_ & arpPresetCacheOct_) != 0) {
       return ARP_STEP_MODE_OCT_UP;
     }
-    if ((bitmask_ & rt) != 0) {
+    if ((bitmask_ & arpPresetCacheRt_) != 0) {
       return ARP_STEP_MODE_RATCHET2;
     }
     return ARP_STEP_MODE_NORM;
@@ -239,6 +242,12 @@ Timbre::Timbre() {
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
     arpSwingOddStep_ = false;
     arpSwingStepScale_ = 1.0f;
+    arpPresetCachePattern_ = 0xFF;
+    arpPresetCacheSeed_ = 0xFF;
+    arpPresetCacheAcc_ = 0;
+    arpPresetCacheTie_ = 0;
+    arpPresetCacheOct_ = 0;
+    arpPresetCacheRt_ = 0;
     note_stack_.Init();
     held_note_stack_.Init();
     voice_allocator_.Init(0, VOICE_PRIORITY_LAST_KEY, voice_allocator_pool_, voice_allocator_lru_);

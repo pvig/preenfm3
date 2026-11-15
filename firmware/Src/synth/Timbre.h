@@ -217,6 +217,7 @@ private:
     void updateArpRatchet();
     void stopArpRatchet();
     void updateArpStrum();
+    void updateArpPresetCache(int pattern) const;
 
     /** --------------FX conf--------------  */
     void fxAfterBlock();
@@ -434,6 +435,12 @@ private:
     uint8_t arpPendingStepMode_;
     bool arpSwingOddStep_;
     float arpSwingStepScale_;
+    mutable uint8_t arpPresetCachePattern_;
+    mutable uint8_t arpPresetCacheSeed_;
+    mutable uint16_t arpPresetCacheAcc_;
+    mutable uint16_t arpPresetCacheTie_;
+    mutable uint16_t arpPresetCacheOct_;
+    mutable uint16_t arpPresetCacheRt_;
 
     // lfoUsed
     uint8_t lfoUSed_[NUMBER_OF_LFO];
