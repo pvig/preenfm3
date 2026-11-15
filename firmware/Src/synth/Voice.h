@@ -557,6 +557,7 @@ private:
     uint8_t noteAlreadyFinished;
     int8_t lastDecimationMode_;
     uint8_t oversample2x_;
+    uint8_t fxNoteTrigger_;
 
     void runAlgoBlock(int osMode, float invStep, float dcPole, bool allowEndNote);
     void decimateHalfBand2x(const float* firstHalf, float* secondHalfAndOut);
