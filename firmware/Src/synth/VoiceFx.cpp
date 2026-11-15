@@ -60,6 +60,17 @@ float expf_fast(float a) {
   return u.f;
 }
 inline
+float exp_pole(float p) {
+  // High-accuracy Padé (2,2) scaling & squaring for z-plane pole mapping exp(p):
+  // Exact 1.0000000 at p = 0 (critical for high-Q TB-303 poles near the unit circle)
+  const float h = p * 0.25f;
+  const float h2 = h * h * 0.083333336f;
+  const float hp = 0.5f * h;
+  float e = (1.0f + hp + h2) / (1.0f - hp + h2);
+  e *= e;
+  return e * e;
+}
+inline
 float sqrt3(const float x)
 {
   union
@@ -3517,146 +3528,151 @@ void Voice::fxAfterBlock() {
             break;
         case FILTER_TEEBEE: {
             //https://github.com/a1k0n/303
+            // Authentic TB-303 4-pole diode ladder + C13 "gummy capacitor" Accent circuit
             float fxParamTmp = clamp(currentTimbre->params_.effect1.param1 + matrixFilterFrequency, 0.0f, 1.0f);
-            fxParamTmp *= fxParamTmp;
-            // Low pass... on the Frequency
-            fxParam1 = clamp((fxParamTmp + 9.0f * fxParam1) * 0.1f, 0.0f, 1.0f);
+            fxParam1 = clamp((fxParamTmp + 4.0f * fxParam1) * 0.2f, 0.0f, 1.0f);
             float filterParam2 = clamp(matrixFilterParam2 + currentTimbre->params_.effect1.param2, 0.0f, 1.0f);
 
-            float velocity = this->velocity;
+            // Detect raw MIDI velocity >= 78 for authentic TB-303 Accent (independent of PreenFM3's engine1.velocity scaling)
+            const int rawVelo = (uint8_t)this->midiVelocity;
+            const bool isAccented = (rawVelo >= 78);
+            const float accentStrength = isAccented ? clamp((float)(rawVelo - 72) * (1.0f / 55.0f), 0.15f, 1.0f) : 0.0f;
 
-            bool accent = velocity > 0.629f && !isReleased();
-
-            const float ga = 0.9764716867f; //= exp(-1/(PREENFM_FREQUENCY * attack / BLOCK_SIZE))
-            const float gr = 0.9979969962f; //= exp(-1/(PREENFM_FREQUENCY * release / BLOCK_SIZE))
-
-            //accent cv (fxParamA1) :
-            if ((accent && (fxParamB2-- > 0))) {
-                fxParamA2 *= ga;
-                fxParamA2 += (1 - ga);
-                fxParamA1 = (fxParamA1 * 24.1f + fxParamA2) * 0.04f; //faster build up
-            } else {
-                fxParamA2 *= gr;
-                fxParamB2 = 720; // = accent dur
-                fxParamA1 = (fxParamA1 * 24 + fxParamA2) * 0.04f; //smooth release
+            // State variables for the 2-stage TB-303 Accent circuit:
+            // v6L = short 200ms Accent decay envelope (R_accent)
+            // fxParamA2 = C13 capacitor charge (accumulates across consecutive accented 16th notes)
+            // fxParamA1 = smoothed C13 "wow" sweep output
+            float accentDecayEnv = v6L;
+            if (this->fxNoteTrigger_) {
+                this->fxNoteTrigger_ = 0;
+                if (isAccented) {
+                    // Trigger fast 200ms decay envelope and stack charge onto C13 capacitor
+                    accentDecayEnv = accentStrength;
+                    fxParamA2 = clamp(fxParamA2 * 0.55f + accentStrength * (0.45f + 0.35f * filterParam2), 0.0f, 1.65f);
+                } else {
+                    // Unaccented note: dump accent envelope & C13 charge for sharp accented/unaccented contrast
+                    accentDecayEnv *= 0.15f;
+                    fxParamA2 *= 0.25f;
+                }
             }
 
-            fxParamA2 = clamp(fxParamA2, 0, 1.5f);
+            // 1) Short 190ms TB-303 Accent decay (decays immediately after note-on, even while key is held!)
+            accentDecayEnv *= 0.9965f;
+            v6L = accentDecayEnv;
+
+            // 2) C13 "Gummy Capacitor" RC charge/discharge network (~14ms rounded "wow" attack + resonant bleed)
+            const float c13Target = accentDecayEnv * (0.65f + 0.60f * filterParam2);
+            if (c13Target > fxParamA2) {
+                fxParamA2 += 0.26f * (c13Target - fxParamA2); // ~14ms rounded rise ("wow" attack)
+            } else {
+                fxParamA2 = fxParamA2 * 0.9945f + 0.0055f * c13Target; // capacitor bleed
+            }
+            fxParamA1 = (fxParamA1 * 7.0f + fxParamA2) * 0.125f;
 
             float *sp = this->sampleBlock;
             float state0L = v0L, state1L = v1L, state2L = v2L, state3L = v3L, state4L = v4L;
             float state0R = v0R, state1R = v1R, state2R = v2R, state3R = v3R, state4R = v4R;
 
-            float vcf_reso = filterParam2 * 1.065f;
-            float vcf_cutoff = clamp(fxParam1 * 1.2f + 0.2f * fxParamA1, 0, 2);
+            // Continuous resonance index [0.0 .. 61.5] with linear interpolation across filterpoles table
+            const float resoScaled = filterParam2 * (0.65f + 0.35f * filterParam2) * 61.5f;
+            const int resoIdx = __USAT((int)resoScaled, 6);
+            const int resoIdxNext = (resoIdx < 62) ? (resoIdx + 1) : 62;
+            const float resoFrac = resoScaled - (float)resoIdx;
+            const float resoInv = 1.0f - resoFrac;
 
-            float vcf_e1 = expf_fast(5.55921003f + 2.17788267f * vcf_cutoff + 0.47f * fxParamA1) + 103;
-            float vcf_e0 = expf_fast(5.22617147 + 1.70418937f * vcf_cutoff - 0.298f * fxParamA1) + 103;
+            // Authentic a1k0n/303 dual exponential cutoff + C13 Accent "wow" sweep
+            // Base cutoff (vcf_e0) + resonant C13 Accent sweep (fxParamA1)
+            const float accentSweep = fxParamA1 * (0.42f + 0.65f * filterParam2);
+            const float vcf_cutoff = clamp(fxParam1 + accentSweep, 0.0f, 1.55f);
+            const float cutoffHz = expf_fast(4.95f + 3.05f * vcf_cutoff) + 40.0f;
+            const float w = clamp(cutoffHz * (2.0f * 3.14159265358979f / PREENFM_FREQUENCY), 0.015f, 1.38f);
 
-            vcf_e0 *= 2 * 3.14159265358979f / PREENFM_FREQUENCY;
-            vcf_e1 *= 2 * 3.14159265358979f / PREENFM_FREQUENCY;
-            vcf_e1 -= vcf_e0;
+            // Interpolate closed-loop s-plane poles from a1k0n/303 table
+            const float fp0 = filterpoles[0][resoIdx] * resoInv + filterpoles[0][resoIdxNext] * resoFrac;
+            const float fp1 = filterpoles[1][resoIdx] * resoInv + filterpoles[1][resoIdxNext] * resoFrac;
+            const float fp2 = filterpoles[2][resoIdx] * resoInv + filterpoles[2][resoIdxNext] * resoFrac;
+            const float fp3 = filterpoles[3][resoIdx] * resoInv + filterpoles[3][resoIdxNext] * resoFrac;
+            const float fp4 = filterpoles[4][resoIdx] * resoInv + filterpoles[4][resoIdxNext] * resoFrac;
+            const float fp5 = filterpoles[5][resoIdx] * resoInv + filterpoles[5][resoIdxNext] * resoFrac;
+            const float fp6 = filterpoles[6][resoIdx] * resoInv + filterpoles[6][resoIdxNext] * resoFrac;
+            const float fp7 = filterpoles[7][resoIdx] * resoInv + filterpoles[7][resoIdxNext] * resoFrac;
+            const float fp8 = filterpoles[8][resoIdx] * resoInv + filterpoles[8][resoIdxNext] * resoFrac;
+            const float fp9 = filterpoles[9][resoIdx] * resoInv + filterpoles[9][resoIdxNext] * resoFrac;
 
-            float w = vcf_e0 + vcf_e1;
+            const float p0 = fp0 + w * fp1;
+            const float p1r = fp2 + w * fp4;
+            const float p1i = fp3 + w * fp5;
+            const float p2r = fp6 + w * fp8;
+            const float p2i = fp7 + w * fp9;
 
-            // --------- init ---------
-            float f0b0, f0b1;       // filter 0 numerator coefficients
-            float f0a0, f0a1;       // filter 0 denominator coefficients
-            float f1b = 1;          // filter 1 numerator, really just a gain compensation
-            float f1a0, f1a1, f1a2; // filter 1 denominator coefficients
-            float f2b = 1;          // filter 2 numerator, same
-            float f2a0, f2a1, f2a2; // filter 2 denominator coefficients
+            // Filter section 0: 1-pole / 1-zero feedback highpass (C13 bass coupling)
+            const float p0f = exp_pole(p0);
+            const float reso_k = filterParam2 * 3.8f;
+            // Passband gain + R72 resonance compensation + Accent VCA punch (accentDecayEnv boosts VCA attack!)
+            const float targetgain = (1.85f / (1.0f + reso_k * 0.55f)) + 0.55f * filterParam2 + 0.50f * accentDecayEnv + 0.25f * fxParamA1;
+            const float f0gain = targetgain * (1.0f + p0f) * 0.5f;
+            const float f0b0 = f0gain;
+            const float f0b1 = -f0gain;
+            const float f0a1 = -p0f;
 
-            // filter section 1, one zero and one pole highpass
-            // pole location is affected by feedback
-            const int resoIdx = __USAT((int)(vcf_reso * 60.0f), 6);
+            // Filter section 1: non-resonant 2-pole diode skirt (+ subtle mid-bark boost on Accent)
+            const float exp_p1r = exp_pole(p1r);
+            const float f1a1 = -2.0f * exp_p1r * cosf(p1i);
+            const float f1a2 = exp_p1r * exp_p1r;
+            const float f1b = (1.0f + f1a1 + f1a2) * (1.0f + 0.25f * fxParamA1);
 
-            const float reso_k = vcf_reso * 4; // feedback strength
+            // Filter section 2: high-Q resonant 2-pole acid peak
+            const float exp_p2r = exp_pole(p2r);
+            const float f2a1 = -2.0f * exp_p2r * cosf(p2i);
+            const float f2a2 = exp_p2r * exp_p2r;
+            const float f2b = (1.0f + f2a1 + f2a2);
 
-            const float p0 = filterpoles[0][resoIdx] + w * filterpoles[1][resoIdx];
-            const float p1r = filterpoles[2][resoIdx] + w * filterpoles[4][resoIdx];
-            const float p1i = filterpoles[3][resoIdx] + w * filterpoles[5][resoIdx];
-            const float p2r = filterpoles[6][resoIdx] + w * filterpoles[8][resoIdx];
-            const float p2i = filterpoles[7][resoIdx] + w * filterpoles[9][resoIdx];
-
-            // filter section 1
-            //float z0 = 1; // zero @ DC
-            float p0f = expf_fast(p0);
-            // gain @inf -> 1/(1+k); boost volume by 2, and also compensate for
-            // resonance (R72)
-            float targetgain = 2 / (1 + reso_k) + 0.5f * vcf_reso + 0.2f * fxParamA1;
-            f0b0 = 1; // (z - z0) * z^-1
-            f0b1 = -1;
-            f0a0 = 1; // (z - p0) * z^-1
-            f0a1 = -p0f;
-
-            // adjust gain
-            f0b0 *= targetgain * (-1 - p0f) * -0.5f;
-            f0b1 *= targetgain * (-1 - p0f) * -0.5f;
-
-            // (z - exp(p)) (z - exp(p*)) ->
-            // z^2 - 2 z exp(Re[p]) cos(Im[p]) + exp(Re[p])^2
-
-            const float exp_p1r = expf_fast(p1r);
-            f1a0 = 1;
-            f1a1 = -2 * exp_p1r * cosf(p1i);
-            f1a2 = exp_p1r * exp_p1r;
-            f1b = (f1a0 + f1a1 + f1a2) + fxParamA1 * fxParam1 * fxParam1 * 0.5f;
-
-            const float exp_p2r = expf_fast(p2r);
-            f2a0 = 1;
-            f2a1 = -2 * exp_p2r * cosf(p2i);
-            f2a2 = exp_p2r * exp_p2r;
-            f2b = (f2a0 + f2a1 + f2a2);
-            float fdbck = ((1 - fxParam1 * fxParam1) * (0.8f - fxParamA1 * 0.05f)) * filterParam2 * 0.45f;
-
-            float in, y;
-            float invAttn = sqrt3(currentTimbre->getNumberOfVoiceInverse());
-            float drive2 = 1.05f - fxParam1 * fxParam1 * 0.05f + (filterParam2 * 0.17f - fxParamA1 * fxParamA1 * 0.051f) * invAttn;
-            float finalGain = (mixerGain * (1 - fxParam1 * 0.2f) + fxParamA1) * 0.75f;
+            // Asymmetric diode-ladder inter-stage saturation & BA662 VCA output drive
+            const float drive2 = 1.15f + 0.55f * filterParam2 + 0.65f * fxParamA1;
+            const float asymBias = 0.06f * (0.4f + 0.6f * filterParam2 + 0.5f * fxParamA1);
+            const float finalGain = mixerGain * (0.82f / (1.0f + 0.22f * filterParam2));
             float prevXL = v5L, prevXR = v5R;
             float prevFL = tanh4ADAA1_F(prevXL), prevFR = tanh4ADAA1_F(prevXR);
 
-            float r = 0.989f;
-
             for (int k = BLOCK_SIZE; k--;) {
                 // -------- -------- -------- Left
-                *sp = (state4L + ((-state4L + *sp) * r));
+                float inL = *sp;
+                float y0L = f0b0 * inL + state0L;
+                state0L = f0b1 * inL - f0a1 * y0L;
 
-                in = (*sp + fdbck * state4L);
-                y = (f0b0 * in + state0L);
-                state0L = f0b1 * in - f0a1 * y;
+                // First two-pole stage (diode skirt)
+                float y1L = f1b * y0L + state1L;
+                state1L = state2L - f1a1 * y1L;
+                state2L = -f1a2 * y1L;
 
-                // first two-pole stage
-                y = f1b * y + state1L;
-                state1L = state2L - f1a1 * y;
-                state2L = -f1a2 * y;
+                // Subtle diode ladder inter-stage soft compression (tames extreme resonant whistling into liquid acid squelch)
+                float midL = softLimitVoice(y1L * 0.65f + asymBias) * 1.50f - asymBias * 1.45f;
 
-                // second two-pole stage
-                y = f2b * y + state3L;
-                state3L = state4L - f2a1 * y;
-                state4L = -f2a2 * y;
+                // Second two-pole stage (acid resonant peak)
+                float y2L = f2b * midL + state3L;
+                state3L = state4L - f2a1 * y2L;
+                state4L = -f2a2 * y2L;
 
-                *sp++ = clamp(tanh4ADAA(y * drive2, prevXL, prevFL) * finalGain, -ratioTimbres, ratioTimbres);
+                *sp++ = clamp(tanh4ADAA(y2L * drive2, prevXL, prevFL) * finalGain, -ratioTimbres, ratioTimbres);
 
                 // -------- -------- -------- Right
-                *sp = (state4R + ((-state4R + *sp) * r));
+                float inR = *sp;
+                float y0R = f0b0 * inR + state0R;
+                state0R = f0b1 * inR - f0a1 * y0R;
 
-                in = (*sp + fdbck * state4R);
-                y = (f0b0 * in + state0R);
-                state0R = f0b1 * in - f0a1 * y;
+                // First two-pole stage (diode skirt)
+                float y1R = f1b * y0R + state1R;
+                state1R = state2R - f1a1 * y1R;
+                state2R = -f1a2 * y1R;
 
-                // first two-pole stage
-                y = f1b * y + state1R;
-                state1R = state2R - f1a1 * y;
-                state2R = -f1a2 * y;
+                float midR = softLimitVoice(y1R * 0.65f + asymBias) * 1.50f - asymBias * 1.45f;
 
-                // second two-pole stage
-                y = f2b * y + state3R;
-                state3R = state4R - f2a1 * y;
-                state4R = -f2a2 * y;
+                // Second two-pole stage (acid resonant peak)
+                float y2R = f2b * midR + state3R;
+                state3R = state4R - f2a1 * y2R;
+                state4R = -f2a2 * y2R;
 
-                *sp++ = clamp(tanh4ADAA(y * drive2, prevXR, prevFR) * finalGain, -ratioTimbres, ratioTimbres);
+                *sp++ = clamp(tanh4ADAA(y2R * drive2, prevXR, prevFR) * finalGain, -ratioTimbres, ratioTimbres);
             }
 
             v0L = state0L;
