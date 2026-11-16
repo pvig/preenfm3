@@ -414,7 +414,14 @@ const char *dirName[] = {
     "RtUD",
     "ShUp",
     "ShDn",
-    "ShUD" };
+    "ShUD",
+    "D&U ",
+    "U&Di",
+    "Conv",
+    "Div ",
+    "Thmb",
+    "Pnky",
+    "Walk" };
 
 struct ParameterRowDisplay engineArp1ParameterRow = {
     "Arpeggiator",
@@ -442,8 +449,8 @@ struct ParameterRowDisplay engineArp1ParameterRow = {
             nullNamesOrder },
         {
             0,
-            11,
-            12,
+            18,
+            19,
             DISPLAY_TYPE_STRINGS,
             dirName,
             nullNamesOrder,

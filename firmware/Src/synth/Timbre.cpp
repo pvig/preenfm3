@@ -45,6 +45,13 @@ enum ArpeggiatorDirection {
     * SHIFT modes rotate and extend with transpose, e.g. UP: C-E-G -> E-G-C1 -> G-C1-E1 -> repeat
     */
     ARPEGGIO_DIRECTION_SHIFT_UP, ARPEGGIO_DIRECTION_SHIFT_DOWN, ARPEGGIO_DIRECTION_SHIFT_UP_DOWN,
+    ARPEGGIO_DIRECTION_DOWN_UP,
+    ARPEGGIO_DIRECTION_UP_DOWN_INC,
+    ARPEGGIO_DIRECTION_CONVERGE,
+    ARPEGGIO_DIRECTION_DIVERGE,
+    ARPEGGIO_DIRECTION_THUMB,
+    ARPEGGIO_DIRECTION_PINKY,
+    ARPEGGIO_DIRECTION_RANDOM_WALK,
 
     ARPEGGIO_DIRECTION_COUNT
 };
@@ -56,6 +63,7 @@ inline static int __getDirection( int _direction ) {
     case ARPEGGIO_DIRECTION_DOWN:
     case ARPEGGIO_DIRECTION_ROTATE_DOWN:
     case ARPEGGIO_DIRECTION_SHIFT_DOWN:
+    case ARPEGGIO_DIRECTION_DOWN_UP:
         return -1;
     default:
         return 1;
@@ -67,6 +75,8 @@ inline static int __canChangeDir( int _direction ) {
     case ARPEGGIO_DIRECTION_UP_DOWN:
     case ARPEGGIO_DIRECTION_ROTATE_UP_DOWN:
     case ARPEGGIO_DIRECTION_SHIFT_UP_DOWN:
+    case ARPEGGIO_DIRECTION_DOWN_UP:
+    case ARPEGGIO_DIRECTION_UP_DOWN_INC:
         return 1;
     default:
         return 0;
@@ -1403,7 +1413,17 @@ void Timbre::Tick() {
             if (ARPEGGIO_DIRECTION_CHORD != direction && stepMode != ARP_STEP_MODE_CHORD) {
                 StepArpeggio();
                 int step, transpose = 0;
-                if (current_direction_ > 0) {
+                if (direction == ARPEGGIO_DIRECTION_CONVERGE) {
+                    int pos = current_step_;
+                    step = (pos & 1) ? ((num_notes - 1) - (pos >> 1)) : (pos >> 1);
+                } else if (direction == ARPEGGIO_DIRECTION_DIVERGE) {
+                    int revPos = (num_notes - 1) - current_step_;
+                    step = (revPos & 1) ? ((num_notes - 1) - (revPos >> 1)) : (revPos >> 1);
+                } else if (direction == ARPEGGIO_DIRECTION_THUMB && num_notes > 2) {
+                    step = (current_step_ & 1) ? (1 + (current_step_ >> 1)) : 0;
+                } else if (direction == ARPEGGIO_DIRECTION_PINKY && num_notes > 2) {
+                    step = (current_step_ & 1) ? (num_notes - 1) : (current_step_ >> 1);
+                } else if (current_direction_ > 0) {
                     step = start_step_ + current_step_;
                     if (step >= num_notes) {
                         step -= num_notes;
@@ -1526,17 +1546,32 @@ void Timbre::StepArpeggio() {
         while (current_step_ >= num_notes) {
             current_step_ -= num_notes;
         }
+    } else if (direction == ARPEGGIO_DIRECTION_RANDOM_WALK) {
+        uint8_t random_byte = *(uint8_t*) noise;
+        int delta = (random_byte % 3) - 1;
+        int totalNotes = num_notes * (int) params_.engineArp1.octave;
+        int flat = (int) current_octave_ * num_notes + (int) current_step_ + delta;
+        if (flat < 0) {
+            flat = (totalNotes > 1) ? 1 : 0;
+        } else if (flat >= totalNotes) {
+            flat = (totalNotes > 1) ? (totalNotes - 2) : 0;
+        }
+        current_octave_ = (uint8_t) (flat / num_notes);
+        current_step_ = (uint8_t) (flat % num_notes);
     } else {
-        // NOTE: We always count [0 - num_notes) here; the actual handling of direction is in Tick()
+        // NOTE: We always count [0 - cycleLen) here; the actual handling of direction is in Tick()
+        uint8_t cycleLen = ((direction == ARPEGGIO_DIRECTION_THUMB || direction == ARPEGGIO_DIRECTION_PINKY) && num_notes > 2)
+            ? (uint8_t) (2 * (num_notes - 1))
+            : num_notes;
 
         uint8_t trigger_change = 0;
-        if (++current_step_ >= num_notes) {
+        if (++current_step_ >= cycleLen) {
             current_step_ = 0;
             trigger_change = 1;
         }
 
         // special case the 'ROTATE' and 'SHIFT' modes, they might not change the octave until the cycle is through
-        if (trigger_change && (direction >= ARPEGGIO_DIRECTION_ROTATE_UP)) {
+        if (trigger_change && (direction >= ARPEGGIO_DIRECTION_ROTATE_UP && direction <= ARPEGGIO_DIRECTION_SHIFT_UP_DOWN)) {
             if (++start_step_ >= num_notes)
                 start_step_ = 0;
             else
@@ -1549,7 +1584,7 @@ void Timbre::StepArpeggio() {
                 if (__canChangeDir(direction)) {
                     current_direction_ = -current_direction_;
                     StartArpeggio();
-                    if (num_notes > 1 || params_.engineArp1.octave > 1) {
+                    if (direction != ARPEGGIO_DIRECTION_UP_DOWN_INC && (num_notes > 1 || params_.engineArp1.octave > 1)) {
                         StepArpeggio();
                     }
                 } else {
