@@ -250,8 +250,9 @@ Timbre::Timbre() {
     arpRatchetActive_ = false;
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
-    arpSwingOddStep_ = false;
+    arpSwingStepIndex_ = 0;
     arpSwingStepScale_ = 1.0f;
+    arpSwingVelScale_ = 1.0f;
     arpPresetCachePattern_ = 0xFF;
     arpPresetCacheSeed_ = 0xFF;
     arpPresetCacheAcc_ = 0;
@@ -1340,8 +1341,9 @@ void Timbre::FlushQueue() {
     stopArpRatchet();
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
-    arpSwingOddStep_ = false;
+    arpSwingStepIndex_ = 0;
     arpSwingStepScale_ = 1.0f;
+    arpSwingVelScale_ = 1.0f;
     while (event_scheduler_.size()) {
         SendScheduledNotes();
     }
@@ -1369,17 +1371,32 @@ void Timbre::Tick() {
         tick_ = 0;
         arpStrumCount_ = 0;
 
-        bool isOddStep = arpSwingOddStep_;
-        arpSwingOddStep_ = !arpSwingOddStep_;
+        int swingHits, swingLen, swingRot, swingVel;
+        getArpSwingGroove(&params_, &swingHits, &swingLen, &swingRot, &swingVel);
+        int curIdx = arpSwingStepIndex_ % swingLen;
+        int nextIdx = (curIdx + 1) % swingLen;
+        arpSwingStepIndex_ = (uint8_t) nextIdx;
+
+        bool curSwung = isArpSwingStep(curIdx, swingHits, swingLen, swingRot);
+        bool nextSwung = isArpSwingStep(nextIdx, swingHits, swingLen, swingRot);
+
         float swingNorm = params_.midiNote1Curve.unused1 * 0.01f;
         if (swingNorm < 0.0f) {
             swingNorm = 0.0f;
         } else if (swingNorm > 0.50f) {
             swingNorm = 0.50f;
         }
-        arpSwingStepScale_ = (swingNorm > 0.0f) ? (isOddStep ? (1.0f - swingNorm) : (1.0f + swingNorm)) : 1.0f;
+        if (swingNorm > 0.0f) {
+            float curOffset = curSwung ? swingNorm : 0.0f;
+            float nextOffset = nextSwung ? swingNorm : 0.0f;
+            arpSwingStepScale_ = 1.0f + nextOffset - curOffset;
+        } else {
+            arpSwingStepScale_ = 1.0f;
+        }
+        arpSwingVelScale_ = (curSwung && swingVel > 0) ? (1.0f - (float) swingVel * 0.018f) : 1.0f;
+
         uint16_t swingDelay = 0;
-        if (isOddStep && swingNorm > 0.0f) {
+        if (curSwung && swingNorm > 0.0f) {
             float blocksPerTick = (params_.engineArp1.clock == CLOCK_EXTERNAL)
                 ? extBlocksPerTick_
                 : ((ticksEveryNCalls_ > 2.0f) ? ticksEveryNCalls_ : 31.25f);
@@ -1439,8 +1456,10 @@ void Timbre::Tick() {
                 const NoteEntry &noteEntry = ARPEGGIO_DIRECTION_PLAYED == direction ? note_stack_.played_note(step) : note_stack_.sorted_note(step);
 
                 uint8_t note = noteEntry.note;
-                int effVel = (int) noteEntry.velocity + (has_accent ? 32 : 0);
-                if (effVel > 127) {
+                int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 32 : 0);
+                if (effVel < 1) {
+                    effVel = 1;
+                } else if (effVel > 127) {
                     effVel = 127;
                 }
                 uint8_t velocity = (uint8_t) effVel;
@@ -1480,7 +1499,7 @@ void Timbre::Tick() {
                 for (int idx = 0; idx < num_notes; ++idx) {
                     int i = strumDown ? (num_notes - 1 - idx) : idx;
                     const NoteEntry &noteEntry = note_stack_.sorted_note(i);
-                    int effVel = (int) noteEntry.velocity + (has_accent ? 24 : 0);
+                    int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 24 : 0);
                     if (num_notes > 1) {
                         int velJitter = ((int) ((seed >> (12 + (idx & 3) * 3)) & 7u) - 3) * 2;
                         effVel += (-4 * idx) + velJitter;
@@ -1612,8 +1631,9 @@ void Timbre::Start() {
     chord_cycle_ = 0;
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
-    arpSwingOddStep_ = false;
+    arpSwingStepIndex_ = 0;
     arpSwingStepScale_ = 1.0f;
+    arpSwingVelScale_ = 1.0f;
     running_ = 1;
     for (int k = 0; k < numberOfVoices_; k++) {
         if (voiceNumber_[k] >= 0) {

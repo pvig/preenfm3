@@ -433,8 +433,9 @@ private:
     uint16_t arpStrumDelay_[8];
     uint8_t arpStrumCount_;
     uint8_t arpPendingStepMode_;
-    bool arpSwingOddStep_;
+    uint8_t arpSwingStepIndex_;
     float arpSwingStepScale_;
+    float arpSwingVelScale_;
     mutable uint8_t arpPresetCachePattern_;
     mutable uint8_t arpPresetCacheSeed_;
     mutable uint16_t arpPresetCacheAcc_;

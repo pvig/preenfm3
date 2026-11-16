@@ -2460,19 +2460,19 @@ const struct Pfm3OneButtonState pfm3ButtonArpeggiator3State = {
             3 },
         {
             ROW_NONE,
-            0 },
+            ENCODER_ARP_SWING_HITS },
         {
             ROW_NONE,
-            0 },
+            ENCODER_ARP_SWING_LEN },
         {
             ROW_NONE,
-            0 },
+            ENCODER_ARP_SWING_ROT },
         {
             ROW_NONE,
-            0 },
+            ENCODER_ARP_SWING_VEL },
         {
             ROW_NONE,
-            0 } } };
+            ENCODER_ARP_SWING_VIEW } } };
 
 const struct Pfm3OneButton pfm3ButtonArpeggiator = {
     "Arp",
@@ -3462,7 +3462,9 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
             }
             }
         }
-        if ((rowToTest == rowEncoder.row || encoder == ENCODER_STEPSEQ_MODE || encoder == ENCODER_STEPSEQ_LEN) && encoder == rowEncoder.encoder) {
+        if ((rowToTest == rowEncoder.row || encoder == ENCODER_STEPSEQ_MODE || encoder == ENCODER_STEPSEQ_LEN
+                || (encoder >= ENCODER_ARP_SWING_HITS && encoder <= ENCODER_ARP_SWING_VEL))
+                && encoder == rowEncoder.encoder) {
             encoder6 = enc;
         }
     }
@@ -3471,6 +3473,12 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
     if (encoder6 != -1) {
         if ((currentRow == ROW_LFOSEQ1 || currentRow == ROW_LFOSEQ2) && encoder > ENCODER_STEPSEQ_GATE) {
             updateStepSequencer(currentRow, encoder, oldValue, newValue);
+            return;
+        }
+        if (currentRow == ROW_NONE && encoder >= ENCODER_ARP_SWING_HITS && encoder <= ENCODER_ARP_SWING_VEL) {
+            valueChangedCounter_[encoder6] = 4;
+            displayParamValue(encoder6, multipleEdition_ ? COLOR_GREEN : COLOR_YELLOW);
+            displayParamValue(5, COLOR_WHITE);
             return;
         }
 
@@ -3688,6 +3696,30 @@ void FMDisplayEditor::displayParamValue(int encoder, TFT_COLOR color) {
                 mode = STEPSEQ_MODE_NORM;
             }
             tft_->print(stepSeqModeNames[mode]);
+        } else if (rowEncoder.encoder >= ENCODER_ARP_SWING_HITS && rowEncoder.encoder <= ENCODER_ARP_SWING_VEL) {
+            tft_->setCharBackgroundColor(COLOR_BLACK);
+            tft_->setCharColor(color);
+            int hits, len, rot, vel;
+            getArpSwingGroove(synthState_->params, &hits, &len, &rot, &vel);
+            int val = (rowEncoder.encoder == ENCODER_ARP_SWING_HITS) ? hits
+                    : (rowEncoder.encoder == ENCODER_ARP_SWING_LEN)  ? len
+                    : (rowEncoder.encoder == ENCODER_ARP_SWING_ROT)  ? rot
+                                                                     : vel;
+            tft_->printValueWithSpace(val);
+        } else if (rowEncoder.encoder == ENCODER_ARP_SWING_VIEW) {
+            const int x0 = 16 * TFT_BIG_CHAR_WIDTH;
+            const int y0 = LINE_PARAM_VALUE2 * TFT_BIG_CHAR_HEIGHT;
+            tft_->fillArea(x0, y0, 64, TFT_BIG_CHAR_HEIGHT, COLOR_BLACK);
+            int hits, len, rot, vel;
+            getArpSwingGroove(synthState_->params, &hits, &len, &rot, &vel);
+            for (int s = 0; s < len && s < 8; s++) {
+                const int bx = x0 + s * 8;
+                if (isArpSwingStep(s, hits, len, rot)) {
+                    tft_->fillArea(bx, y0 + 2, 6, TFT_BIG_CHAR_HEIGHT - 4, COLOR_YELLOW);
+                } else {
+                    tft_->fillArea(bx, y0 + TFT_BIG_CHAR_HEIGHT - 6, 6, 4, COLOR_GRAY);
+                }
+            }
         }
     }
 }
@@ -3903,6 +3935,16 @@ void FMDisplayEditor::refreshEditorByStep(int &refreshStatus, int &endRefreshSta
                     tft_->print("Len ");
                 } else if (rowEncoder.encoder == ENCODER_STEPSEQ_MODE) {
                     tft_->print("Mode");
+                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_HITS) {
+                    tft_->print("Hits");
+                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_LEN) {
+                    tft_->print("Len ");
+                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_ROT) {
+                    tft_->print("Rot ");
+                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_VEL) {
+                    tft_->print("Vel ");
+                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_VIEW) {
+                    tft_->print("Grve");
                 } else if (rowEncoder.encoder >= ENCODER_MODULATOR_SYNC_LFO) {
                     tft_->print(lfoSyncParameterRow.paramName[0]);
                 }
@@ -4521,6 +4563,37 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
         if (oldLen != newLen) {
             seqParams->loopLength = (float) newLen;
             synthState_->propagateNewParamValue(currentTimbre_, row, ENCODER_STEPSEQ_LEN, NULL, oldLen, newLen);
+        }
+        return;
+    } else if (unlikely(encoder4 >= ENCODER_ARP_SWING_HITS && encoder4 <= ENCODER_ARP_SWING_VEL)) {
+        int hits, len, rot, vel;
+        getArpSwingGroove(synthState_->params, &hits, &len, &rot, &vel);
+        int oldVal = 0;
+        int newVal = 0;
+        if (encoder4 == ENCODER_ARP_SWING_HITS) {
+            oldVal = hits;
+            hits += ticks;
+            if (hits < 1) hits = 1; else if (hits > 8) hits = 8;
+            newVal = hits;
+        } else if (encoder4 == ENCODER_ARP_SWING_LEN) {
+            oldVal = len;
+            len += ticks;
+            if (len < 2) len = 2; else if (len > 8) len = 8;
+            newVal = len;
+        } else if (encoder4 == ENCODER_ARP_SWING_ROT) {
+            oldVal = rot;
+            rot += ticks;
+            if (rot < 0) rot = 0; else if (rot > 7) rot = 7;
+            newVal = rot;
+        } else {
+            oldVal = vel;
+            vel += ticks;
+            if (vel < 0) vel = 0; else if (vel > 50) vel = 50;
+            newVal = vel;
+        }
+        if (oldVal != newVal) {
+            setArpSwingGroove(synthState_->params, hits, len, rot, vel);
+            synthState_->propagateNewParamValue(currentTimbre_, ROW_NONE, encoder4, NULL, (float) oldVal, (float) newVal);
         }
         return;
     } else {
