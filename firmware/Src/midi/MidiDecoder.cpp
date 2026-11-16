@@ -1030,16 +1030,22 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre, int midiChannel) {
         }
     }
 
-    // Timbre & Master FX NRPNs: MSB = 4, LSB = 0..3 (index 512..515)
+    // Timbre, Master FX & Arp NRPNs: MSB = 4, LSB = 0..8 (index 512..520)
     // 512: TIMBRE_DRYWET (0..100), 513: TIMBRE_DYNAMICS (0..6),
-    // 514: MFX_RETURN (0..100), 515: MFX_PRESET (0..18)
-    const int mixerNrpnVals[4] = {
+    // 514: MFX_RETURN (0..100), 515: MFX_PRESET (0..18),
+    // 516: ARP_EUCLIDEAN_SEED (0..15), 517..520: ARP_USER_PATTERN1..4_LEN (1..16)
+    const int mixerNrpnVals[9] = {
         percentFloatToInt(this->synthState_->mixerState.instrumentState_[timbre].send),
         (int) this->synthState_->mixerState.instrumentState_[timbre].compressorType,
         percentFloatToInt(this->synthState_->mixerState.reverbLevel_),
-        (int) this->synthState_->mixerState.reverbPreset_
+        (int) this->synthState_->mixerState.reverbPreset_,
+        getArpEuclideanSeed(paramsToSend),
+        getArpUserPatternLength(paramsToSend, 0),
+        getArpUserPatternLength(paramsToSend, 1),
+        getArpUserPatternLength(paramsToSend, 2),
+        getArpUserPatternLength(paramsToSend, 3)
     };
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 9; i++) {
         int val = mixerNrpnVals[i];
         if (val < 0) {
             val = 0;
@@ -1062,6 +1068,53 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre, int midiChannel) {
         sendMidiDin5Out();
         sendMidiUsbOutIfBufferFull();
         while (usartBufferOut.getCount() > 0) {
+        }
+    }
+
+    // Arp User Patterns (Usr1..Usr4): MSB = 7..10
+    // LSB = 0..15: step state (0=Off, 1=On, 2=Accent)
+    // LSB = 16..31: step mode (0=Norm, 1=Tie, 2=Oct+, 3=Rt*2, 4=Chrd, 5=Slap)
+    for (int userIdx = 0; userIdx < ARPEGGIATOR_USER_PATTERN_COUNT; userIdx++) {
+        arp_pattern_t pattern = paramsToSend->engineArpUserPatterns.patterns[userIdx];
+        uint16_t mask = ARP_PATTERN_GETMASK(pattern);
+        uint16_t accent = ARP_PATTERN_GETACCENT(pattern);
+        for (int step = 0; step < 16; step++) {
+            uint16_t bit = (uint16_t) (0x1u << step);
+            unsigned char stepState = ((mask & bit) == 0) ? 0 : (((accent & bit) != 0) ? 2 : 1);
+            cc.value[0] = 99;
+            cc.value[1] = (unsigned char) (7 + userIdx);
+            writeMidiCCOut(&cc);
+            cc.value[0] = 98;
+            cc.value[1] = (unsigned char) step;
+            writeMidiCCOut(&cc);
+            cc.value[0] = 6;
+            cc.value[1] = 0;
+            writeMidiCCOut(&cc);
+            cc.value[0] = 38;
+            cc.value[1] = stepState;
+            writeMidiCCOut(&cc);
+            sendMidiDin5Out();
+            sendMidiUsbOutIfBufferFull();
+            while (usartBufferOut.getCount() > 0) {
+            }
+
+            unsigned char stepMode = (unsigned char) getArpUserStepMode(paramsToSend, userIdx, step);
+            cc.value[0] = 99;
+            cc.value[1] = (unsigned char) (7 + userIdx);
+            writeMidiCCOut(&cc);
+            cc.value[0] = 98;
+            cc.value[1] = (unsigned char) (16 + step);
+            writeMidiCCOut(&cc);
+            cc.value[0] = 6;
+            cc.value[1] = 0;
+            writeMidiCCOut(&cc);
+            cc.value[0] = 38;
+            cc.value[1] = stepMode;
+            writeMidiCCOut(&cc);
+            sendMidiDin5Out();
+            sendMidiUsbOutIfBufferFull();
+            while (usartBufferOut.getCount() > 0) {
+            }
         }
     }
 
@@ -1105,7 +1158,7 @@ void MidiDecoder::decodeNrpn(int timbre, int midiChannel, bool allowDump) {
         return;
     }
 
-    // Timbre & Master FX : MSB = 4, LSB = 0..3 (index 512..515)
+    // Timbre, Master FX & Arp : MSB = 4, LSB = 0..8 (index 512..520)
     if (this->currentNrpn[timbre].paramMSB == 4) {
         switch (this->currentNrpn[timbre].paramLSB) {
         case 0:
@@ -1119,6 +1172,15 @@ void MidiDecoder::decodeNrpn(int timbre, int midiChannel, bool allowDump) {
             break;
         case 3:
             this->synth->setNewMixerValueFromMidi(0, MIXER_VALUE_GLOBAL_SETTINGS_3, value);
+            break;
+        case 4:
+            this->synth->setNewArpEuclideanSeedFromMidi(timbre, value);
+            break;
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+            this->synth->setNewArpUserPatternLengthFromMidi(timbre, this->currentNrpn[timbre].paramLSB - 5, value);
             break;
         default:
             break;
@@ -1147,6 +1209,21 @@ void MidiDecoder::decodeNrpn(int timbre, int midiChannel, bool allowDump) {
             this->synth->setNewStepModeFromMidi(timbre, whichStepSeq, lsb, v);
         } else if (lsb == 16) {
             this->synth->setNewStepSeqLoopLengthFromMidi(timbre, whichStepSeq, v);
+        }
+        return;
+    }
+
+    // Arp User Patterns (Usr1..Usr4): MSB = 7..10
+    // LSB = 0..15: step state (0=Off, 1=On, 2=Accent)
+    // LSB = 16..31: step mode (0=Norm, 1=Tie, 2=Oct+, 3=Rt*2, 4=Chrd, 5=Slap)
+    if (this->currentNrpn[timbre].paramMSB >= 7 && this->currentNrpn[timbre].paramMSB <= 10) {
+        int userIdx = this->currentNrpn[timbre].paramMSB - 7;
+        unsigned int lsb = this->currentNrpn[timbre].paramLSB;
+        int v = this->currentNrpn[timbre].valueLSB;
+        if (lsb < 16) {
+            this->synth->setNewArpUserStepStateFromMidi(timbre, userIdx, (int) lsb, v);
+        } else if (lsb < 32) {
+            this->synth->setNewArpUserStepModeFromMidi(timbre, userIdx, (int) (lsb - 16), v);
         }
         return;
     }
@@ -1319,6 +1396,50 @@ void MidiDecoder::newParamValue(int timbre, int currentrow, int encoder, Paramet
                 writeMidiCCOut(&cc);
                 cc.value[0] = 98;
                 cc.value[1] = (encoder == ENCODER_STEPSEQ_LEN) ? 16 : this->synthState_->stepSelect[currentStepSeq];
+                writeMidiCCOut(&cc);
+                cc.value[0] = 6;
+                cc.value[1] = 0;
+                writeMidiCCOut(&cc);
+                cc.value[0] = 38;
+                cc.value[1] = (unsigned char) newValue;
+                writeMidiCCOut(&cc);
+
+                sendMidiDin5Out();
+                sendMidiUsbOut();
+            }
+        } else if (currentrow == ROW_ARPEGGIATOR3) {
+            int pattern = (int) this->synthState_->params->engineArp2.pattern;
+            unsigned char msb = 0;
+            unsigned char lsb = 0;
+            bool valid = false;
+            if (encoder == 3) {
+                if (pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+                    msb = 4;
+                    lsb = 4;
+                    valid = true;
+                } else {
+                    int userIdx = pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT;
+                    if (userIdx >= 0 && userIdx < ARPEGGIATOR_USER_PATTERN_COUNT) {
+                        msb = 4;
+                        lsb = (unsigned char) (5 + userIdx);
+                        valid = true;
+                    }
+                }
+            } else if (encoder == 1 || encoder == 2) {
+                int userIdx = pattern - ARPEGGIATOR_PRESET_PATTERN_COUNT;
+                if (userIdx >= 0 && userIdx < ARPEGGIATOR_USER_PATTERN_COUNT) {
+                    msb = (unsigned char) (7 + userIdx);
+                    lsb = (unsigned char) ((encoder == 1) ? this->synthState_->patternSelect
+                                                          : (16 + this->synthState_->patternSelect));
+                    valid = true;
+                }
+            }
+            if (valid) {
+                cc.value[0] = 99;
+                cc.value[1] = msb;
+                writeMidiCCOut(&cc);
+                cc.value[0] = 98;
+                cc.value[1] = lsb;
                 writeMidiCCOut(&cc);
                 cc.value[0] = 6;
                 cc.value[1] = 0;

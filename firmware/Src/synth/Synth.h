@@ -126,6 +126,10 @@ public:
     void setNewStepValueFromMidi(int timbre, int whichStepSeq, int step, int value);
     void setNewStepModeFromMidi(int timbre, int whichStepSeq, int step, int mode);
     void setNewStepSeqLoopLengthFromMidi(int timbre, int whichStepSeq, int length);
+    void setNewArpEuclideanSeedFromMidi(int timbre, int newValue);
+    void setNewArpUserPatternLengthFromMidi(int timbre, int userIdx, int newValue);
+    void setNewArpUserStepStateFromMidi(int timbre, int userIdx, int step, int newState);
+    void setNewArpUserStepModeFromMidi(int timbre, int userIdx, int step, int newMode);
     void setNewSymbolInPresetName(int timbre, int index, char newchar);
     void loadPreenFMPatchFromMidi(int timbre, int bank, int bankLSB, int patchNumber);
     void setHoldPedal(int timbre, int value);

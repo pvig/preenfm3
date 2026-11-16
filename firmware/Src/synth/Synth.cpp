@@ -953,6 +953,96 @@ void Synth::setNewSeqValueFromMidi(uint8_t timbre, uint8_t seqValue, uint8_t new
     sequencer_->setNewSeqValueFromMidi(timbre, seqValue, newValue);
 }
 
+void Synth::setNewArpEuclideanSeedFromMidi(int timbre, int newValue) {
+    if (newValue < 0) {
+        newValue = 0;
+    } else if (newValue > 15) {
+        newValue = 15;
+    }
+    struct OneSynthParams *params = this->timbres_[timbre].getParamRaw();
+    int oldSeed = getArpEuclideanSeed(params);
+    if (oldSeed != newValue) {
+        setArpEuclideanSeed(params, newValue);
+        this->synthState_->propagateNewParamValueFromExternal(timbre, ROW_ARPEGGIATOR3, 3, NULL, (float) oldSeed,
+            (float) newValue);
+    }
+}
+
+void Synth::setNewArpUserPatternLengthFromMidi(int timbre, int userIdx, int newValue) {
+    if (userIdx < 0 || userIdx >= ARPEGGIATOR_USER_PATTERN_COUNT) {
+        return;
+    }
+    if (newValue < 1 || newValue > 16) {
+        newValue = 16;
+    }
+    struct OneSynthParams *params = this->timbres_[timbre].getParamRaw();
+    int oldLen = getArpUserPatternLength(params, userIdx);
+    if (oldLen != newValue) {
+        setArpUserPatternLength(params, userIdx, newValue);
+        if ((int) params->engineArp2.pattern == ARPEGGIATOR_PRESET_PATTERN_COUNT + userIdx) {
+            this->synthState_->propagateNewParamValueFromExternal(timbre, ROW_ARPEGGIATOR3, 3, NULL,
+                (float) oldLen, (float) newValue);
+        }
+    }
+}
+
+void Synth::setNewArpUserStepStateFromMidi(int timbre, int userIdx, int step, int newState) {
+    if (userIdx < 0 || userIdx >= ARPEGGIATOR_USER_PATTERN_COUNT || step < 0 || step >= 16) {
+        return;
+    }
+    if (newState < 0) {
+        newState = 0;
+    } else if (newState > 2) {
+        newState = 2;
+    }
+    struct OneSynthParams *params = this->timbres_[timbre].getParamRaw();
+    arp_pattern_t pattern = params->engineArpUserPatterns.patterns[userIdx];
+    uint16_t mask = ARP_PATTERN_GETMASK(pattern);
+    uint16_t accent = ARP_PATTERN_GETACCENT(pattern);
+    uint16_t bit = (uint16_t) (0x1u << step);
+
+    int oldState = ((mask & bit) == 0) ? 0 : (((accent & bit) != 0) ? 2 : 1);
+    if (oldState != newState) {
+        if (newState == 0) {
+            mask &= ~bit;
+            accent &= ~bit;
+        } else if (newState == 1) {
+            mask |= bit;
+            accent &= ~bit;
+        } else {
+            mask |= bit;
+            accent |= bit;
+        }
+        ARP_PATTERN_SETMASK(pattern, mask);
+        ARP_PATTERN_SETACCENT(pattern, accent);
+        params->engineArpUserPatterns.patterns[userIdx] = pattern;
+        if ((int) params->engineArp2.pattern == ARPEGGIATOR_PRESET_PATTERN_COUNT + userIdx) {
+            this->synthState_->propagateNewParamValueFromExternal(timbre, ROW_ARPEGGIATOR3, 1, NULL,
+                (float) oldState, (float) newState);
+        }
+    }
+}
+
+void Synth::setNewArpUserStepModeFromMidi(int timbre, int userIdx, int step, int newMode) {
+    if (userIdx < 0 || userIdx >= ARPEGGIATOR_USER_PATTERN_COUNT || step < 0 || step >= 16) {
+        return;
+    }
+    if (newMode < 0) {
+        newMode = 0;
+    } else if (newMode >= ARP_STEP_MODE_COUNT) {
+        newMode = ARP_STEP_MODE_COUNT - 1;
+    }
+    struct OneSynthParams *params = this->timbres_[timbre].getParamRaw();
+    int oldMode = getArpUserStepMode(params, userIdx, step);
+    if (oldMode != newMode) {
+        setArpUserStepMode(params, userIdx, step, newMode);
+        if ((int) params->engineArp2.pattern == ARPEGGIATOR_PRESET_PATTERN_COUNT + userIdx) {
+            this->synthState_->propagateNewParamValueFromExternal(timbre, ROW_ARPEGGIATOR3, 2, NULL,
+                (float) oldMode, (float) newMode);
+        }
+    }
+}
+
 void Synth::setNewStepValueFromMidi(int timbre, int whichStepSeq, int step, int newValue) {
 
     if (whichStepSeq < 0 || whichStepSeq > 1 || step < 0 || step > 15 || newValue < 0 || newValue > 15) {
