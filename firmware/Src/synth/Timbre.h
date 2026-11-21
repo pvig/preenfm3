@@ -442,6 +442,10 @@ private:
     mutable uint16_t arpPresetCacheTie_;
     mutable uint16_t arpPresetCacheOct_;
     mutable uint16_t arpPresetCacheRt_;
+    mutable uint16_t arpPresetCacheOctDown_;
+    mutable uint16_t arpPresetCacheDyad_;
+    mutable uint16_t arpPresetCacheChord_;
+    mutable uint16_t arpPresetCacheSlap_;
 
     // lfoUsed
     uint8_t lfoUSed_[NUMBER_OF_LFO];

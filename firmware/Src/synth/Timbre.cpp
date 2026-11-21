@@ -52,6 +52,10 @@ enum ArpeggiatorDirection {
     ARPEGGIO_DIRECTION_THUMB,
     ARPEGGIO_DIRECTION_PINKY,
     ARPEGGIO_DIRECTION_RANDOM_WALK,
+    ARPEGGIO_DIRECTION_STRIDE,
+    ARPEGGIO_DIRECTION_THIRDS,
+    ARPEGGIO_DIRECTION_LEAP,
+    ARPEGGIO_DIRECTION_OCTAVE_NOTE,
 
     ARPEGGIO_DIRECTION_COUNT
 };
@@ -130,7 +134,8 @@ void Timbre::updateArpPresetCache(int pattern) const
         ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[pattern]),
         lut_res_arpeggiator_ties[pattern],
         seed,
-        &arpPresetCacheAcc_, &arpPresetCacheTie_, &arpPresetCacheOct_, &arpPresetCacheRt_);
+        &arpPresetCacheAcc_, &arpPresetCacheTie_, &arpPresetCacheOct_, &arpPresetCacheRt_,
+        &arpPresetCacheOctDown_, &arpPresetCacheDyad_, &arpPresetCacheChord_, &arpPresetCacheSlap_);
     arpPresetCachePattern_ = (uint8_t)pattern;
     arpPresetCacheSeed_ = (uint8_t)seed;
   }
@@ -171,6 +176,18 @@ int Timbre::getArpeggiatorStepMode() const
     }
     if ((bitmask_ & arpPresetCacheRt_) != 0) {
       return ARP_STEP_MODE_RATCHET2;
+    }
+    if ((bitmask_ & arpPresetCacheOctDown_) != 0) {
+      return ARP_STEP_MODE_OCT_DOWN;
+    }
+    if ((bitmask_ & arpPresetCacheDyad_) != 0) {
+      return ARP_STEP_MODE_DYAD;
+    }
+    if ((bitmask_ & arpPresetCacheChord_) != 0) {
+      return ARP_STEP_MODE_CHORD;
+    }
+    if ((bitmask_ & arpPresetCacheSlap_) != 0) {
+      return ARP_STEP_MODE_SLAP;
     }
     return ARP_STEP_MODE_NORM;
   }
@@ -259,6 +276,10 @@ Timbre::Timbre() {
     arpPresetCacheTie_ = 0;
     arpPresetCacheOct_ = 0;
     arpPresetCacheRt_ = 0;
+    arpPresetCacheOctDown_ = 0;
+    arpPresetCacheDyad_ = 0;
+    arpPresetCacheChord_ = 0;
+    arpPresetCacheSlap_ = 0;
     note_stack_.Init();
     held_note_stack_.Init();
     voice_allocator_.Init(0, VOICE_PRIORITY_LAST_KEY, voice_allocator_pool_, voice_allocator_lru_);
@@ -1427,7 +1448,7 @@ void Timbre::Tick() {
             if (voiceNumber_[0] >= 0) {
                 voices_[voiceNumber_[0]]->arpStepSeqNoteOn();
             }
-            if (ARPEGGIO_DIRECTION_CHORD != direction && stepMode != ARP_STEP_MODE_CHORD) {
+            if (ARPEGGIO_DIRECTION_CHORD != direction && ARPEGGIO_DIRECTION_STRIDE != direction && stepMode != ARP_STEP_MODE_CHORD) {
                 StepArpeggio();
                 int step, transpose = 0;
                 if (direction == ARPEGGIO_DIRECTION_CONVERGE) {
@@ -1440,6 +1461,25 @@ void Timbre::Tick() {
                     step = (current_step_ & 1) ? (1 + (current_step_ >> 1)) : 0;
                 } else if (direction == ARPEGGIO_DIRECTION_PINKY && num_notes > 2) {
                     step = (current_step_ & 1) ? (num_notes - 1) : (current_step_ >> 1);
+                } else if (direction == ARPEGGIO_DIRECTION_THIRDS) {
+                    if (num_notes >= 4) {
+                        step = (current_step_ & 1) ? ((current_step_ >> 1) + 2) : (current_step_ >> 1);
+                    } else if (num_notes == 3) {
+                        static const uint8_t map3[3] = { 0, 2, 1 };
+                        step = map3[current_step_ % 3];
+                    } else {
+                        step = current_step_;
+                    }
+                } else if (direction == ARPEGGIO_DIRECTION_LEAP) {
+                    if (num_notes > 2) {
+                        int half = (num_notes + 1) >> 1;
+                        step = (current_step_ & 1) ? (half + (current_step_ >> 1)) : (current_step_ >> 1);
+                        if (step >= num_notes) {
+                            step = num_notes - 1;
+                        }
+                    } else {
+                        step = current_step_;
+                    }
                 } else if (current_direction_ > 0) {
                     step = start_step_ + current_step_;
                     if (step >= num_notes) {
@@ -1468,26 +1508,97 @@ void Timbre::Tick() {
                     note += transpose;
                 if (stepMode == ARP_STEP_MODE_OCT_UP) {
                     note += 12;
+                } else if (stepMode == ARP_STEP_MODE_OCT_DOWN && note >= 12) {
+                    note -= 12;
                 }
 
                 while (note > 127) {
                     note -= 12;
                 }
 
+                uint8_t compNote = 0;
+                bool hasDyad = false;
+                if (stepMode == ARP_STEP_MODE_DYAD) {
+                    if (num_notes >= 2) {
+                        int compIdx = (num_notes >= 3) ? ((step + 2) % num_notes) : ((step + 1) & 1);
+                        const NoteEntry &compEntry = (ARPEGGIO_DIRECTION_PLAYED == direction)
+                            ? note_stack_.played_note(compIdx)
+                            : note_stack_.sorted_note(compIdx);
+                        int cn = (int) compEntry.note + 12 * current_octave_ + (__canTranspose(direction) ? transpose : 0);
+                        while (cn > 127) {
+                            cn -= 12;
+                        }
+                        if (cn >= 0 && cn != note) {
+                            compNote = (uint8_t) cn;
+                            hasDyad = true;
+                        }
+                    } else {
+                        compNote = (note <= 120) ? (uint8_t) (note + 7) : (uint8_t) (note - 5);
+                        hasDyad = true;
+                    }
+                }
+
                 if (swingDelay == 0) {
                     SendNote(note, velocity, stepMode);
+                    if (hasDyad) {
+                        uint8_t compVel = (uint8_t) ((velocity * 7) >> 3);
+                        if (compVel < 1) {
+                            compVel = 1;
+                        }
+                        SendNote(compNote, compVel, stepMode);
+                    }
                 } else {
                     arpStrumNotes_[0] = note;
                     arpStrumVelocities_[0] = velocity;
                     arpStrumDelay_[0] = swingDelay;
                     arpStrumCount_ = 1;
+                    if (hasDyad) {
+                        uint8_t compVel = (uint8_t) ((velocity * 7) >> 3);
+                        if (compVel < 1) {
+                            compVel = 1;
+                        }
+                        arpStrumNotes_[1] = compNote;
+                        arpStrumVelocities_[1] = compVel;
+                        arpStrumDelay_[1] = (uint16_t) (swingDelay + 3);
+                        arpStrumCount_ = 2;
+                    }
                 }
             } else {
                 uint32_t seed = (uint32_t) chord_cycle_ * 2654435761u;
                 bool strumDown = has_accent
                     ? (((seed >> 8) % 5u) == 0u)
                     : (((seed >> 8) & 1u) != 0u);
+                bool highPhase = (chord_cycle_ & 1u) != 0u;
                 chord_cycle_++;
+
+                int chordIndices[16];
+                int chordCount = 0;
+                if (direction == ARPEGGIO_DIRECTION_STRIDE && stepMode != ARP_STEP_MODE_CHORD) {
+                    if (num_notes == 1) {
+                        chordIndices[chordCount++] = 0;
+                    } else if (num_notes == 2) {
+                        chordIndices[chordCount++] = highPhase ? 1 : 0;
+                    } else if (!highPhase) {
+                        chordIndices[chordCount++] = 0;
+                    } else if (num_notes == 3) {
+                        chordIndices[chordCount++] = 1;
+                        chordIndices[chordCount++] = 2;
+                    } else {
+                        chordIndices[chordCount++] = num_notes - 2;
+                        chordIndices[chordCount++] = num_notes - 1;
+                    }
+                } else if (num_notes <= 3) {
+                    for (int idx = 0; idx < num_notes && idx < 16; ++idx) {
+                        chordIndices[chordCount++] = idx;
+                    }
+                } else if (!highPhase) {
+                    chordIndices[chordCount++] = 0;
+                    chordIndices[chordCount++] = 1;
+                } else {
+                    chordIndices[chordCount++] = num_notes - 2;
+                    chordIndices[chordCount++] = num_notes - 1;
+                }
+
                 bool hasRatchet = (stepMode == ARP_STEP_MODE_RATCHET2)
                     || (voiceNumber_[0] >= 0 && fabsf(voices_[voiceNumber_[0]]->matrix.getDestination(MTX_DEST_ARP_RATCHET)) >= 0.04f);
                 // Tight, organic strum spacing: ~2-5 ms per note (3-7 blocks at 1500 Hz).
@@ -1496,11 +1607,11 @@ void Timbre::Tick() {
                     : (4 + (int) ((seed >> 2) % 4u));
                 int accumDelay = 0;
 
-                for (int idx = 0; idx < num_notes; ++idx) {
-                    int i = strumDown ? (num_notes - 1 - idx) : idx;
+                for (int idx = 0; idx < chordCount; ++idx) {
+                    int i = strumDown ? chordIndices[chordCount - 1 - idx] : chordIndices[idx];
                     const NoteEntry &noteEntry = note_stack_.sorted_note(i);
                     int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 24 : 0);
-                    if (num_notes > 1) {
+                    if (chordCount > 1) {
                         int velJitter = ((int) ((seed >> (12 + (idx & 3) * 3)) & 7u) - 3) * 2;
                         effVel += (-4 * idx) + velJitter;
                     }
@@ -1512,6 +1623,8 @@ void Timbre::Tick() {
                     uint8_t chordNote = noteEntry.note;
                     if (stepMode == ARP_STEP_MODE_OCT_UP && chordNote <= 115) {
                         chordNote += 12;
+                    } else if (stepMode == ARP_STEP_MODE_OCT_DOWN && chordNote >= 12) {
+                        chordNote -= 12;
                     }
 
                     if ((swingDelay == 0 && (idx == 0 || hasRatchet)) || arpStrumCount_ >= 8) {
@@ -1577,11 +1690,22 @@ void Timbre::StepArpeggio() {
         }
         current_octave_ = (uint8_t) (flat / num_notes);
         current_step_ = (uint8_t) (flat % num_notes);
+    } else if (direction == ARPEGGIO_DIRECTION_OCTAVE_NOTE) {
+        if (++current_octave_ >= params_.engineArp1.octave) {
+            current_octave_ = 0;
+            ++current_step_;
+        }
+        if (current_step_ >= num_notes) {
+            current_step_ = 0;
+        }
     } else {
         // NOTE: We always count [0 - cycleLen) here; the actual handling of direction is in Tick()
-        uint8_t cycleLen = ((direction == ARPEGGIO_DIRECTION_THUMB || direction == ARPEGGIO_DIRECTION_PINKY) && num_notes > 2)
-            ? (uint8_t) (2 * (num_notes - 1))
-            : num_notes;
+        uint8_t cycleLen = num_notes;
+        if ((direction == ARPEGGIO_DIRECTION_THUMB || direction == ARPEGGIO_DIRECTION_PINKY) && num_notes > 2) {
+            cycleLen = (uint8_t) (2 * (num_notes - 1));
+        } else if (direction == ARPEGGIO_DIRECTION_THIRDS && num_notes >= 4) {
+            cycleLen = (uint8_t) (2 * (num_notes - 2));
+        }
 
         uint8_t trigger_change = 0;
         if (++current_step_ >= cycleLen) {

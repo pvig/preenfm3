@@ -852,10 +852,38 @@ static inline void setArpEuclideanSeed(struct OneSynthParams *params, int seed) 
     params->lfoPhases.unused1 = conv.f;
 }
 
+static inline uint16_t pickArpEuclideanSteps(const uint8_t *active, int n, int offset, uint16_t usedMask, int target) {
+    uint8_t cand[16];
+    int count = 0;
+    for (int i = 0; i < n; i++) {
+        int s = active[(i + offset) % n];
+        uint16_t bit = (uint16_t) (1u << s);
+        if (!(usedMask & bit)) {
+            cand[count++] = (uint8_t) s;
+        }
+    }
+    if (count == 0) {
+        return 0;
+    }
+    int stepPick = (count >= target * 2) ? (count / target) : 1;
+    uint16_t out = 0;
+    int picked = 0;
+    for (int i = 0; i < count && picked < target; i += stepPick) {
+        out |= (uint16_t) (1u << cand[i]);
+        picked++;
+    }
+    return out;
+}
+
 static inline void computeArpPresetMasks(uint16_t stepMask, uint16_t baseAccent, uint16_t baseTie,
-        int seed, uint16_t *outAccent, uint16_t *outTie, uint16_t *outOctUp, uint16_t *outRatchet2) {
+        int seed, uint16_t *outAccent, uint16_t *outTie, uint16_t *outOctUp, uint16_t *outRatchet2,
+        uint16_t *outOctDown, uint16_t *outDyad, uint16_t *outChord, uint16_t *outSlap) {
     *outOctUp = 0;
     *outRatchet2 = 0;
+    if (outOctDown) *outOctDown = 0;
+    if (outDyad) *outDyad = 0;
+    if (outChord) *outChord = 0;
+    if (outSlap) *outSlap = 0;
     if (seed <= 0) {
         *outAccent = 0;
         *outTie = 0;
@@ -948,52 +976,48 @@ static inline void computeArpPresetMasks(uint16_t stepMask, uint16_t baseAccent,
     *outAccent = accMask;
     *outTie = tieMask;
 
+    uint16_t usedMask = tieMask;
     uint16_t octMask = 0;
+    uint16_t octDownMask = 0;
     uint16_t rtMask = 0;
+    uint16_t dyadMask = 0;
+    uint16_t slapMask = 0;
+    uint16_t chordMask = 0;
+
     if (rawSeed >= 8 && n > 2) {
-        // Place 1..2 Oct+ steps on non-tie active steps
-        int octTarget = (rawSeed >= 10 && n >= 6) ? 2 : 1;
-        uint8_t octCand[16];
-        int oCount = 0;
-        for (int i = 0; i < n; i++) {
-            int s = active[(i + rot + 1) % n];
-            uint16_t bit = (uint16_t) (1u << s);
-            if (!(tieMask & bit)) {
-                octCand[oCount++] = (uint8_t) s;
-            }
-        }
-        if (oCount > 0) {
-            int stepPick = (oCount >= octTarget * 2) ? (oCount / octTarget) : 1;
-            int picked = 0;
-            for (int i = 0; i < oCount && picked < octTarget; i += stepPick) {
-                octMask |= (uint16_t) (1u << octCand[i]);
-                picked++;
-            }
-        }
+        int target = (rawSeed >= 10 && n >= 6) ? 2 : 1;
+        octMask = pickArpEuclideanSteps(active, n, (rot + 1) % n, usedMask, target);
+        usedMask |= octMask;
+    }
+    if (rawSeed >= 10 && n > 3) {
+        int target = (rawSeed >= 13 && n >= 7) ? 2 : 1;
+        octDownMask = pickArpEuclideanSteps(active, n, (rot + 2) % n, usedMask, target);
+        usedMask |= octDownMask;
     }
     if (rawSeed >= 12 && n > 3) {
-        // Place 1..2 Rt*2 steps on remaining non-tie, non-Oct+ active steps
-        int rtTarget = (rawSeed >= 14 && n >= 8) ? 2 : 1;
-        uint8_t rtCand[16];
-        int rCount = 0;
-        for (int i = 0; i < n; i++) {
-            int s = active[(i + rot * 2 + n - 1) % n];
-            uint16_t bit = (uint16_t) (1u << s);
-            if (!(tieMask & bit) && !(octMask & bit)) {
-                rtCand[rCount++] = (uint8_t) s;
-            }
-        }
-        if (rCount > 0) {
-            int stepPick = (rCount >= rtTarget * 2) ? (rCount / rtTarget) : 1;
-            int picked = 0;
-            for (int i = 0; i < rCount && picked < rtTarget; i += stepPick) {
-                rtMask |= (uint16_t) (1u << rtCand[i]);
-                picked++;
-            }
-        }
+        int target = (rawSeed >= 14 && n >= 8) ? 2 : 1;
+        rtMask = pickArpEuclideanSteps(active, n, (rot * 2 + n - 1) % n, usedMask, target);
+        usedMask |= rtMask;
     }
+    if (rawSeed >= 13 && n > 4) {
+        int target = (rawSeed >= 15 && n >= 8) ? 2 : 1;
+        dyadMask = pickArpEuclideanSteps(active, n, (rot + 3) % n, usedMask, target);
+        usedMask |= dyadMask;
+    }
+    if (rawSeed >= 14 && n > 4) {
+        slapMask = pickArpEuclideanSteps(active, n, (rot * 3 + 1) % n, usedMask, 1);
+        usedMask |= slapMask;
+    }
+    if (rawSeed >= 15 && n > 5) {
+        chordMask = pickArpEuclideanSteps(active, n, (rot + n / 2) % n, usedMask, 1);
+    }
+
     *outOctUp = octMask;
     *outRatchet2 = rtMask;
+    if (outOctDown) *outOctDown = octDownMask;
+    if (outDyad) *outDyad = dyadMask;
+    if (outChord) *outChord = chordMask;
+    if (outSlap) *outSlap = slapMask;
 }
 
 static inline int getArpPresetLength(int seed) {
@@ -1016,6 +1040,8 @@ enum ArpStepMode {
     ARP_STEP_MODE_RATCHET2,
     ARP_STEP_MODE_CHORD,
     ARP_STEP_MODE_SLAP,
+    ARP_STEP_MODE_DYAD,
+    ARP_STEP_MODE_OCT_DOWN,
     ARP_STEP_MODE_COUNT
 };
 

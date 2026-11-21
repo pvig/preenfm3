@@ -421,7 +421,11 @@ const char *dirName[] = {
     "Div ",
     "Thmb",
     "Pnky",
-    "Walk" };
+    "Walk",
+    "Strd",
+    "3rds",
+    "Leap",
+    "OctN" };
 
 struct ParameterRowDisplay engineArp1ParameterRow = {
     "Arpeggiator",
@@ -449,8 +453,8 @@ struct ParameterRowDisplay engineArp1ParameterRow = {
             nullNamesOrder },
         {
             0,
-            18,
-            19,
+            22,
+            23,
             DISPLAY_TYPE_STRINGS,
             dirName,
             nullNamesOrder,
@@ -4101,7 +4105,7 @@ static void drawStepGrid(TftDisplay *tft, const uint8_t levels[16], const TFT_CO
 }
 
 static const char * const arpStepModeNames[ARP_STEP_MODE_COUNT] = {
-    "Norm", "Tie ", "Oct+", "Rt*2", "Chrd", "Slap"
+    "Norm", "Tie ", "Oct+", "Rt*2", "Chrd", "Slap", "Dyad", "Oct-"
 };
 
 static uint8_t getArpStepLevel(arp_pattern_t pattern, int step) {
@@ -4125,6 +4129,10 @@ static TFT_COLOR getArpStepColor(arp_pattern_t pattern, int step, int stepMode) 
         return COLOR_YELLOW;
     case ARP_STEP_MODE_SLAP:
         return COLOR_RED;
+    case ARP_STEP_MODE_DYAD:
+        return COLOR_ORANGE;
+    case ARP_STEP_MODE_OCT_DOWN:
+        return COLOR_LIGHT_GREEN;
     default: {
         bool accentOn = ((ARP_PATTERN_GETACCENT(pattern) >> step) & 0x1) != 0;
         if (accentOn) {

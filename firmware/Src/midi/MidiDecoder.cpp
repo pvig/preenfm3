@@ -1073,7 +1073,7 @@ void MidiDecoder::sendCurrentPatchAsNrpns(int timbre, int midiChannel) {
 
     // Arp User Patterns (Usr1..Usr4): MSB = 7..10
     // LSB = 0..15: step state (0=Off, 1=On, 2=Accent)
-    // LSB = 16..31: step mode (0=Norm, 1=Tie, 2=Oct+, 3=Rt*2, 4=Chrd, 5=Slap)
+    // LSB = 16..31: step mode (0=Norm, 1=Tie, 2=Oct+, 3=Rt*2, 4=Chrd, 5=Slap, 6=Dyad, 7=Oct-)
     for (int userIdx = 0; userIdx < ARPEGGIATOR_USER_PATTERN_COUNT; userIdx++) {
         arp_pattern_t pattern = paramsToSend->engineArpUserPatterns.patterns[userIdx];
         uint16_t mask = ARP_PATTERN_GETMASK(pattern);
@@ -1215,7 +1215,7 @@ void MidiDecoder::decodeNrpn(int timbre, int midiChannel, bool allowDump) {
 
     // Arp User Patterns (Usr1..Usr4): MSB = 7..10
     // LSB = 0..15: step state (0=Off, 1=On, 2=Accent)
-    // LSB = 16..31: step mode (0=Norm, 1=Tie, 2=Oct+, 3=Rt*2, 4=Chrd, 5=Slap)
+    // LSB = 16..31: step mode (0=Norm, 1=Tie, 2=Oct+, 3=Rt*2, 4=Chrd, 5=Slap, 6=Dyad, 7=Oct-)
     if (this->currentNrpn[timbre].paramMSB >= 7 && this->currentNrpn[timbre].paramMSB <= 10) {
         int userIdx = this->currentNrpn[timbre].paramMSB - 7;
         unsigned int lsb = this->currentNrpn[timbre].paramLSB;
