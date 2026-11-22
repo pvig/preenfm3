@@ -663,7 +663,6 @@ void Timbre::setHoldPedal(int value) {
 void Timbre::setNewBPMValue(float bpm) {
     float ticksPerSecond = bpm * 24.0f / 60.0f;
     ticksEveryNCalls_ = CALLED_PER_SECOND / ticksPerSecond;
-    ticksEveyNCallsInteger_ = (int) ticksEveryNCalls_;
 }
 
 void Timbre::setArpeggiatorClock(float clockValue) {
@@ -686,7 +685,7 @@ void Timbre::updateArpegiatorInternalClock() {
     if (params_.engineArp1.clock == CLOCK_INTERNAL) {
         arpegiatorStep_ += 1.0f;
         if (unlikely((arpegiatorStep_) > ticksEveryNCalls_)) {
-            arpegiatorStep_ -= ticksEveyNCallsInteger_;
+            arpegiatorStep_ -= ticksEveryNCalls_;
             Tick();
         }
     } else if (params_.engineArp1.clock == CLOCK_EXTERNAL) {

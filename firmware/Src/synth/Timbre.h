@@ -445,11 +445,7 @@ private:
     bool recomputeNext_;
     float currentGate_;
     // Arpeggiator
-
-    // TO REFACTOR
     float ticksEveryNCalls_;
-    int ticksEveyNCallsInteger_;
-
     float arpegiatorStep_;
     NoteStack note_stack_;
     NoteStack held_note_stack_;
