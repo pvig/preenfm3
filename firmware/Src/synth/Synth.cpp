@@ -326,11 +326,19 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
     FxBus* fxBus = &this->synthState_->mixerState.fxBus_;
     fxBus->mixSumInit();
 
+    bool timbreActive[NUMBER_OF_TIMBRES];
     for (int timbre = 0; timbre < NUMBER_OF_TIMBRES; timbre++) {
         // numberOfVoices = 0; => timbre is disabled
         if (this->synthState_->mixerState.instrumentState_[timbre].numberOfVoices == 0) {
+            if (timbres_[timbre].isZeroFadeActive()) {
+                timbres_[timbre].stepZeroFade(false);
+                timbreActive[timbre] = true;
+            } else {
+                timbreActive[timbre] = false;
+            }
             continue;
         }
+        timbreActive[timbre] = true;
         //Gate and mixer are per timbre
         if (abs(smoothVolume_[timbre] - synthState_->mixerState.instrumentState_[timbre].volume) < .0005f) {
             smoothVolume_[timbre] = synthState_->mixerState.instrumentState_[timbre].volume;
@@ -384,6 +392,9 @@ uint8_t Synth::buildNewSampleBlock(int32_t *buffer1, int32_t *buffer2, int32_t *
     }
 
     for (int timbre = 0; timbre < NUMBER_OF_TIMBRES; timbre++) {
+        if (!timbreActive[timbre]) {
+            continue;
+        }
         float *sampleFromTimbre = timbres_[timbre].getSampleBlock();
 
         // Max is 0x7fffff * [-1:1]
@@ -768,14 +779,37 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
                 for (int v = (int) oldValue; v < (int) newValue; v++) {
                     timbres_[timbre].setVoiceNumber(v, getFreeVoice());
                 }
+                timbres_[timbre].numberOfVoicesChanged(newValue);
             } else {
+                float removedL = 0.0f;
+                float removedR = 0.0f;
+                if ((int) newValue == 0) {
+                    const float *tb = timbres_[timbre].getSampleBlock();
+                    removedL = tb[BLOCK_SIZE * 2 - 2];
+                    removedR = tb[BLOCK_SIZE * 2 - 1];
+                } else {
+                    float gain = smoothVolume_[timbre] * 0.2f;
+                    for (int v = (int) newValue; v < (int) oldValue; v++) {
+                        int voiceIdx = timbres_[timbre].voiceNumber_[v];
+                        if (voiceIdx >= 0 && voices_[voiceIdx].isPlaying()) {
+                            const float *vb = voices_[voiceIdx].getSampleBlock();
+                            removedL += vb[BLOCK_SIZE * 2 - 2] * gain;
+                            removedR += vb[BLOCK_SIZE * 2 - 1] * gain;
+                        }
+                    }
+                }
+                if (removedL != 0.0f || removedR != 0.0f) {
+                    timbres_[timbre].addRemovalFade(removedL, removedR);
+                }
+                timbres_[timbre].numberOfVoicesChanged(newValue);
                 for (int v = (int) newValue; v < (int) oldValue; v++) {
-                    voices_[timbres_[timbre].voiceNumber_[v]].killNow();
+                    int voiceIdx = timbres_[timbre].voiceNumber_[v];
+                    if (voiceIdx >= 0) {
+                        voices_[voiceIdx].killNow();
+                    }
                     timbres_[timbre].setVoiceNumber(v, -1);
                 }
             }
-
-            timbres_[timbre].numberOfVoicesChanged(newValue);
             break;
         case MIXER_VALUE_COMPRESSOR:
             switch ((int) newValue) {

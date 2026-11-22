@@ -92,6 +92,53 @@ public:
     inline void preenNoteOnUpdateMatrix(int voiceToUse, int note, int velocity);
     void preenNoteOff(char note, bool restoreHeldNotes = false);
 
+    bool isZeroFadeActive() const {
+        return zeroFadeBlocks_ > 0;
+    }
+
+    void addRemovalFade(float l, float r) {
+        if (l == 0.0f && r == 0.0f) {
+            return;
+        }
+        zeroFadeL_ += l;
+        zeroFadeR_ += r;
+        zeroFadeStepL_ = zeroFadeL_ * (1.0f / (4.0f * (float) BLOCK_SIZE));
+        zeroFadeStepR_ = zeroFadeR_ * (1.0f / (4.0f * (float) BLOCK_SIZE));
+        zeroFadeBlocks_ = 4;
+    }
+
+    void stepZeroFade(bool additive) {
+        if (zeroFadeBlocks_ == 0) {
+            if (!additive) {
+                cleanNextBlock();
+            }
+            return;
+        }
+        float *sp = sampleBlock_;
+        float l = zeroFadeL_;
+        float r = zeroFadeR_;
+        float stepL = zeroFadeStepL_;
+        float stepR = zeroFadeStepR_;
+        for (int s = 0; s < BLOCK_SIZE; s++) {
+            l -= stepL;
+            r -= stepR;
+            if (additive) {
+                *sp++ += l;
+                *sp++ += r;
+            } else {
+                *sp++ = l;
+                *sp++ = r;
+            }
+        }
+        zeroFadeL_ = l;
+        zeroFadeR_ = r;
+        zeroFadeBlocks_--;
+        if (zeroFadeBlocks_ == 0) {
+            zeroFadeL_ = 0.0f;
+            zeroFadeR_ = 0.0f;
+        }
+    }
+
     void numberOfVoicesChanged(uint8_t newNumberOfVoices) {
         if (likely(newNumberOfVoices > 0)) {
             numberOfVoiceInverse_ = 1.0f / (float) newNumberOfVoices;
@@ -100,6 +147,18 @@ public:
         }
         numberOfVoices_ = newNumberOfVoices;
         voice_allocator_.Init(newNumberOfVoices, getVoicePriorityMode(), voice_allocator_pool_, voice_allocator_lru_);
+        if (newNumberOfVoices == 0) {
+            if (!isZeroFadeActive()) {
+                cleanNextBlock();
+            }
+            note_stack_.Clear();
+            held_note_stack_.Clear();
+            event_scheduler_.Init();
+            arpRatchetActive_ = false;
+            arpRatchetGateOpen_ = false;
+            arpRatchetCount_ = 0;
+            arpStrumCount_ = 0;
+        }
     }
 
     uint8_t getVoicePriorityMode() const {
@@ -452,6 +511,11 @@ private:
     uint8_t lowerNote_;
     float lowerNoteFrequency;
     bool lowerNoteReleased_;
+    float zeroFadeL_;
+    float zeroFadeR_;
+    float zeroFadeStepL_;
+    float zeroFadeStepR_;
+    uint8_t zeroFadeBlocks_;
 
     // Unison phase
     static float unisonPhase[14];

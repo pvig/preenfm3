@@ -263,6 +263,11 @@ Timbre::Timbre() {
     arpRatchetSubDiv_ = 1;
     arpRatchetSign_ = 1;
     arpRatchetGateOpen_ = false;
+    zeroFadeL_ = 0.0f;
+    zeroFadeR_ = 0.0f;
+    zeroFadeStepL_ = 0.0f;
+    zeroFadeStepR_ = 0.0f;
+    zeroFadeBlocks_ = 0;
     arpRatchetActive_ = false;
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
@@ -499,6 +504,9 @@ void Timbre::preenNoteOnUpdateMatrix(int voiceToUse, int note, int velocity) {
 }
 
 void Timbre::preenNoteOff(char note, bool restoreNotes) {
+    if (unlikely(numberOfVoices_ == 0)) {
+        return;
+    }
     bool isUnison = params_.engine1.playMode == PLAY_MODE_UNISON;
 
     if (note == lowerNote_) {
@@ -509,7 +517,7 @@ void Timbre::preenNoteOff(char note, bool restoreNotes) {
         if (unlikely(holdPedal_)) {
             for (int k = 0; k < numberOfVoices_; k++) {
                 int n = voiceNumber_[k];
-                if (voices_[n]->isPlaying() && !voices_[n]->isReleased() && voices_[n]->getNote() == note) {
+                if (n >= 0 && voices_[n]->isPlaying() && !voices_[n]->isReleased() && voices_[n]->getNote() == note) {
                     voices_[n]->setHoldedByPedal(true);
                     return;
                 }
@@ -520,10 +528,23 @@ void Timbre::preenNoteOff(char note, bool restoreNotes) {
         uint8_t releasedVoice = voice_allocator_.NoteOff((uint8_t) note);
         if (releasedVoice != 0xff) {
             int n = voiceNumber_[releasedVoice];
-            bool wasActive = voices_[n]->isPlaying() && !voices_[n]->isReleased();
-            voices_[n]->noteOff();
-            if (restoreNotes && wasActive) {
-                restoreHeldNotes(1);
+            if (likely(n >= 0)) {
+                bool wasActive = voices_[n]->isPlaying() && !voices_[n]->isReleased();
+                voices_[n]->noteOff();
+                if (restoreNotes && wasActive) {
+                    restoreHeldNotes(1);
+                }
+            }
+        } else {
+            for (int k = 0; k < numberOfVoices_; k++) {
+                int n = voiceNumber_[k];
+                if (n >= 0 && voices_[n]->isPlaying() && !voices_[n]->isReleased() && voices_[n]->getNote() == note) {
+                    voices_[n]->noteOff();
+                    if (restoreNotes) {
+                        restoreHeldNotes(1);
+                    }
+                    break;
+                }
             }
         }
         return;
@@ -535,7 +556,7 @@ void Timbre::preenNoteOff(char note, bool restoreNotes) {
         // voice number k of timbre
         int n = voiceNumber_[k];
 
-        if (unlikely(!voices_[n]->isPlaying() || voices_[n]->isReleased())) {
+        if (unlikely(n < 0 || !voices_[n]->isPlaying() || voices_[n]->isReleased())) {
             continue;
         }
 
@@ -750,7 +771,7 @@ uint8_t Timbre::voicesNextBlock() {
         float opPan = - params_.engine2.unisonSpread;
         float opPanInc = 2.0f / numberOfCarrierOp * params_.engine2.unisonSpread;
 
-        if (likely(voices_[voiceNumber_[0]]->isPlaying())) {
+        if (likely(voiceNumber_[0] >= 0 && voices_[voiceNumber_[0]]->isPlaying())) {
             for (int vv = 0; vv < numberOfVoices_; vv++) {
                 int v = voiceNumber_[vv];
                 if (unlikely(v < 0)) {
@@ -783,7 +804,7 @@ uint8_t Timbre::voicesNextBlock() {
             }
             voices_[voiceNumber_[0]]->fxAfterBlock();
 
-        } else {
+        } else if (likely(voiceNumber_[0] >= 0)) {
             voices_[voiceNumber_[0]]->emptyBuffer();
         }
 
@@ -796,6 +817,9 @@ uint8_t Timbre::voicesNextBlock() {
     } else {
         for (int k = 0; k < numberOfVoices_; k++) {
             int v = voiceNumber_[k];
+            if (unlikely(v < 0)) {
+                continue;
+            }
             if (likely(voices_[v]->isPlaying())) {
                 voices_[v]->nextBlock();
                 voices_[v]->fxAfterBlock();
@@ -812,6 +836,10 @@ uint8_t Timbre::voicesNextBlock() {
 void Timbre::voicesToTimbre(float volumeGain) {
 
     int numberOfVoicesToCopy = numberOfVoices_;
+    if (unlikely(numberOfVoicesToCopy <= 0 || voiceNumber_[0] < 0)) {
+        cleanNextBlock();
+        return;
+    }
 
     // If unison : all voices have already been added to the first one
     if (unlikely(params_.engine1.playMode == PLAY_MODE_UNISON)) {
@@ -847,6 +875,9 @@ void Timbre::voicesToTimbre(float volumeGain) {
                 *timbreBlock++ += *voiceBlock++;
             }
         }
+    }
+    if (unlikely(isZeroFadeActive())) {
+        stepZeroFade(true);
     }
 }
 
