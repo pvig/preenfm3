@@ -447,7 +447,6 @@ private:
     // Arpeggiator
 
     // TO REFACTOR
-    float ticksPerSecond_;
     float ticksEveryNCalls_;
     int ticksEveyNCallsInteger_;
 
@@ -494,7 +493,6 @@ private:
     uint8_t arpStrumCount_;
     uint8_t arpPendingStepMode_;
     float arpSwingStepScale_;
-    float arpSwingVelScale_;
     mutable uint8_t arpPresetCachePattern_;
     mutable uint8_t arpPresetCacheSeed_;
     mutable uint16_t arpPresetCacheAcc_;

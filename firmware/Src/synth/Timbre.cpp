@@ -272,7 +272,6 @@ Timbre::Timbre() {
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
     arpSwingStepScale_ = 1.0f;
-    arpSwingVelScale_ = 1.0f;
     arpPresetCachePattern_ = 0xFF;
     arpPresetCacheSeed_ = 0xFF;
     arpPresetCacheAcc_ = 0;
@@ -662,8 +661,8 @@ void Timbre::setHoldPedal(int value) {
 }
 
 void Timbre::setNewBPMValue(float bpm) {
-    ticksPerSecond_ = bpm * 24.0f / 60.0f;
-    ticksEveryNCalls_ = CALLED_PER_SECOND / ticksPerSecond_;
+    float ticksPerSecond = bpm * 24.0f / 60.0f;
+    ticksEveryNCalls_ = CALLED_PER_SECOND / ticksPerSecond;
     ticksEveyNCallsInteger_ = (int) ticksEveryNCalls_;
 }
 
@@ -1399,7 +1398,6 @@ void Timbre::FlushQueue() {
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
     arpSwingStepScale_ = 1.0f;
-    arpSwingVelScale_ = 1.0f;
     while (event_scheduler_.size()) {
         SendScheduledNotes();
     }
@@ -1462,7 +1460,7 @@ void Timbre::Tick() {
         } else {
             arpSwingStepScale_ = 1.0f;
         }
-        arpSwingVelScale_ = (curSwung && swingNorm > 0.0f)
+        float swingVelScale = (curSwung && swingNorm > 0.0f)
             ? (1.0f - swingNorm * getArpSwingVelAttenCoeff(grooveIdx))
             : 1.0f;
 
@@ -1543,7 +1541,7 @@ void Timbre::Tick() {
                 const NoteEntry &noteEntry = ARPEGGIO_DIRECTION_PLAYED == direction ? note_stack_.played_note(step) : note_stack_.sorted_note(step);
 
                 uint8_t note = noteEntry.note;
-                int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 32 : 0) + humnVel;
+                int effVel = (int) roundf((float) noteEntry.velocity * swingVelScale) + (has_accent ? 32 : 0) + humnVel;
                 if (effVel < 1) {
                     effVel = 1;
                 } else if (effVel > 127) {
@@ -1657,7 +1655,7 @@ void Timbre::Tick() {
                 for (int idx = 0; idx < chordCount; ++idx) {
                     int i = strumDown ? chordIndices[chordCount - 1 - idx] : chordIndices[idx];
                     const NoteEntry &noteEntry = note_stack_.sorted_note(i);
-                    int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 24 : 0) + humnVel;
+                    int effVel = (int) roundf((float) noteEntry.velocity * swingVelScale) + (has_accent ? 24 : 0) + humnVel;
                     if (chordCount > 1) {
                         int velJitter = ((int) ((seed >> (12 + (idx & 3) * 3)) & 7u) - 3) * 2;
                         effVel += (-4 * idx) + velJitter;
@@ -1800,7 +1798,6 @@ void Timbre::resetArpPatternState() {
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
     arpSwingStepScale_ = 1.0f;
-    arpSwingVelScale_ = 1.0f;
     for (int k = 0; k < numberOfVoices_; k++) {
         if (voiceNumber_[k] >= 0) {
             voices_[voiceNumber_[k]]->arpStartStepSeq();
