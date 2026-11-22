@@ -70,6 +70,7 @@ public:
     void StartArpeggio();
     void StepArpeggio();
     void Start();
+    void resetArpPatternState();
     void arpeggiatorSetHoldPedal(uint8_t value);
     void setLatchMode(uint8_t value);
     void setDirection(uint8_t value);
@@ -433,7 +434,6 @@ private:
     uint16_t arpStrumDelay_[8];
     uint8_t arpStrumCount_;
     uint8_t arpPendingStepMode_;
-    uint8_t arpSwingStepIndex_;
     float arpSwingStepScale_;
     float arpSwingVelScale_;
     mutable uint8_t arpPresetCachePattern_;

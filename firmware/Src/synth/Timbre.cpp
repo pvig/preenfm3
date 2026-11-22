@@ -53,7 +53,6 @@ enum ArpeggiatorDirection {
     ARPEGGIO_DIRECTION_PINKY,
     ARPEGGIO_DIRECTION_RANDOM_WALK,
     ARPEGGIO_DIRECTION_STRIDE,
-    ARPEGGIO_DIRECTION_THIRDS,
     ARPEGGIO_DIRECTION_LEAP,
     ARPEGGIO_DIRECTION_OCTAVE_NOTE,
 
@@ -267,7 +266,6 @@ Timbre::Timbre() {
     arpRatchetActive_ = false;
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
-    arpSwingStepIndex_ = 0;
     arpSwingStepScale_ = 1.0f;
     arpSwingVelScale_ = 1.0f;
     arpPresetCachePattern_ = 0xFF;
@@ -1023,15 +1021,19 @@ void Timbre::setNewEffecParam(int encoder) {
 // Arpeggiator app.
 
 void Timbre::arpeggiatorNoteOn(char note, char velocity) {
+    bool isNewLatchedChord = (latch_ && !recording_);
+    bool wasEmpty = (note_stack_.size() == 0) || isNewLatchedChord;
     // CLOCK_MODE_INTERNAL
     if (params_.engineArp1.clock == CLOCK_INTERNAL) {
-        if (idle_ticks_ >= 96 || !running_) {
+        if (wasEmpty || idle_ticks_ >= 96 || !running_) {
             Start();
         }
         idle_ticks_ = 0;
+    } else if (wasEmpty) {
+        resetArpPatternState();
     }
 
-    if (latch_ && !recording_) {
+    if (isNewLatchedChord) {
         note_stack_.Clear();
         recording_ = 1;
     }
@@ -1044,6 +1046,9 @@ void Timbre::arpeggiatorNoteOff(char note) {
     }
     if (!latch_) {
         note_stack_.NoteOff(note);
+        if (note_stack_.size() == 0) {
+            resetArpPatternState();
+        }
     } else {
         if (note == note_stack_.most_recent_note().note) {
             recording_ = 0;
@@ -1362,7 +1367,6 @@ void Timbre::FlushQueue() {
     stopArpRatchet();
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
-    arpSwingStepIndex_ = 0;
     arpSwingStepScale_ = 1.0f;
     arpSwingVelScale_ = 1.0f;
     while (event_scheduler_.size()) {
@@ -1392,14 +1396,27 @@ void Timbre::Tick() {
         tick_ = 0;
         arpStrumCount_ = 0;
 
-        int swingHits, swingLen, swingRot, swingVel;
-        getArpSwingGroove(&params_, &swingHits, &swingLen, &swingRot, &swingVel);
-        int curIdx = arpSwingStepIndex_ % swingLen;
-        int nextIdx = (curIdx + 1) % swingLen;
-        arpSwingStepIndex_ = (uint8_t) nextIdx;
+        uint16_t pattern = getArpeggiatorPattern();
+        uint16_t accentMask = getArpeggiatorAccentMask();
+        int patternLen = getArpeggiatorPatternLength();
+        uint16_t endMask = (uint16_t) (1u << (patternLen - 1));
+        if (bitmask_ == 0 || bitmask_ > endMask) {
+            bitmask_ = 1;
+        }
+        int curPatternStep = 0;
+        {
+            uint16_t m = bitmask_;
+            while ((m & 1u) == 0 && curPatternStep < 15) {
+                m >>= 1;
+                curPatternStep++;
+            }
+        }
+        int nextPatternStep = (curPatternStep + 1 < patternLen) ? (curPatternStep + 1) : 0;
 
-        bool curSwung = isArpSwingStep(curIdx, swingHits, swingLen, swingRot);
-        bool nextSwung = isArpSwingStep(nextIdx, swingHits, swingLen, swingRot);
+        int grooveIdx = 0, humanize = 0;
+        getArpSwingParams(&params_, &grooveIdx, &humanize);
+        bool curSwung = isArpSwingStep(curPatternStep, grooveIdx);
+        bool nextSwung = isArpSwingStep(nextPatternStep, grooveIdx);
 
         float swingNorm = params_.midiNote1Curve.unused1 * 0.01f;
         if (swingNorm < 0.0f) {
@@ -1414,23 +1431,31 @@ void Timbre::Tick() {
         } else {
             arpSwingStepScale_ = 1.0f;
         }
-        arpSwingVelScale_ = (curSwung && swingVel > 0) ? (1.0f - (float) swingVel * 0.018f) : 1.0f;
+        arpSwingVelScale_ = (curSwung && swingNorm > 0.0f)
+            ? (1.0f - swingNorm * getArpSwingVelAttenCoeff(grooveIdx))
+            : 1.0f;
 
         uint16_t swingDelay = 0;
+        float blocksPerTick = (params_.engineArp1.clock == CLOCK_EXTERNAL)
+            ? extBlocksPerTick_
+            : ((ticksEveryNCalls_ > 2.0f) ? ticksEveryNCalls_ : 31.25f);
+        float stepBlocks = (float) stepTicks * blocksPerTick;
         if (curSwung && swingNorm > 0.0f) {
-            float blocksPerTick = (params_.engineArp1.clock == CLOCK_EXTERNAL)
-                ? extBlocksPerTick_
-                : ((ticksEveryNCalls_ > 2.0f) ? ticksEveryNCalls_ : 31.25f);
-            int d = (int) roundf(swingNorm * (float) stepTicks * blocksPerTick);
+            int d = (int) roundf(swingNorm * stepBlocks);
             swingDelay = (uint16_t) ((d < 1) ? 1 : d);
         }
-        uint16_t pattern = getArpeggiatorPattern();
-        uint16_t accentMask = getArpeggiatorAccentMask();
-        int patternLen = getArpeggiatorPatternLength();
-        uint16_t endMask = (uint16_t) (1u << (patternLen - 1));
-        if (bitmask_ == 0 || bitmask_ > endMask) {
-            bitmask_ = 1;
+        if (humanize > 0 && curPatternStep > 0) {
+            int hd = (int) roundf(fabsf(noise[0]) * stepBlocks * ((float) humanize * 0.0030f));
+            if (hd > 0) {
+                int maxTotal = (int) stepBlocks - 4;
+                int totalDelay = (int) swingDelay + hd;
+                if (maxTotal > 1 && totalDelay > maxTotal) {
+                    totalDelay = maxTotal;
+                }
+                swingDelay = (uint16_t) totalDelay;
+            }
         }
+        int humnVel = (humanize > 0) ? (int) roundf(noise[1] * ((float) humanize * 0.40f)) : 0;
         uint8_t has_arpeggiator_note = (bitmask_ & pattern) ? 255 : 0;
         bool has_accent = (bitmask_ & accentMask) != 0;
         int stepMode = getArpeggiatorStepMode();
@@ -1461,15 +1486,6 @@ void Timbre::Tick() {
                     step = (current_step_ & 1) ? (1 + (current_step_ >> 1)) : 0;
                 } else if (direction == ARPEGGIO_DIRECTION_PINKY && num_notes > 2) {
                     step = (current_step_ & 1) ? (num_notes - 1) : (current_step_ >> 1);
-                } else if (direction == ARPEGGIO_DIRECTION_THIRDS) {
-                    if (num_notes >= 4) {
-                        step = (current_step_ & 1) ? ((current_step_ >> 1) + 2) : (current_step_ >> 1);
-                    } else if (num_notes == 3) {
-                        static const uint8_t map3[3] = { 0, 2, 1 };
-                        step = map3[current_step_ % 3];
-                    } else {
-                        step = current_step_;
-                    }
                 } else if (direction == ARPEGGIO_DIRECTION_LEAP) {
                     if (num_notes > 2) {
                         int half = (num_notes + 1) >> 1;
@@ -1496,7 +1512,7 @@ void Timbre::Tick() {
                 const NoteEntry &noteEntry = ARPEGGIO_DIRECTION_PLAYED == direction ? note_stack_.played_note(step) : note_stack_.sorted_note(step);
 
                 uint8_t note = noteEntry.note;
-                int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 32 : 0);
+                int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 32 : 0) + humnVel;
                 if (effVel < 1) {
                     effVel = 1;
                 } else if (effVel > 127) {
@@ -1610,7 +1626,7 @@ void Timbre::Tick() {
                 for (int idx = 0; idx < chordCount; ++idx) {
                     int i = strumDown ? chordIndices[chordCount - 1 - idx] : chordIndices[idx];
                     const NoteEntry &noteEntry = note_stack_.sorted_note(i);
-                    int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 24 : 0);
+                    int effVel = (int) roundf((float) noteEntry.velocity * arpSwingVelScale_) + (has_accent ? 24 : 0) + humnVel;
                     if (chordCount > 1) {
                         int velJitter = ((int) ((seed >> (12 + (idx & 3) * 3)) & 7u) - 3) * 2;
                         effVel += (-4 * idx) + velJitter;
@@ -1703,8 +1719,6 @@ void Timbre::StepArpeggio() {
         uint8_t cycleLen = num_notes;
         if ((direction == ARPEGGIO_DIRECTION_THUMB || direction == ARPEGGIO_DIRECTION_PINKY) && num_notes > 2) {
             cycleLen = (uint8_t) (2 * (num_notes - 1));
-        } else if (direction == ARPEGGIO_DIRECTION_THIRDS && num_notes >= 4) {
-            cycleLen = (uint8_t) (2 * (num_notes - 2));
         }
 
         uint8_t trigger_change = 0;
@@ -1749,24 +1763,27 @@ void Timbre::StartArpeggio() {
     }
 }
 
-void Timbre::Start() {
+void Timbre::resetArpPatternState() {
     bitmask_ = 1;
-    recording_ = 0;
     chord_cycle_ = 0;
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
-    arpSwingStepIndex_ = 0;
     arpSwingStepScale_ = 1.0f;
     arpSwingVelScale_ = 1.0f;
-    running_ = 1;
     for (int k = 0; k < numberOfVoices_; k++) {
         if (voiceNumber_[k] >= 0) {
             voices_[voiceNumber_[k]]->arpStartStepSeq();
         }
     }
-    tick_ = getArpStepTicks() - 1;
     current_octave_ = 127;
     current_direction_ = __getDirection(params_.engineArp1.direction);
+}
+
+void Timbre::Start() {
+    resetArpPatternState();
+    recording_ = 0;
+    running_ = 1;
+    tick_ = getArpStepTicks() - 1;
 }
 
 void Timbre::arpeggiatorSetHoldPedal(uint8_t value) {

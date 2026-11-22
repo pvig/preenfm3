@@ -795,48 +795,83 @@ static inline int getArpEuclideanSeed(const struct OneSynthParams *params) {
     return (int) ((conv.u >> 16) & 0x0Fu);
 }
 
-static inline void getArpSwingGroove(const struct OneSynthParams *params, int *hits, int *len, int *rot, int *vel) {
-    union { float f; uint32_t u; } conv;
-    conv.f = params->midiNote2Curve.unused1;
-    uint32_t p = conv.u & 0x7FFFu;
-    *hits = ((int) ((p & 0x7u) ^ 3u)) + 1;
-    *len  = ((int) (((p >> 3) & 0x7u) ^ 6u)) + 2;
-    if (*len > 8) {
-        *len = 8;
+#define ARP_SWING_GROOVE_COUNT 10
+
+static inline void getArpSwingGrooveDef(int grooveIdx, int *len, uint8_t *mask) {
+    static const uint8_t grooveLens[ARP_SWING_GROOVE_COUNT] = {
+        8, 8, 8, 8, 8, 3, 6, 5, 7, 4
+    };
+    static const uint8_t grooveMasks[ARP_SWING_GROOVE_COUNT] = {
+        0xAAu, // 0: Classic 8th/16th  (0,1,0,1,0,1,0,1)
+        0x44u, // 1: Backbeat 2&4      (0,0,1,0,0,0,1,0)
+        0x88u, // 2: Sparse Offbeat    (0,0,0,1,0,0,0,1)
+        0x62u, // 3: MPC Broken        (0,1,0,0,0,1,1,0)
+        0xACu, // 4: Dilla Push        (0,0,1,1,0,1,0,1)
+        0x06u, // 5: Triplet 3-step    (0,1,1)
+        0x24u, // 6: Waltz 6/8         (0,0,1,0,0,1)
+        0x14u, // 7: 5/8 Swing         (0,0,1,0,1)
+        0x54u, // 8: 7/8 Groove        (0,0,1,0,1,0,1)
+        0x0Cu  // 9: Sync 4/4          (0,0,1,1)
+    };
+    if (grooveIdx < 0 || grooveIdx >= ARP_SWING_GROOVE_COUNT) {
+        grooveIdx = 0;
     }
-    *rot = (int) (((p >> 6) & 0x7u) ^ 1u);
-    *vel = (int) ((p >> 9) & 0x3Fu);
-    if (*vel > 50) {
-        *vel = 50;
-    }
+    *len = (int) grooveLens[grooveIdx];
+    *mask = grooveMasks[grooveIdx];
 }
 
-static inline void setArpSwingGroove(struct OneSynthParams *params, int hits, int len, int rot, int vel) {
-    if (hits < 1) hits = 1; else if (hits > 8) hits = 8;
-    if (len < 2) len = 2; else if (len > 8) len = 8;
-    if (rot < 0) rot = 0; else if (rot > 7) rot = 7;
-    if (vel < 0) vel = 0; else if (vel > 50) vel = 50;
-    uint32_t p = (((uint32_t) (hits - 1) ^ 3u) & 0x7u)
-               | ((((uint32_t) (len - 2) ^ 6u) & 0x7u) << 3)
-               | ((((uint32_t) rot ^ 1u) & 0x7u) << 6)
-               | (((uint32_t) vel & 0x3Fu) << 9);
+static inline float getArpSwingVelAttenCoeff(int grooveIdx) {
+    int len = 8;
+    uint8_t mask = 0xAAu;
+    getArpSwingGrooveDef(grooveIdx, &len, &mask);
+    int swung = 0;
+    for (int s = 0; s < len; s++) {
+        if ((mask >> s) & 0x1u) {
+            swung++;
+        }
+    }
+    float ratio = (len > 0) ? ((float) swung / (float) len) : 0.5f;
+    float coeff = 1.2f - 1.4f * ratio;
+    if (coeff < 0.30f) {
+        coeff = 0.30f;
+    } else if (coeff > 0.95f) {
+        coeff = 0.95f;
+    }
+    return coeff;
+}
+
+static inline void getArpSwingParams(const struct OneSynthParams *params, int *grooveIdx, int *humanize) {
+    union { float f; uint32_t u; } conv;
+    conv.f = params->midiNote2Curve.unused1;
+    uint32_t p = conv.u & 0x7FFu;
+    int g = (int) (p & 0xFu);
+    if (g >= ARP_SWING_GROOVE_COUNT) {
+        g = 0;
+    }
+    int h = (int) ((p >> 4) & 0x7Fu);
+    if (h > 100) {
+        h = 100;
+    }
+    *grooveIdx = g;
+    *humanize = h;
+}
+
+static inline void setArpSwingParams(struct OneSynthParams *params, int grooveIdx, int humanize) {
+    if (grooveIdx < 0) grooveIdx = 0; else if (grooveIdx >= ARP_SWING_GROOVE_COUNT) grooveIdx = ARP_SWING_GROOVE_COUNT - 1;
+    if (humanize < 0) humanize = 0; else if (humanize > 100) humanize = 100;
+    uint32_t p = ((uint32_t) grooveIdx & 0xFu)
+               | (((uint32_t) humanize & 0x7Fu) << 4);
     union { float f; uint32_t u; } conv;
     conv.u = (p == 0u) ? 0u : (0x3F800000u | p);
     params->midiNote2Curve.unused1 = conv.f;
 }
 
-static inline int isArpSwingStep(int stepIdx, int hits, int len, int rot) {
-    if (len < 2) {
-        len = 2;
-    }
-    if (hits <= 0) {
-        return 0;
-    }
-    if (hits >= len) {
-        return 1;
-    }
-    int pos = (stepIdx + len - (rot % len)) % len;
-    return ((pos * hits) % len) < hits;
+static inline int isArpSwingStep(int stepIdx, int grooveIdx) {
+    int len = 8;
+    uint8_t mask = 0xAAu;
+    getArpSwingGrooveDef(grooveIdx, &len, &mask);
+    int pos = stepIdx % len;
+    return (mask >> pos) & 0x1u;
 }
 
 static inline void setArpEuclideanSeed(struct OneSynthParams *params, int seed) {

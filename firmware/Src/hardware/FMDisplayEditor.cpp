@@ -423,7 +423,6 @@ const char *dirName[] = {
     "Pnky",
     "Walk",
     "Strd",
-    "3rds",
     "Leap",
     "OctN" };
 
@@ -453,8 +452,8 @@ struct ParameterRowDisplay engineArp1ParameterRow = {
             nullNamesOrder },
         {
             0,
+            21,
             22,
-            23,
             DISPLAY_TYPE_STRINGS,
             dirName,
             nullNamesOrder,
@@ -2464,19 +2463,19 @@ const struct Pfm3OneButtonState pfm3ButtonArpeggiator3State = {
             3 },
         {
             ROW_NONE,
-            ENCODER_ARP_SWING_HITS },
+            ENCODER_ARP_SWING_HUMN },
         {
             ROW_NONE,
-            ENCODER_ARP_SWING_LEN },
+            ENCODER_ARP_SWING_GROOVE },
         {
             ROW_NONE,
-            ENCODER_ARP_SWING_ROT },
+            ENCODER_NONE },
         {
             ROW_NONE,
-            ENCODER_ARP_SWING_VEL },
+            ENCODER_NONE },
         {
             ROW_NONE,
-            ENCODER_ARP_SWING_VIEW } } };
+            ENCODER_NONE } } };
 
 const struct Pfm3OneButton pfm3ButtonArpeggiator = {
     "Arp",
@@ -3467,7 +3466,7 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
             }
         }
         if ((rowToTest == rowEncoder.row || encoder == ENCODER_STEPSEQ_MODE || encoder == ENCODER_STEPSEQ_LEN
-                || (encoder >= ENCODER_ARP_SWING_HITS && encoder <= ENCODER_ARP_SWING_VEL))
+                || (encoder >= ENCODER_ARP_SWING_GROOVE && encoder <= ENCODER_ARP_SWING_HUMN))
                 && encoder == rowEncoder.encoder) {
             encoder6 = enc;
         }
@@ -3479,10 +3478,9 @@ void FMDisplayEditor::newParamValue(int &refreshStatus, int timbre, int currentR
             updateStepSequencer(currentRow, encoder, oldValue, newValue);
             return;
         }
-        if (currentRow == ROW_NONE && encoder >= ENCODER_ARP_SWING_HITS && encoder <= ENCODER_ARP_SWING_VEL) {
+        if (currentRow == ROW_NONE && encoder >= ENCODER_ARP_SWING_GROOVE && encoder <= ENCODER_ARP_SWING_HUMN) {
             valueChangedCounter_[encoder6] = 4;
             displayParamValue(encoder6, multipleEdition_ ? COLOR_GREEN : COLOR_YELLOW);
-            displayParamValue(5, COLOR_WHITE);
             return;
         }
 
@@ -3700,30 +3698,28 @@ void FMDisplayEditor::displayParamValue(int encoder, TFT_COLOR color) {
                 mode = STEPSEQ_MODE_NORM;
             }
             tft_->print(stepSeqModeNames[mode]);
-        } else if (rowEncoder.encoder >= ENCODER_ARP_SWING_HITS && rowEncoder.encoder <= ENCODER_ARP_SWING_VEL) {
-            tft_->setCharBackgroundColor(COLOR_BLACK);
-            tft_->setCharColor(color);
-            int hits, len, rot, vel;
-            getArpSwingGroove(synthState_->params, &hits, &len, &rot, &vel);
-            int val = (rowEncoder.encoder == ENCODER_ARP_SWING_HITS) ? hits
-                    : (rowEncoder.encoder == ENCODER_ARP_SWING_LEN)  ? len
-                    : (rowEncoder.encoder == ENCODER_ARP_SWING_ROT)  ? rot
-                                                                     : vel;
-            tft_->printValueWithSpace(val);
-        } else if (rowEncoder.encoder == ENCODER_ARP_SWING_VIEW) {
+        } else if (rowEncoder.encoder == ENCODER_ARP_SWING_GROOVE) {
             const int x0 = 16 * TFT_BIG_CHAR_WIDTH;
-            const int y0 = LINE_PARAM_VALUE2 * TFT_BIG_CHAR_HEIGHT;
+            const int y0 = LINE_PARAM_VALUE1 * TFT_BIG_CHAR_HEIGHT;
             tft_->fillArea(x0, y0, 64, TFT_BIG_CHAR_HEIGHT, COLOR_BLACK);
-            int hits, len, rot, vel;
-            getArpSwingGroove(synthState_->params, &hits, &len, &rot, &vel);
+            int grooveIdx = 0, humanize = 0, len = 8;
+            uint8_t mask = 0xAAu;
+            getArpSwingParams(synthState_->params, &grooveIdx, &humanize);
+            getArpSwingGrooveDef(grooveIdx, &len, &mask);
             for (int s = 0; s < len && s < 8; s++) {
                 const int bx = x0 + s * 8;
-                if (isArpSwingStep(s, hits, len, rot)) {
+                if ((mask >> s) & 0x1u) {
                     tft_->fillArea(bx, y0 + 2, 6, TFT_BIG_CHAR_HEIGHT - 4, COLOR_YELLOW);
                 } else {
                     tft_->fillArea(bx, y0 + TFT_BIG_CHAR_HEIGHT - 6, 6, 4, COLOR_GRAY);
                 }
             }
+        } else if (rowEncoder.encoder == ENCODER_ARP_SWING_HUMN) {
+            tft_->setCharBackgroundColor(COLOR_BLACK);
+            tft_->setCharColor(color);
+            int grooveIdx = 0, humanize = 0;
+            getArpSwingParams(synthState_->params, &grooveIdx, &humanize);
+            tft_->printValueWithSpace(humanize);
         }
     }
 }
@@ -3923,8 +3919,14 @@ void FMDisplayEditor::refreshEditorByStep(int &refreshStatus, int &endRefreshSta
                     }
                 break;
                 case ROW_ARPEGGIATOR3:
-                    if (rowEncoder.encoder == 3 && synthState_->params->engineArp2.pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
-                        tft_->print("Eucl");
+                    if (synthState_->params->engineArp2.pattern < ARPEGGIATOR_PRESET_PATTERN_COUNT) {
+                        if (rowEncoder.encoder == 3) {
+                            tft_->print("Eucl");
+                        } else if (rowEncoder.encoder == 2) {
+                            tft_->print("    ");
+                        } else {
+                            goto displayDefault;
+                        }
                     } else {
                         goto displayDefault;
                     }
@@ -3939,16 +3941,10 @@ void FMDisplayEditor::refreshEditorByStep(int &refreshStatus, int &endRefreshSta
                     tft_->print("Len ");
                 } else if (rowEncoder.encoder == ENCODER_STEPSEQ_MODE) {
                     tft_->print("Mode");
-                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_HITS) {
-                    tft_->print("Hits");
-                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_LEN) {
-                    tft_->print("Len ");
-                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_ROT) {
-                    tft_->print("Rot ");
-                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_VEL) {
-                    tft_->print("Vel ");
-                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_VIEW) {
+                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_GROOVE) {
                     tft_->print("Grve");
+                } else if (rowEncoder.encoder == ENCODER_ARP_SWING_HUMN) {
+                    tft_->print("Humn");
                 } else if (rowEncoder.encoder >= ENCODER_MODULATOR_SYNC_LFO) {
                     tft_->print(lfoSyncParameterRow.paramName[0]);
                 }
@@ -4359,6 +4355,7 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
         if (encoder == 0) {
             arp_pattern_t user_pattern;
             uint16_t presetTieMask = 0, presetOctMask = 0, presetRtMask = 0;
+            uint16_t presetOctDownMask = 0, presetDyadMask = 0, presetChordMask = 0, presetSlapMask = 0;
             if (editable) {
                 user_pattern = synthState_->params->engineArpUserPatterns.patterns[userIdx];
             } else {
@@ -4369,7 +4366,8 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
                     ARP_PATTERN_GETACCENT(lut_res_arpeggiator_patterns[index]),
                     lut_res_arpeggiator_ties[index],
                     getArpEuclideanSeed(synthState_->params),
-                    &acc, &presetTieMask, &presetOctMask, &presetRtMask);
+                    &acc, &presetTieMask, &presetOctMask, &presetRtMask,
+                    &presetOctDownMask, &presetDyadMask, &presetChordMask, &presetSlapMask);
                 user_pattern = ARP_PATTERN_ACCENT(baseMask, acc);
             }
             uint8_t levels[16];
@@ -4387,16 +4385,29 @@ void FMDisplayEditor::updateEncoderValueWithoutCursor(int row, int encoder, Para
                         mode = ARP_STEP_MODE_OCT_UP;
                     } else if (presetRtMask & bit) {
                         mode = ARP_STEP_MODE_RATCHET2;
+                    } else if (presetOctDownMask & bit) {
+                        mode = ARP_STEP_MODE_OCT_DOWN;
+                    } else if (presetDyadMask & bit) {
+                        mode = ARP_STEP_MODE_DYAD;
+                    } else if (presetChordMask & bit) {
+                        mode = ARP_STEP_MODE_CHORD;
+                    } else if (presetSlapMask & bit) {
+                        mode = ARP_STEP_MODE_SLAP;
                     }
                 }
                 colors[k] = getArpStepColor(user_pattern, k, mode);
             }
             drawStepGrid(tft_, levels, colors, synthState_->patternSelect, editable, len);
         } else if (encoder == 2) {
-            int mode = editable ? getArpUserStepMode(synthState_->params, userIdx, synthState_->patternSelect) : ARP_STEP_MODE_NORM;
             tft_->setCharBackgroundColor(COLOR_BLACK);
-            tft_->setCharColor(editable ? COLOR_WHITE : COLOR_GRAY);
-            tft_->print(arpStepModeNames[mode]);
+            if (editable) {
+                int mode = getArpUserStepMode(synthState_->params, userIdx, synthState_->patternSelect);
+                tft_->setCharColor(COLOR_WHITE);
+                tft_->print(arpStepModeNames[mode]);
+            } else {
+                tft_->setCharColor(COLOR_BLACK);
+                tft_->print("    ");
+            }
         } else if (encoder == 3) {
             tft_->setCharBackgroundColor(COLOR_BLACK);
             tft_->setCharColor(COLOR_WHITE);
@@ -4573,34 +4584,24 @@ void FMDisplayEditor::encoderTurnedPfm2(int row, int encoder4, int ticks, bool s
             synthState_->propagateNewParamValue(currentTimbre_, row, ENCODER_STEPSEQ_LEN, NULL, oldLen, newLen);
         }
         return;
-    } else if (unlikely(encoder4 >= ENCODER_ARP_SWING_HITS && encoder4 <= ENCODER_ARP_SWING_VEL)) {
-        int hits, len, rot, vel;
-        getArpSwingGroove(synthState_->params, &hits, &len, &rot, &vel);
+    } else if (unlikely(encoder4 >= ENCODER_ARP_SWING_GROOVE && encoder4 <= ENCODER_ARP_SWING_HUMN)) {
+        int grooveIdx = 0, humanize = 0;
+        getArpSwingParams(synthState_->params, &grooveIdx, &humanize);
         int oldVal = 0;
         int newVal = 0;
-        if (encoder4 == ENCODER_ARP_SWING_HITS) {
-            oldVal = hits;
-            hits += ticks;
-            if (hits < 1) hits = 1; else if (hits > 8) hits = 8;
-            newVal = hits;
-        } else if (encoder4 == ENCODER_ARP_SWING_LEN) {
-            oldVal = len;
-            len += ticks;
-            if (len < 2) len = 2; else if (len > 8) len = 8;
-            newVal = len;
-        } else if (encoder4 == ENCODER_ARP_SWING_ROT) {
-            oldVal = rot;
-            rot += ticks;
-            if (rot < 0) rot = 0; else if (rot > 7) rot = 7;
-            newVal = rot;
+        if (encoder4 == ENCODER_ARP_SWING_GROOVE) {
+            oldVal = grooveIdx;
+            grooveIdx += ticks;
+            if (grooveIdx < 0) grooveIdx = 0; else if (grooveIdx >= ARP_SWING_GROOVE_COUNT) grooveIdx = ARP_SWING_GROOVE_COUNT - 1;
+            newVal = grooveIdx;
         } else {
-            oldVal = vel;
-            vel += ticks;
-            if (vel < 0) vel = 0; else if (vel > 50) vel = 50;
-            newVal = vel;
+            oldVal = humanize;
+            humanize += ticks;
+            if (humanize < 0) humanize = 0; else if (humanize > 100) humanize = 100;
+            newVal = humanize;
         }
         if (oldVal != newVal) {
-            setArpSwingGroove(synthState_->params, hits, len, rot, vel);
+            setArpSwingParams(synthState_->params, grooveIdx, humanize);
             synthState_->propagateNewParamValue(currentTimbre_, ROW_NONE, encoder4, NULL, (float) oldVal, (float) newVal);
         }
         return;
