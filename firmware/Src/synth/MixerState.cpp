@@ -98,6 +98,10 @@ void MixerState::getFullState(char *buffer, uint32_t *size) {
     buffer[index++] = (char)(100.0f * fxBus_.masterfxConfig[GLOBALFX_NOTCHBASE]);
     buffer[index++] = (char)(100.0f * fxBus_.masterfxConfig[GLOBALFX_NOTCHSPREAD]);
 
+    for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
+        buffer[index++] = (char) (instrumentState_[t].cptPart & 0x07u);
+    }
+
     *size = index;
 }
 
@@ -185,6 +189,10 @@ void MixerState::getFullDefaultState(char *buffer, uint32_t *size, uint8_t mixNu
     buffer[index++] = (char)(GLOBALFX_NOTCHSPREAD_DEFAULT * 100.0f);
     buffer[index++] = (char)(GLOBALFX_LOOPHP_DEFAULT * 100.0f);
 
+    for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
+        buffer[index++] = 0;
+    }
+
     *size = index;
 }
 
@@ -219,6 +227,7 @@ void MixerState::setDefaultValues() {
         instrumentState_[t].pan = 0;
         instrumentState_[t].send = 0;
         instrumentState_[t].compressorType = 0;
+        instrumentState_[t].cptPart = 0;
     }
     // Let's set instrument 1 to Medium comp by default
     instrumentState_[0].compressorType = 2;
@@ -543,6 +552,11 @@ void MixerState::restoreFullStateVersion6(char *buffer) {
     fxBus_.masterfxConfig[GLOBALFX_LOOPHP] = .01f * buffer[index++] ;
     fxBus_.masterfxConfig[GLOBALFX_NOTCHBASE] = .01f * buffer[index++] ;
     fxBus_.masterfxConfig[GLOBALFX_NOTCHSPREAD] = .01f * buffer[index++] ;
+
+    for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
+        uint8_t part = ((uint8_t) buffer[index++]) & 0x07u;
+        instrumentState_[t].cptPart = (part < CPT_PART_COUNT) ? part : 0;
+    }
 
     fxBus_.paramChanged();
 }

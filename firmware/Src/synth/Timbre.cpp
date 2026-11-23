@@ -28,6 +28,20 @@ float midiNoteScale[2][NUMBER_OF_TIMBRES][128] __attribute__((section(".ram_d1")
 float Timbre::unisonPhase[14] = { .37f, .11f, .495f, .53f, .03f, .19f, .89f, 0.23f, .71f, .19f, .31f, .43f, .59f, .97f };
 float Timbre::delayBuffer[NUMBER_OF_TIMBRES][delayBufferSize] __attribute__ ((section(".ram_d2b")));
 
+struct CounterpointTimbreState {
+    float   ticksEveryNCalls;
+    float   arpegiatorStep;
+    uint8_t activeNote;
+    uint8_t prevNote;
+    uint8_t clockMode;
+    uint8_t running;
+    uint8_t tickedThisBlock;
+    uint8_t stepTriggeredThisTick;
+    uint8_t curPatternStep;
+};
+
+static CounterpointTimbreState cptTimbreBus[NUMBER_OF_TIMBRES] __attribute__((section(".ram_d1")));
+
 #define CALLED_PER_SECOND (PREENFM_FREQUENCY / 32.0f)
 
 enum ArpeggiatorDirection {
@@ -334,7 +348,18 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     for (int s = 0; s < delayBufferSize; s++) {
         delayBuffer_[s] = 0;
     }
-   
+
+    CounterpointTimbreState &cpt = cptTimbreBus[timbreNumber_];
+    cpt.ticksEveryNCalls = 31.25f;
+    cpt.arpegiatorStep = 0.0f;
+    cpt.activeNote = 0;
+    cpt.prevNote = 0;
+    cpt.clockMode = 0;
+    cpt.running = 0;
+    cpt.tickedThisBlock = 0;
+    cpt.stepTriggeredThisTick = 0;
+    cpt.curPatternStep = 0;
+
 }
 
 void Timbre::setVoiceNumber(int v, int n) {
@@ -357,7 +382,11 @@ void Timbre::noteOn(char note, char velocity) {
                 && mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[midiNote] != 0.0f) {
             held_note_stack_.NoteOn(midiNote, (uint8_t) velocity);
         }
-        preenNoteOn(note, velocity);
+        if (getEffectiveCptPart() != CPT_PART_ALL) {
+            reconcileCounterpointDirectNotes();
+        } else {
+            preenNoteOn(note, velocity);
+        }
     }
 }
 
@@ -367,7 +396,11 @@ void Timbre::noteOff(char note) {
     } else {
         uint8_t previousSize = held_note_stack_.size();
         held_note_stack_.NoteOff((uint8_t) note);
-        preenNoteOff(note, held_note_stack_.size() != previousSize);
+        if (getEffectiveCptPart() != CPT_PART_ALL) {
+            reconcileCounterpointDirectNotes();
+        } else {
+            preenNoteOff(note, held_note_stack_.size() != previousSize);
+        }
     }
 }
 
@@ -409,6 +442,14 @@ void Timbre::preenNoteOn(char note, char velocity, bool restored) {
     }
 
     note &= 0x7f;
+    {
+        uint8_t uNote = (uint8_t) note;
+        uint8_t prev = cptTimbreBus[timbreNumber_].activeNote;
+        if (prev > 0 && uNote != prev) {
+            cptTimbreBus[timbreNumber_].prevNote = prev;
+        }
+        cptTimbreBus[timbreNumber_].activeNote = uNote;
+    }
 
     // Frequency depends on the current instrument scale
     float noteFrequency = mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[(int) note];
@@ -510,6 +551,10 @@ void Timbre::preenNoteOff(char note, bool restoreNotes) {
 
     if (note == lowerNote_) {
         lowerNoteReleased_ = true;
+    }
+    if (cptTimbreBus[timbreNumber_].activeNote == (uint8_t) (note & 0x7f)) {
+        cptTimbreBus[timbreNumber_].prevNote = cptTimbreBus[timbreNumber_].activeNote;
+        cptTimbreBus[timbreNumber_].activeNote = 0;
     }
 
     if (params_.engine1.playMode == PLAY_MODE_POLY) {
@@ -680,14 +725,46 @@ void Timbre::setArpeggiatorClock(float clockValue) {
 }
 
 void Timbre::updateArpegiatorInternalClock() {
+    CounterpointTimbreState &myCpt = cptTimbreBus[timbreNumber_];
+    myCpt.tickedThisBlock = 0;
+    myCpt.stepTriggeredThisTick = 0;
+    myCpt.clockMode = (uint8_t) params_.engineArp1.clock;
+    myCpt.running = running_;
 
-    // Apeggiator clock : internal
+    // Arpeggiator clock : internal
     if (params_.engineArp1.clock == CLOCK_INTERNAL) {
-        arpegiatorStep_ += 1.0f;
-        if (unlikely((arpegiatorStep_) > ticksEveryNCalls_)) {
-            arpegiatorStep_ -= ticksEveryNCalls_;
-            Tick();
+        int rank = 0, total = 1, masterTimbre = timbreNumber_;
+        bool syncToChannelMaster = (getCptPartMode() != CPT_PART_ALL);
+        if (syncToChannelMaster) {
+            getChannelStackInfo(&rank, &total, &masterTimbre);
         }
+        if (syncToChannelMaster
+                && masterTimbre >= 0 && masterTimbre < timbreNumber_
+                && cptTimbreBus[masterTimbre].clockMode == CLOCK_INTERNAL
+                && cptTimbreBus[masterTimbre].running != 0) {
+            ticksEveryNCalls_ = cptTimbreBus[masterTimbre].ticksEveryNCalls;
+            arpegiatorStep_ = cptTimbreBus[masterTimbre].arpegiatorStep;
+            if (unlikely(cptTimbreBus[masterTimbre].tickedThisBlock != 0)) {
+                if (cptTimbreBus[masterTimbre].stepTriggeredThisTick != 0
+                        && cptTimbreBus[masterTimbre].curPatternStep == 0) {
+                    int stepTicks = getArpStepTicks();
+                    if (stepTicks > 0) {
+                        tick_ = (uint8_t) (stepTicks - 1);
+                    }
+                }
+                myCpt.tickedThisBlock = 1;
+                Tick();
+            }
+        } else {
+            arpegiatorStep_ += 1.0f;
+            if (unlikely((arpegiatorStep_) > ticksEveryNCalls_)) {
+                arpegiatorStep_ -= ticksEveryNCalls_;
+                myCpt.tickedThisBlock = 1;
+                Tick();
+            }
+        }
+        myCpt.ticksEveryNCalls = ticksEveryNCalls_;
+        myCpt.arpegiatorStep = arpegiatorStep_;
     } else if (params_.engineArp1.clock == CLOCK_EXTERNAL) {
         if (extClockCounter_ < 2000) {
             extClockCounter_++;
@@ -1484,14 +1561,24 @@ void Timbre::Tick() {
             }
         }
         int humnVel = (humanize > 0) ? (int) roundf(noise[1] * ((float) humanize * 0.40f)) : 0;
+        const uint8_t effectivePart = getEffectiveCptPart();
         uint8_t has_arpeggiator_note = (bitmask_ & pattern) ? 255 : 0;
         bool has_accent = (bitmask_ & accentMask) != 0;
         int stepMode = getArpeggiatorStepMode();
-        const int num_notes = note_stack_.size();
+
+        uint8_t poolIndices[16];
+        const int num_notes = buildCounterpointPool(note_stack_, poolIndices);
         const int direction = params_.engineArp1.direction;
+
+        CounterpointTimbreState &myCpt = cptTimbreBus[timbreNumber_];
+        myCpt.stepTriggeredThisTick = 1;
+        myCpt.curPatternStep = (uint8_t) curPatternStep;
 
         if (num_notes == 0) {
             stopArpRatchet();
+            if (event_scheduler_.size() == 0 && cptTimbreBus[timbreNumber_].activeNote != 0) {
+                preenNoteOff((char) cptTimbreBus[timbreNumber_].activeNote, false);
+            }
         }
         if (num_notes && has_arpeggiator_note) {
             if (swingDelay == 0) {
@@ -1502,7 +1589,7 @@ void Timbre::Tick() {
                 voices_[voiceNumber_[0]]->arpStepSeqNoteOn();
             }
             if (ARPEGGIO_DIRECTION_CHORD != direction && ARPEGGIO_DIRECTION_STRIDE != direction && stepMode != ARP_STEP_MODE_CHORD) {
-                StepArpeggio();
+                StepArpeggio((uint8_t) num_notes);
                 int step, transpose = 0;
                 if (direction == ARPEGGIO_DIRECTION_CONVERGE) {
                     int pos = current_step_;
@@ -1537,7 +1624,15 @@ void Timbre::Tick() {
                         transpose = -12;
                     }
                 }
-                const NoteEntry &noteEntry = ARPEGGIO_DIRECTION_PLAYED == direction ? note_stack_.played_note(step) : note_stack_.sorted_note(step);
+                if (step < 0) {
+                    step = 0;
+                } else if (step >= num_notes) {
+                    step = num_notes - 1;
+                }
+
+                const NoteEntry &noteEntry = (ARPEGGIO_DIRECTION_PLAYED == direction && effectivePart == CPT_PART_ALL)
+                    ? note_stack_.played_note(poolIndices[step])
+                    : note_stack_.sorted_note(poolIndices[step]);
 
                 uint8_t note = noteEntry.note;
                 int effVel = (int) roundf((float) noteEntry.velocity * swingVelScale) + (has_accent ? 32 : 0) + humnVel;
@@ -1547,27 +1642,32 @@ void Timbre::Tick() {
                     effVel = 127;
                 }
                 uint8_t velocity = (uint8_t) effVel;
-                note += 12 * current_octave_;
-                if (__canTranspose(direction))
-                    note += transpose;
+                int totalTranspose = 12 * (int) current_octave_;
+                if (__canTranspose(direction)) {
+                    totalTranspose += transpose;
+                }
                 if (stepMode == ARP_STEP_MODE_OCT_UP) {
-                    note += 12;
-                } else if (stepMode == ARP_STEP_MODE_OCT_DOWN && note >= 12) {
-                    note -= 12;
+                    totalTranspose += 12;
+                } else if (stepMode == ARP_STEP_MODE_OCT_DOWN && (int) note + totalTranspose >= 12) {
+                    totalTranspose -= 12;
                 }
-
-                while (note > 127) {
-                    note -= 12;
+                int rawPitch = (int) note + totalTranspose;
+                while (rawPitch > 127) {
+                    rawPitch -= 12;
                 }
+                if (rawPitch < 0) {
+                    rawPitch = 0;
+                }
+                note = (uint8_t) rawPitch;
 
                 uint8_t compNote = 0;
                 bool hasDyad = false;
                 if (stepMode == ARP_STEP_MODE_DYAD) {
                     if (num_notes >= 2) {
                         int compIdx = (num_notes >= 3) ? ((step + 2) % num_notes) : ((step + 1) & 1);
-                        const NoteEntry &compEntry = (ARPEGGIO_DIRECTION_PLAYED == direction)
-                            ? note_stack_.played_note(compIdx)
-                            : note_stack_.sorted_note(compIdx);
+                        const NoteEntry &compEntry = (ARPEGGIO_DIRECTION_PLAYED == direction && effectivePart == CPT_PART_ALL)
+                            ? note_stack_.played_note(poolIndices[compIdx])
+                            : note_stack_.sorted_note(poolIndices[compIdx]);
                         int cn = (int) compEntry.note + 12 * current_octave_ + (__canTranspose(direction) ? transpose : 0);
                         while (cn > 127) {
                             cn -= 12;
@@ -1619,28 +1719,28 @@ void Timbre::Tick() {
                 int chordCount = 0;
                 if (direction == ARPEGGIO_DIRECTION_STRIDE && stepMode != ARP_STEP_MODE_CHORD) {
                     if (num_notes == 1) {
-                        chordIndices[chordCount++] = 0;
+                        chordIndices[chordCount++] = poolIndices[0];
                     } else if (num_notes == 2) {
-                        chordIndices[chordCount++] = highPhase ? 1 : 0;
+                        chordIndices[chordCount++] = poolIndices[highPhase ? 1 : 0];
                     } else if (!highPhase) {
-                        chordIndices[chordCount++] = 0;
+                        chordIndices[chordCount++] = poolIndices[0];
                     } else if (num_notes == 3) {
-                        chordIndices[chordCount++] = 1;
-                        chordIndices[chordCount++] = 2;
+                        chordIndices[chordCount++] = poolIndices[1];
+                        chordIndices[chordCount++] = poolIndices[2];
                     } else {
-                        chordIndices[chordCount++] = num_notes - 2;
-                        chordIndices[chordCount++] = num_notes - 1;
+                        chordIndices[chordCount++] = poolIndices[num_notes - 2];
+                        chordIndices[chordCount++] = poolIndices[num_notes - 1];
                     }
                 } else if (num_notes <= 3) {
                     for (int idx = 0; idx < num_notes && idx < 16; ++idx) {
-                        chordIndices[chordCount++] = idx;
+                        chordIndices[chordCount++] = poolIndices[idx];
                     }
                 } else if (!highPhase) {
-                    chordIndices[chordCount++] = 0;
-                    chordIndices[chordCount++] = 1;
+                    chordIndices[chordCount++] = poolIndices[0];
+                    chordIndices[chordCount++] = poolIndices[1];
                 } else {
-                    chordIndices[chordCount++] = num_notes - 2;
-                    chordIndices[chordCount++] = num_notes - 1;
+                    chordIndices[chordCount++] = poolIndices[num_notes - 2];
+                    chordIndices[chordCount++] = poolIndices[num_notes - 1];
                 }
 
                 bool hasRatchet = (stepMode == ARP_STEP_MODE_RATCHET2)
@@ -1703,7 +1803,7 @@ void Timbre::Tick() {
     }
 }
 
-void Timbre::StepArpeggio() {
+void Timbre::StepArpeggio(uint8_t effectiveNumNotes) {
 
     if (current_octave_ == 127) {
         StartArpeggio();
@@ -1711,7 +1811,10 @@ void Timbre::StepArpeggio() {
     }
 
     int direction = params_.engineArp1.direction;
-    uint8_t num_notes = note_stack_.size();
+    uint8_t num_notes = (effectiveNumNotes > 0) ? effectiveNumNotes : note_stack_.size();
+    if (num_notes == 0) {
+        return;
+    }
     if (direction == ARPEGGIO_DIRECTION_RANDOM) {
         uint8_t random_byte = *(uint8_t*) noise;
         current_octave_ = random_byte & 0xf;
@@ -1770,7 +1873,7 @@ void Timbre::StepArpeggio() {
                     current_direction_ = -current_direction_;
                     StartArpeggio();
                     if (direction != ARPEGGIO_DIRECTION_UP_DOWN_INC && (num_notes > 1 || params_.engineArp1.octave > 1)) {
-                        StepArpeggio();
+                        StepArpeggio(num_notes);
                     }
                 } else {
                     StartArpeggio();
@@ -1797,6 +1900,7 @@ void Timbre::resetArpPatternState() {
     arpStrumCount_ = 0;
     arpPendingStepMode_ = ARP_STEP_MODE_NORM;
     arpSwingStepScale_ = 1.0f;
+    cptTimbreBus[timbreNumber_].curPatternStep = 0;
     for (int k = 0; k < numberOfVoices_; k++) {
         if (voiceNumber_[k] >= 0) {
             voices_[voiceNumber_[k]]->arpStartStepSeq();
@@ -1804,6 +1908,245 @@ void Timbre::resetArpPatternState() {
     }
     current_octave_ = 127;
     current_direction_ = __getDirection(params_.engineArp1.direction);
+}
+
+void Timbre::getChannelStackInfo(int *outRank, int *outTotal, int *outMasterTimbre) const {
+    *outRank = 0;
+    *outTotal = 1;
+    *outMasterTimbre = timbreNumber_;
+    if (unlikely(mixerState_ == 0)) {
+        return;
+    }
+    uint8_t myChan = mixerState_->instrumentState_[timbreNumber_].midiChannel;
+    int rank = 0;
+    int total = 0;
+    int master = -1;
+    for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
+        if (mixerState_->instrumentState_[t].numberOfVoices == 0) {
+            continue;
+        }
+        uint8_t tChan = mixerState_->instrumentState_[t].midiChannel;
+        if (tChan == myChan || tChan == 0 || myChan == 0) {
+            if (master < 0) {
+                master = t;
+            }
+            if (t == timbreNumber_) {
+                rank = total;
+            }
+            total++;
+        }
+    }
+    *outRank = rank;
+    *outTotal = (total > 0) ? total : 1;
+    *outMasterTimbre = (master >= 0) ? master : timbreNumber_;
+}
+
+uint8_t Timbre::getEffectiveCptPart() const {
+    uint8_t part = getCptPartMode();
+    if (part != CPT_PART_DIVISI) {
+        return part;
+    }
+    int rank = 0, total = 1, master = timbreNumber_;
+    getChannelStackInfo(&rank, &total, &master);
+    if (total <= 1) {
+        return CPT_PART_ALL;
+    }
+    if (total == 2) {
+        return (rank == 0) ? CPT_PART_BASS : CPT_PART_INNER;
+    }
+    if (total == 3) {
+        return (rank == 0) ? CPT_PART_BASS : ((rank == 1) ? CPT_PART_INNER : CPT_PART_SOPRANO);
+    }
+    if (rank == 0) {
+        return CPT_PART_BASS;
+    }
+    if (rank == 1) {
+        return CPT_PART_CANTUS;
+    }
+    if (rank == 2) {
+        return CPT_PART_ALTO;
+    }
+    return CPT_PART_SOPRANO;
+}
+
+int Timbre::buildCounterpointPool(const NoteStack &stack, uint8_t *outIndices) const {
+    int n = (int) stack.size();
+    if (n <= 0) {
+        return 0;
+    }
+    uint8_t rawPart = getCptPartMode();
+    bool arpOn = params_.engineArp1.clock > 0.0f;
+    int count = 0;
+
+    if (rawPart == CPT_PART_DIVISI) {
+        int rank = 0, total = 1, master = timbreNumber_;
+        getChannelStackInfo(&rank, &total, &master);
+        if (total <= 1) {
+            for (int i = 0; i < n && count < 16; ++i) {
+                outIndices[count++] = (uint8_t) i;
+            }
+            return count;
+        }
+        // Strict Divisi: timbre of rank r only enters when at least (r + 1) notes are held.
+        if (n <= rank) {
+            return 0;
+        }
+        if (rank < total - 1) {
+            outIndices[count++] = (uint8_t) rank;
+        } else {
+            for (int i = rank; i < n && count < 16; ++i) {
+                outIndices[count++] = (uint8_t) i;
+            }
+        }
+        return count;
+    }
+
+    switch (rawPart) {
+    case CPT_PART_BASS:
+        outIndices[count++] = 0;
+        break;
+    case CPT_PART_CANTUS:
+        // Strict Divisi: Tenor enters from the 2nd held note.
+        if (n < 2) {
+            return 0;
+        }
+        if (n <= 3) {
+            outIndices[count++] = 1;
+        } else if (arpOn) {
+            outIndices[count++] = 1;
+            outIndices[count++] = 2;
+        } else {
+            uint8_t prev = cptTimbreBus[timbreNumber_].activeNote;
+            if (prev == 0) {
+                prev = cptTimbreBus[timbreNumber_].prevNote;
+            }
+            if (prev > 0) {
+                int d1 = (int) stack.sorted_note(1).note - (int) prev;
+                int d2 = (int) stack.sorted_note(2).note - (int) prev;
+                if (d1 < 0) d1 = -d1;
+                if (d2 < 0) d2 = -d2;
+                outIndices[count++] = (d2 < d1) ? 2 : 1;
+            } else {
+                outIndices[count++] = 1;
+            }
+        }
+        break;
+    case CPT_PART_ALTO:
+        // Strict Divisi: Alto enters from the 3rd held note.
+        if (n < 3) {
+            return 0;
+        }
+        if (n == 3 || !arpOn) {
+            outIndices[count++] = (uint8_t) (n - 2);
+        } else {
+            outIndices[count++] = (uint8_t) (n - 3);
+            outIndices[count++] = (uint8_t) (n - 2);
+        }
+        break;
+    case CPT_PART_SOPRANO: {
+        int rank = 0, total = 1, master = timbreNumber_;
+        getChannelStackInfo(&rank, &total, &master);
+        // Strict Divisi: if stacked with other timbres on the channel, do not double a single bass note.
+        if (total > 1 && n < 2) {
+            return 0;
+        }
+        outIndices[count++] = (uint8_t) (n - 1);
+        break;
+    }
+    case CPT_PART_INNER:
+        // Strict Divisi: Inner voices only exist when at least 3 notes are held (between Bass and Soprano).
+        if (n < 3) {
+            return 0;
+        }
+        for (int i = 1; i <= n - 2 && count < 16; ++i) {
+            outIndices[count++] = (uint8_t) i;
+        }
+        break;
+    case CPT_PART_OUTER:
+        outIndices[count++] = 0;
+        if (n >= 2) {
+            outIndices[count++] = (uint8_t) (n - 1);
+        }
+        break;
+    default:
+        for (int i = 0; i < n && count < 16; ++i) {
+            outIndices[count++] = (uint8_t) i;
+        }
+        break;
+    }
+    return count;
+}
+
+void Timbre::reconcileCounterpointDirectNotes() {
+    if (unlikely(numberOfVoices_ == 0)) {
+        return;
+    }
+    int heldCount = (int) held_note_stack_.size();
+    uint8_t poolIndices[16];
+    int poolSize = (heldCount > 0) ? buildCounterpointPool(held_note_stack_, poolIndices) : 0;
+    if (poolSize <= 0) {
+        for (int k = 0; k < numberOfVoices_; k++) {
+            int v = voiceNumber_[k];
+            if (v >= 0 && voices_[v]->isPlaying() && !voices_[v]->isReleased() && !voices_[v]->isHoldedByPedal()) {
+                preenNoteOff(voices_[v]->getNote(), false);
+            }
+        }
+        return;
+    }
+
+    if (params_.engine1.playMode != PLAY_MODE_POLY || numberOfVoices_ == 1) {
+        uint8_t prio = getVoicePriorityMode();
+        int chosenPoolIdx = (prio == VOICE_PRIORITY_HIGH_KEY || prio == VOICE_PRIORITY_BASS_PROTECT)
+            ? (poolSize - 1)
+            : 0;
+        const NoteEntry &entry = held_note_stack_.sorted_note(poolIndices[chosenPoolIdx]);
+        uint8_t targetNote = entry.note;
+        int v0 = voiceNumber_[0];
+        if (v0 >= 0 && voices_[v0]->isPlaying() && !voices_[v0]->isReleased()
+                && ((uint8_t) voices_[v0]->getNote() & 0x7f) == targetNote) {
+            return;
+        }
+        preenNoteOn((char) targetNote, (char) entry.velocity, true);
+        return;
+    }
+
+    uint8_t targetNotes[16];
+    uint8_t targetVels[16];
+    for (int i = 0; i < poolSize; ++i) {
+        const NoteEntry &e = held_note_stack_.sorted_note(poolIndices[i]);
+        targetNotes[i] = e.note;
+        targetVels[i] = e.velocity;
+    }
+
+    for (int k = 0; k < numberOfVoices_; k++) {
+        int v = voiceNumber_[k];
+        if (v < 0 || !voices_[v]->isPlaying() || voices_[v]->isReleased() || voices_[v]->isHoldedByPedal()) {
+            continue;
+        }
+        uint8_t playingNote = (uint8_t) voices_[v]->getNote() & 0x7f;
+        bool inTarget = false;
+        for (int i = 0; i < poolSize; ++i) {
+            if (targetNotes[i] == playingNote) {
+                inTarget = true;
+                break;
+            }
+        }
+        if (!inTarget) {
+            preenNoteOff((char) playingNote, false);
+        }
+    }
+
+    for (int i = 0; i < poolSize; ++i) {
+        if (voice_allocator_.FindActive(targetNotes[i]) == 0xff) {
+            preenNoteOn((char) targetNotes[i], (char) targetVels[i], true);
+        }
+    }
+}
+
+void Timbre::updateCounterpointMode() {
+    if (params_.engineArp1.clock == 0.0f && held_note_stack_.size() > 0) {
+        reconcileCounterpointDirectNotes();
+    }
 }
 
 void Timbre::Start() {

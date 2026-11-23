@@ -54,6 +54,7 @@ struct MixerInstrumentState {
     float volume;
     float *scaleFrequencies;
     int8_t pan;
+    uint8_t cptPart;
     float send;
 };
 

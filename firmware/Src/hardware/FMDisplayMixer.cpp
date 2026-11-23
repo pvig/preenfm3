@@ -108,10 +108,17 @@ const struct Pfm3MixerButtonState voiceButtonState = {
         {0, 16, 17, DISPLAY_TYPE_INT, nullNames}
 };
 
+const char* cptPartDisplay[] = { "All", "Bass", "Tenor", "Alto", "Soprano", "Inner", "Outer", "Divisi" };
+
+const struct Pfm3MixerButtonState cptPartButtonState = {
+      "Voice role", MIXER_VALUE_CPT_PART,
+        {0, CPT_PART_COUNT - 1, CPT_PART_COUNT, DISPLAY_TYPE_STRINGS, cptPartDisplay}
+};
+
 const struct Pfm3MixerButton voiceButton = {
   "Voices",
-  1,
-  { &voiceButtonState }
+  2,
+  { &voiceButtonState, &cptPartButtonState }
 };
 
 
@@ -295,6 +302,9 @@ void* FMDisplayMixer::getValuePointer(int valueType, int encoder) {
             break;
         case MIXER_VALUE_NUMBER_OF_VOICES:
             valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].numberOfVoices;
+            break;
+        case MIXER_VALUE_CPT_PART:
+            valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].cptPart;
             break;
         case MIXER_VALUE_MIDI_CHANNEL:
             valueP = (void*) &synthState_->mixerState.instrumentState_[encoder].midiChannel;

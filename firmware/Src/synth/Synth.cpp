@@ -767,6 +767,9 @@ void Synth::newMixerValue(uint8_t valueType, uint8_t timbre, float oldValue, flo
             timbres_[timbre].resetArpeggiator();
             allNoteOff(timbre);
             break;
+        case MIXER_VALUE_CPT_PART:
+            timbres_[timbre].updateCounterpointMode();
+            break;
         case MIXER_VALUE_NUMBER_OF_VOICES:
             // If unison stop sound !
             if (timbres_[timbre].isUnisonMode()) {
@@ -954,6 +957,18 @@ void Synth::setNewMixerValueFromMidi(int timbre, int mixerValue, float newValue)
             newMixerValue(MIXER_VALUE_COMPRESSOR, timbre, oldValue, (float) compProfile);
             if (oldValue != (float) compProfile) {
                 this->synthState_->propagateNewMixerValueFromExternal(timbre, mixerValue, oldValue, (float) compProfile);
+            }
+            break;
+        }
+        case MIXER_VALUE_CPT_PART: {
+            int v = (int) (newValue + 0.5f);
+            if (v < 0) v = 0;
+            else if (v >= CPT_PART_COUNT) v = CPT_PART_COUNT - 1;
+            float oldValue = (float) this->synthState_->mixerState.instrumentState_[timbre].cptPart;
+            this->synthState_->mixerState.instrumentState_[timbre].cptPart = (uint8_t) v;
+            newMixerValue(MIXER_VALUE_CPT_PART, timbre, oldValue, (float) v);
+            if (oldValue != (float) v) {
+                this->synthState_->propagateNewMixerValueFromExternal(timbre, mixerValue, oldValue, (float) v);
             }
             break;
         }

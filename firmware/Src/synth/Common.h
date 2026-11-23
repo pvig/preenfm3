@@ -365,6 +365,18 @@ enum VoicePriorityMode {
     VOICE_PRIORITY_COUNT
 };
 
+enum CounterpointPartMode {
+    CPT_PART_ALL = 0,
+    CPT_PART_BASS,
+    CPT_PART_CANTUS,
+    CPT_PART_ALTO,
+    CPT_PART_SOPRANO,
+    CPT_PART_INNER,
+    CPT_PART_OUTER,
+    CPT_PART_DIVISI,
+    CPT_PART_COUNT
+};
+
 struct EngineDecimationParams {
     float decimation;
     float unused1;
@@ -1259,7 +1271,8 @@ enum MixerValueType {
     MIXER_VALUE_GLOBAL_SETTINGS_2,
     MIXER_VALUE_GLOBAL_SETTINGS_3,
     MIXER_VALUE_GLOBAL_SETTINGS_4,
-    MIXER_VALUE_GLOBAL_SETTINGS_5
+    MIXER_VALUE_GLOBAL_SETTINGS_5,
+    MIXER_VALUE_CPT_PART
 };
 
 enum SeqValueType {

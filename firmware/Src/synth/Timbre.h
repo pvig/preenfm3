@@ -68,7 +68,7 @@ public:
     void arpeggiatorNoteOn(char note, char velocity);
     void arpeggiatorNoteOff(char note);
     void StartArpeggio();
-    void StepArpeggio();
+    void StepArpeggio(uint8_t effectiveNumNotes = 0);
     void Start();
     void resetArpPatternState();
     void arpeggiatorSetHoldPedal(uint8_t value);
@@ -177,6 +177,16 @@ public:
         voice_allocator_.SetPriorityMode(getVoicePriorityMode());
     }
 
+    uint8_t getCptPartMode() const {
+        if (unlikely(mixerState_ == 0)) {
+            return CPT_PART_ALL;
+        }
+        uint8_t mode = mixerState_->instrumentState_[timbreNumber_].cptPart;
+        return (mode < CPT_PART_COUNT) ? mode : CPT_PART_ALL;
+    }
+
+    void updateCounterpointMode();
+
     void lfoValueChange(int currentRow, int encoder, float newValue);
 
     void setHoldPedal(int value);
@@ -263,6 +273,10 @@ public:
 private:
     const NoteEntry& getHeldNoteForRestore() const;
     void restoreHeldNotes(uint8_t numberOfVoices);
+    void getChannelStackInfo(int *outRank, int *outTotal, int *outMasterTimbre) const;
+    uint8_t getEffectiveCptPart() const;
+    int buildCounterpointPool(const NoteStack &stack, uint8_t *outIndices) const;
+    void reconcileCounterpointDirectNotes();
 
     // MiniPal Arpegiator
     void SendLater(uint8_t note, uint8_t velocity, uint8_t when, uint8_t tag);
