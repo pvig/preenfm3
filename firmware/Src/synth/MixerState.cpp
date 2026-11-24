@@ -99,7 +99,7 @@ void MixerState::getFullState(char *buffer, uint32_t *size) {
     buffer[index++] = (char)(100.0f * fxBus_.masterfxConfig[GLOBALFX_NOTCHSPREAD]);
 
     for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
-        buffer[index++] = (char) (instrumentState_[t].cptPart & 0x07u);
+        buffer[index++] = (char) (instrumentState_[t].cptPart & 0x0Fu);
     }
 
     *size = index;
@@ -554,7 +554,7 @@ void MixerState::restoreFullStateVersion6(char *buffer) {
     fxBus_.masterfxConfig[GLOBALFX_NOTCHSPREAD] = .01f * buffer[index++] ;
 
     for (int t = 0; t < NUMBER_OF_TIMBRES; t++) {
-        uint8_t part = ((uint8_t) buffer[index++]) & 0x07u;
+        uint8_t part = ((uint8_t) buffer[index++]) & 0x0Fu;
         instrumentState_[t].cptPart = (part < CPT_PART_COUNT) ? part : 0;
     }
 

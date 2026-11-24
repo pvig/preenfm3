@@ -2068,6 +2068,51 @@ int Timbre::buildCounterpointPool(const NoteStack &stack, uint8_t *outIndices) c
             outIndices[count++] = (uint8_t) (n - 1);
         }
         break;
+    case CPT_PART_UPPER:
+        // Strict Divisi: everything except the lowest note (Bass).
+        if (n < 2) {
+            return 0;
+        }
+        for (int i = 1; i < n && count < 16; ++i) {
+            outIndices[count++] = (uint8_t) i;
+        }
+        break;
+    case CPT_PART_LOWER:
+        // Everything except the highest note (Soprano) when >= 2 notes are held.
+        if (n == 1) {
+            outIndices[count++] = 0;
+        } else {
+            for (int i = 0; i <= n - 2 && count < 16; ++i) {
+                outIndices[count++] = (uint8_t) i;
+            }
+        }
+        break;
+    case CPT_PART_EVEN:
+        for (int i = 0; i < n && count < 16; i += 2) {
+            outIndices[count++] = (uint8_t) i;
+        }
+        break;
+    case CPT_PART_ODD:
+        // Strict Divisi: interleaved odd indices enter from the 2nd held note.
+        if (n < 2) {
+            return 0;
+        }
+        for (int i = 1; i < n && count < 16; i += 2) {
+            outIndices[count++] = (uint8_t) i;
+        }
+        break;
+    case CPT_PART_LAST: {
+        uint8_t recentNote = stack.most_recent_note().note;
+        uint8_t foundIdx = (uint8_t) (n - 1);
+        for (int i = 0; i < n; ++i) {
+            if (stack.sorted_note(i).note == recentNote) {
+                foundIdx = (uint8_t) i;
+                break;
+            }
+        }
+        outIndices[count++] = foundIdx;
+        break;
+    }
     default:
         for (int i = 0; i < n && count < 16; ++i) {
             outIndices[count++] = (uint8_t) i;

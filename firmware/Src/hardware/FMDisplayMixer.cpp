@@ -108,7 +108,10 @@ const struct Pfm3MixerButtonState voiceButtonState = {
         {0, 16, 17, DISPLAY_TYPE_INT, nullNames}
 };
 
-const char* cptPartDisplay[] = { "All", "Bass", "Tenor", "Alto", "Soprano", "Inner", "Outer", "Divisi" };
+const char* cptPartDisplay[] = {
+    "All", "Bass", "Tenor", "Alto", "Soprano", "Inner", "Outer",
+    "Upper", "Lower", "Even", "Odd", "Last", "Divisi"
+};
 
 const struct Pfm3MixerButtonState cptPartButtonState = {
       "Voice role", MIXER_VALUE_CPT_PART,
