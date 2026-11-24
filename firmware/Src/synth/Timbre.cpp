@@ -38,6 +38,7 @@ struct CounterpointTimbreState {
     uint8_t tickedThisBlock;
     uint8_t stepTriggeredThisTick;
     uint8_t curPatternStep;
+    uint8_t reconcileDebounceBlocks;
 };
 
 static CounterpointTimbreState cptTimbreBus[NUMBER_OF_TIMBRES] __attribute__((section(".ram_d1")));
@@ -359,6 +360,7 @@ void Timbre::init(SynthState *synthState, int timbreNumber) {
     cpt.tickedThisBlock = 0;
     cpt.stepTriggeredThisTick = 0;
     cpt.curPatternStep = 0;
+    cpt.reconcileDebounceBlocks = 0;
 
 }
 
@@ -382,8 +384,15 @@ void Timbre::noteOn(char note, char velocity) {
                 && mixerState_->instrumentState_[timbreNumber_].scaleFrequencies[midiNote] != 0.0f) {
             held_note_stack_.NoteOn(midiNote, (uint8_t) velocity);
         }
-        if (getEffectiveCptPart() != CPT_PART_ALL) {
-            reconcileCounterpointDirectNotes();
+        uint8_t effPart = getEffectiveCptPart();
+        if (effPart != CPT_PART_ALL) {
+            if (effPart == CPT_PART_LAST) {
+                cptTimbreBus[timbreNumber_].reconcileDebounceBlocks = 0;
+                reconcileCounterpointDirectNotes();
+            } else {
+                // ~8 ms (12 blocks at 1500 Hz) capture window to align staggered chord finger landings
+                cptTimbreBus[timbreNumber_].reconcileDebounceBlocks = 12;
+            }
         } else {
             preenNoteOn(note, velocity);
         }
@@ -397,7 +406,22 @@ void Timbre::noteOff(char note) {
         uint8_t previousSize = held_note_stack_.size();
         held_note_stack_.NoteOff((uint8_t) note);
         if (getEffectiveCptPart() != CPT_PART_ALL) {
-            reconcileCounterpointDirectNotes();
+            // Immediately release the lifted key if currently sounding on this timbre
+            uint8_t midiNote = (uint8_t) note & 0x7f;
+            for (int k = 0; k < numberOfVoices_; k++) {
+                int v = voiceNumber_[k];
+                if (v >= 0 && voices_[v]->isPlaying() && !voices_[v]->isReleased() && !voices_[v]->isHoldedByPedal()
+                        && ((uint8_t) voices_[v]->getNote() & 0x7f) == midiNote) {
+                    preenNoteOff((char) midiNote, false);
+                }
+            }
+            if (held_note_stack_.size() == 0) {
+                cptTimbreBus[timbreNumber_].reconcileDebounceBlocks = 0;
+                reconcileCounterpointDirectNotes();
+            } else {
+                // ~22 ms (33 blocks at 1500 Hz) release window so lifting a full chord never snaps back to remaining notes
+                cptTimbreBus[timbreNumber_].reconcileDebounceBlocks = 33;
+            }
         } else {
             preenNoteOff(note, held_note_stack_.size() != previousSize);
         }
@@ -775,6 +799,12 @@ void Timbre::updateArpegiatorInternalClock() {
     }
     if (unlikely(arpStrumCount_ > 0)) {
         updateArpStrum();
+    }
+    if (unlikely(myCpt.reconcileDebounceBlocks > 0)) {
+        myCpt.reconcileDebounceBlocks--;
+        if (myCpt.reconcileDebounceBlocks == 0 && params_.engineArp1.clock == 0.0f) {
+            reconcileCounterpointDirectNotes();
+        }
     }
 }
 
@@ -2189,6 +2219,7 @@ void Timbre::reconcileCounterpointDirectNotes() {
 }
 
 void Timbre::updateCounterpointMode() {
+    cptTimbreBus[timbreNumber_].reconcileDebounceBlocks = 0;
     if (params_.engineArp1.clock == 0.0f && held_note_stack_.size() > 0) {
         reconcileCounterpointDirectNotes();
     }
