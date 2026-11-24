@@ -394,9 +394,14 @@ void PreenFMFileType::convertParamsToFlash(const struct OneSynthParams *params, 
     flashMemory->lfoSyncModes.lfo2 = params->lfoSyncModes.lfo2;
     flashMemory->lfoSyncModes.lfo3 = params->lfoSyncModes.lfo3;
 
-    fsu_->copyFloat((float*) &params->midiNote1Curve, (float*) &flashMemory->midiNote1Curve, 4);
-    fsu_->copyFloat((float*) &params->midiNote2Curve, (float*) &flashMemory->midiNote2Curve, 4);
-    fsu_->copyFloat((float*) &params->lfoPhases, (float*) &flashMemory->lfoPhases, 4);
+    fsu_->copyFloat((float*) &params->midiNote1Curve, (float*) &flashMemory->midiNote1Curve, saveArp ? 4 : 3);
+    fsu_->copyFloat((float*) &params->midiNote2Curve, (float*) &flashMemory->midiNote2Curve, saveArp ? 4 : 3);
+    fsu_->copyFloat((float*) &params->lfoPhases, (float*) &flashMemory->lfoPhases, saveArp ? 4 : 3);
+    if (!saveArp) {
+        flashMemory->midiNote1Curve.unused1 = 0.0f;
+        flashMemory->midiNote2Curve.unused1 = 0.0f;
+        flashMemory->lfoPhases.unused1 = 0.0f;
+    }
     const OperatorPhaseRowParams* phaseParams = &params->phaseOp1;
     for (int i = 0; i < 6; i++) {
         flashMemory->phaseOp[i].phase = phaseParams[i].phase;
@@ -563,9 +568,9 @@ void PreenFMFileType::convertFlashToParams(const struct FlashSynthParams *flashM
         params->engineDecimation.decimation = (rawDecim == 0.0f) ? (float) FM_DECIMATION_FULL : (rawDecim - 1.0f);
     }
 
-    fsu_->copyFloat((float*) &flashMemory->lfoPhases, (float*) &params->lfoPhases, 4);
-    fsu_->copyFloat((float*) &flashMemory->midiNote1Curve, (float*) &params->midiNote1Curve, 4);
-    fsu_->copyFloat((float*) &flashMemory->midiNote2Curve, (float*) &params->midiNote2Curve, 4);
+    fsu_->copyFloat((float*) &flashMemory->lfoPhases, (float*) &params->lfoPhases, loadArp ? 4 : 3);
+    fsu_->copyFloat((float*) &flashMemory->midiNote1Curve, (float*) &params->midiNote1Curve, loadArp ? 4 : 3);
+    fsu_->copyFloat((float*) &flashMemory->midiNote2Curve, (float*) &params->midiNote2Curve, loadArp ? 4 : 3);
     params->engineDecimation.unused1 = 0.0f;
     params->engineDecimation.unused2 = 0.0f;
     params->engineDecimation.unused3 = 0.0f;

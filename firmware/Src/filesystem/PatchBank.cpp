@@ -161,10 +161,31 @@ void PatchBank::savePatch(const struct PFM3File *bank, int patchNumber, const st
 }
 
 void PatchBank::copyNewPreset(struct OneSynthParams *params) {
+    bool keepArp = (arpeggiatorPartOfThePreset_ != 0 && *arpeggiatorPartOfThePreset_ == 0);
+    struct EngineArp1 savedArp1;
+    struct EngineArp2 savedArp2;
+    struct EngineArpUserPatterns savedUserPatterns;
+    float savedLfoUnused = 0.0f, savedCurve1Unused = 0.0f, savedCurve2Unused = 0.0f;
+    if (keepArp) {
+        savedArp1 = params->engineArp1;
+        savedArp2 = params->engineArp2;
+        savedUserPatterns = params->engineArpUserPatterns;
+        savedLfoUnused = params->lfoPhases.unused1;
+        savedCurve1Unused = params->midiNote1Curve.unused1;
+        savedCurve2Unused = params->midiNote2Curve.unused1;
+    }
     char *source = (char*) &newPresetParams;
     char *dest = (char*) params;
     for (uint32_t k = 0; k < sizeof(struct OneSynthParams); k++) {
         dest[k] = source[k];
+    }
+    if (keepArp) {
+        params->engineArp1 = savedArp1;
+        params->engineArp2 = savedArp2;
+        params->engineArpUserPatterns = savedUserPatterns;
+        params->lfoPhases.unused1 = savedLfoUnused;
+        params->midiNote1Curve.unused1 = savedCurve1Unused;
+        params->midiNote2Curve.unused1 = savedCurve2Unused;
     }
 }
 
